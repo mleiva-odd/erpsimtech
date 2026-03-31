@@ -31,7 +31,7 @@ body {
 */
 input, select, textarea {
   color: #0f172a !important; /* Tailwind slate-900 */
-  font-weight: 600 !important; /* Semi-bold para visibilidad 100% clara */
+  font-weight: 500 !important; /* Medium (No más negritas bruscas) */
 }
 
 input::placeholder, textarea::placeholder {

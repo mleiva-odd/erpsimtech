@@ -24,9 +24,29 @@ export default function CustomersPage() {
   const debouncedSearch = useDebounce(searchQuery, 400);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', nit: '', address: '', creditLimit: 0
   });
+
+  const handleEdit = (c: Customer) => {
+    setSelectedId(c.id);
+    setFormData({
+      name: c.name || '',
+      email: c.email || '',
+      phone: c.phone || '',
+      nit: c.nit || '',
+      address: c.address || '',
+      creditLimit: Number(c.creditLimit) || 0,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleNew = () => {
+    setSelectedId(null);
+    setFormData({ name: '', email: '', phone: '', nit: '', address: '', creditLimit: 0 });
+    setIsModalOpen(true);
+  };
 
   const fetchCustomers = async (q = '') => {
     setIsLoading(true);
@@ -47,16 +67,18 @@ export default function CustomersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const url = selectedId ? `/api/customers/${selectedId}` : '/api/customers';
+    const method = selectedId ? 'PUT' : 'POST';
+
     try {
-      const res = await fetch('/api/customers', {
-        method: 'POST',
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
       if (res.ok) {
         setIsModalOpen(false);
-        setFormData({ name: '', email: '', phone: '', nit: '', address: '', creditLimit: 0 });
         fetchCustomers();
       } else {
         alert('Error al crear cliente');
@@ -78,7 +100,7 @@ export default function CustomersPage() {
           <p className="text-sm text-slate-500 mt-1">Directorio, gestión de carteras y límites de crédito autorizado</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleNew}
           className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2"
         >
           <Plus className="w-5 h-5" /> Nuevo Cliente
@@ -166,7 +188,7 @@ export default function CustomersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <button className="text-slate-600 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50">
+                        <button onClick={() => handleEdit(c)} className="text-slate-600 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50">
                           <Edit2 className="w-4 h-4" />
                         </button>
                       </td>
@@ -186,7 +208,7 @@ export default function CustomersPage() {
             <div className="flex items-center justify-between p-6 border-b border-slate-100">
               <div className="flex items-center gap-2 text-slate-800">
                 <CreditCard className="w-5 h-5 text-blue-600" />
-                <h2 className="text-xl font-bold">Registro de Cliente</h2>
+                <h2 className="text-xl font-bold">{selectedId ? 'Editar Cliente' : 'Registro de Cliente'}</h2>
               </div>
               <button 
                 onClick={() => setIsModalOpen(false)} 
@@ -245,7 +267,7 @@ export default function CustomersPage() {
                 form="customerForm"
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
               >
-                Registrar
+                {selectedId ? 'Actualizar' : 'Registrar'}
               </button>
             </div>
           </div>

@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const { tenant } = result;
 
   const body = await req.json();
-  const { name, sku, barcode, price, cost, stock, minStock, categoryId, description } = body;
+  const { name, sku, barcode, price, wholesalePrice, cost, stock, minStock, categoryId, description, isTaxExempt, unitOfMeasure } = body;
 
   if (!name || !sku || price === undefined || cost === undefined || !categoryId) {
     return NextResponse.json({ error: 'Campos requeridos faltantes' }, { status: 400 });
@@ -88,7 +88,10 @@ export async function POST(req: NextRequest) {
         barcode: barcode || null,
         description: description || null,
         price,
+        wholesalePrice: wholesalePrice || null,
         cost,
+        isTaxExempt: isTaxExempt ?? false,
+        unitOfMeasure: unitOfMeasure || 'UNIT',
         categoryId,
         ...(branchId && {
           stocks: {

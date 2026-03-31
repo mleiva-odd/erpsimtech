@@ -44,6 +44,15 @@ enum FelProvider {
   DIGIFACT
 }
 
+enum UnitOfMeasure {
+  UNIT     // Por pieza
+  KG       // Kilogramos
+  LB       // Libras
+  LITER    // Litros
+  GALLON   // Galones
+  BOX      // Caja/Fardo
+}
+
 // =======================
 // Platform / Multi-Tenant
 // =======================
@@ -174,8 +183,11 @@ model Product {
   barcode     String?
   name        String
   description String?
-  price       Decimal  @db.Decimal(10, 2)
+  price       Decimal  @db.Decimal(10, 2) // Precio Detalle (Retail)
+  wholesalePrice Decimal? @db.Decimal(10, 2) // Precio Mayoreo (B2B)
   cost        Decimal  @db.Decimal(10, 2)
+  isTaxExempt Boolean  @default(false)    // Producto exento de IVA
+  unitOfMeasure UnitOfMeasure @default(UNIT) // Forma de despacho
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

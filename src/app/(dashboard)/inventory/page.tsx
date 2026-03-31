@@ -12,12 +12,15 @@ interface ProductData {
   sku: string;
   name: string;
   price: string;
+  wholesalePrice: string | null;
   cost: string;
   stock: number;
   minStock: number;
   barcode: string | null;
   categoryId: string;
   category: { name: string };
+  unitOfMeasure: string;
+  isTaxExempt: boolean;
 }
 
 export default function InventoryPage() {
@@ -110,8 +113,8 @@ export default function InventoryPage() {
                 <th className="px-6 py-4 font-semibold">SKU</th>
                 <th className="px-6 py-4 font-semibold">Producto</th>
                 <th className="px-6 py-4 font-semibold">Categoría</th>
-                <th className="px-6 py-4 font-semibold text-right">Precio</th>
-                <th className="px-6 py-4 font-semibold text-center">Stock</th>
+                <th className="px-6 py-4 font-semibold text-right">Precio (Detallista / Mayoreo)</th>
+                <th className="px-6 py-4 font-semibold text-center">Stock (UM)</th>
                 <th className="px-6 py-4 font-semibold text-center">Acciones</th>
               </tr>
             </thead>
@@ -129,9 +132,15 @@ export default function InventoryPage() {
                   return (
                     <tr key={product.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 font-mono text-slate-500">{product.sku}</td>
-                      <td className="px-6 py-4 font-medium text-slate-800">{product.name}</td>
+                      <td className="px-6 py-4 font-medium text-slate-800">
+                        {product.name}
+                        {product.isTaxExempt && <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] rounded uppercase font-bold tracking-wider">Exento IVA</span>}
+                      </td>
                       <td className="px-6 py-4 text-slate-500">{product.category.name}</td>
-                      <td className="px-6 py-4 text-right font-medium">Q{Number(product.price).toFixed(2)}</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="font-bold text-slate-800">Q{Number(product.price).toFixed(2)}</div>
+                        {product.wholesalePrice && <div className="text-[11px] text-blue-600 font-bold uppercase">B2B: Q{Number(product.wholesalePrice).toFixed(2)}</div>}
+                      </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
                           isLowStock 
@@ -139,7 +148,7 @@ export default function InventoryPage() {
                             : 'bg-green-50 text-green-700 border border-green-200'
                         }`}>
                           {isLowStock && <ShieldAlert className="w-3.5 h-3.5" />}
-                          {product.stock}
+                          {product.stock} <span className="text-[9px] uppercase tracking-widest">{product.unitOfMeasure}</span>
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">

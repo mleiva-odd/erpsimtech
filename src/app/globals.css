@@ -24,3 +24,23 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 
+  Regla Maestra de Accesibilidad (SaaS Nivel ERP)
+  Garantiza lectura en alto contraste en todos los formularios
+*/
+input, select, textarea {
+  color: #0f172a !important; /* Tailwind slate-900 */
+  font-weight: 600 !important; /* Semi-bold para visibilidad 100% clara */
+}
+
+input::placeholder, textarea::placeholder {
+  color: #64748b !important; /* Tailwind slate-500 */
+  font-weight: 500 !important;
+}
+
+/* Override para desactivados (modo lectura) */
+input:disabled, select:disabled, textarea:disabled {
+  color: #475569 !important; /* Tailwind slate-600 */
+  background-color: #f8fafc !important; /* Tailwind slate-50 */
+}

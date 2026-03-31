@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Printer, RefreshCw, BarChart3, TrendingUp, AlertCircle, Download, FileText } from 'lucide-react';
+import { Printer, RefreshCw, BarChart3, TrendingUp, AlertCircle, Download, FileText, Lock } from 'lucide-react';
 import { TicketModal } from '@/components/pos/TicketModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -32,6 +32,10 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [register, setRegister] = useState<any>(null);
+  
+  const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
+  const [closingBalanceInput, setClosingBalanceInput] = useState('');
+  const [isSubmittingClose, setIsSubmittingClose] = useState(false);
 
   const fetchSalesAndRegister = async () => {
     setIsLoading(true);
@@ -56,24 +60,32 @@ export default function ReportsPage() {
     fetchSalesAndRegister();
   }, []);
 
-  const handleCloseRegister = async () => {
+  const handleOpenCloseModal = () => {
     if (!register) return;
-    const closingBalance = prompt('Introduce el monto en efectivo contado en la gaveta:');
-    if (closingBalance === null) return;
+    setClosingBalanceInput('');
+    setIsClosingModalOpen(true);
+  };
 
+  const handleConfirmClose = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!register || !closingBalanceInput) return;
+    
+    setIsSubmittingClose(true);
     try {
       const res = await fetch('/api/cash-register', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ closingBalance: parseFloat(closingBalance) })
+        body: JSON.stringify({ closingBalance: parseFloat(closingBalanceInput) })
       });
       if (res.ok) {
-        alert('Caja cerrada exitosamente.');
+        setIsClosingModalOpen(false);
         fetchSalesAndRegister();
       } else {
          alert('Hubo un error al cerrar la caja.');
       }
-    } catch(e) { console.error(e) }
+    } catch(e) { console.error(e) } finally {
+      setIsSubmittingClose(false);
+    }
   };
 
   // --- CSV Export ---
@@ -158,7 +170,7 @@ export default function ReportsPage() {
         <div className="flex gap-2">
           {register && (
             <button
-              onClick={handleCloseRegister}
+              onClick={handleOpenCloseModal}
               className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition font-medium text-sm shadow-sm"
             >
               Cerrar Turno de Caja
@@ -321,6 +333,66 @@ export default function ReportsPage() {
 
       {selectedSaleId && (
         <TicketModal saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
+      )}
+
+      {/* Modal Moderno de Cierre de Caja */}
+      {isClosingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in duration-200">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
+              <div className="w-10 h-10 bg-slate-800 text-white rounded-full flex items-center justify-center shrink-0 shadow-inner">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 leading-tight">Cerrar Turno</h2>
+                <p className="text-xs text-slate-600 font-medium">Arqueo Final de Gaveta</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmClose} className="p-6">
+              <label className="block text-sm font-bold text-slate-700 mb-2">
+                Efectivo Total Contado
+              </label>
+              <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                Ingresa el monto exacto de billetes y monedas que estás dejando en la caja antes de bloquear el sistema.
+              </p>
+              <div className="relative mb-6">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-lg">Q</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  autoFocus
+                  value={closingBalanceInput}
+                  onChange={(e) => setClosingBalanceInput(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none text-xl transition-colors font-black text-slate-900"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsClosingModalOpen(false)}
+                  className="flex-1 py-3 text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingClose || !closingBalanceInput}
+                  className="flex-1 py-3 text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {isSubmittingClose ? (
+                    <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                  ) : null}
+                  Confirmar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

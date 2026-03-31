@@ -1,0 +1,97 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { requireTenant, requireRole } from '@/lib/tenant';
+import { createAuditLog } from '@/lib/audit';
+import { z } from 'zod';
+
+const SettingsSchema = z.object({
+  storeName: z.string().min(2, 'Name is required'),
+  address: z.string().optional().or(z.literal('')),
+  phone: z.string().optional().or(z.literal('')),
+  nit: z.string().optional().or(z.literal('')),
+  receiptMsg: z.string().optional().or(z.literal('')),
+  // FEL settings
+  felEnabled: z.boolean().optional(),
+  felProvider: z.enum(['NONE', 'INFILE', 'DIGIFACT']).optional(),
+  felNitEmisor: z.string().optional().or(z.literal('')),
+  felApiUser: z.string().optional().or(z.literal('')),
+  felApiKey: z.string().optional().or(z.literal('')),
+  // Payment methods
+  acceptsCash: z.boolean().optional(),
+  acceptsCard: z.boolean().optional(),
+  acceptsTransfer: z.boolean().optional(),
+  acceptsCredit: z.boolean().optional(),
+  // Tax
+  taxRate: z.number().min(0).max(1).optional(),
+  taxIncluded: z.boolean().optional(),
+  // Currency
+  currency: z.string().optional(),
+  currencySymbol: z.string().optional(),
+});
+
+export async function GET(req: NextRequest) {
+  const result = await requireTenant();
+  if ('error' in result) return result.error;
+  const { tenant } = result;
+
+  try {
+    let settings = await prisma.companySettings.findUnique({
+      where: { companyId: tenant.companyId },
+    });
+
+    if (!settings) {
+      // Auto-create default settings for this company
+      const company = await prisma.company.findUnique({
+        where: { id: tenant.companyId },
+      });
+
+      settings = await prisma.companySettings.create({
+        data: {
+          companyId: tenant.companyId,
+          storeName: company?.name ?? 'Mi Empresa POS',
+          nit: company?.nit,
+          phone: company?.phone,
+          receiptMsg: '¡Gracias por su compra!',
+        },
+      });
+    }
+
+    return NextResponse.json(settings);
+  } catch (error) {
+    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  const result = await requireRole('ADMIN');
+  if ('error' in result) return result.error;
+  const { tenant } = result;
+
+  try {
+    const body = await req.json();
+    const parsed = SettingsSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const updated = await prisma.companySettings.upsert({
+      where: { companyId: tenant.companyId },
+      create: {
+        companyId: tenant.companyId,
+        ...parsed.data,
+      },
+      update: parsed.data,
+    });
+
+    createAuditLog({
+      companyId: tenant.companyId, userId: tenant.userId,
+      action: 'SETTINGS_UPDATED', entity: 'CompanySettings', entityId: updated.id,
+      details: { updatedFields: Object.keys(parsed.data) },
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    return NextResponse.json({ error: 'Error actualizando settings' }, { status: 500 });
+  }
+}

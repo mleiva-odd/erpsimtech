@@ -1,0 +1,251 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { ArrowUpRight, DollarSign, Package, AlertTriangle, Activity, TrendingUp } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from 'recharts';
+
+interface DashboardStats {
+  revenueToday: number;
+  salesCountToday: number;
+  totalProducts: number;
+  lowStockProducts: number;
+  recentSales: { id: string; total: string; createdAt: string; user: { name: string }; branch?: { name: string } }[];
+}
+
+interface ChartData {
+  dailySales: { date: string; total: number; count: number }[];
+  topProducts: { name: string; quantity: number; revenue: number }[];
+  paymentMethods: { method: string; total: number; count: number }[];
+  salesByBranch: { name: string; total: number; count: number }[];
+}
+
+const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
+const PAYMENT_LABELS: Record<string, string> = {
+  CASH: 'Efectivo', CARD: 'Tarjeta', TRANSFER: 'Transferencia',
+};
+
+export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [charts, setCharts] = useState<ChartData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/dashboard').then(r => r.json()),
+      fetch('/api/dashboard/charts').then(r => r.json()),
+    ]).then(([statsData, chartsData]) => {
+      setStats({
+        revenueToday: statsData.revenueToday ?? 0,
+        salesCountToday: statsData.salesCountToday ?? 0,
+        totalProducts: statsData.totalProducts ?? 0,
+        lowStockProducts: statsData.lowStockProducts ?? 0,
+        recentSales: statsData.recentSales ?? [],
+      });
+      setCharts(chartsData.error ? null : chartsData);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  if (loading || !stats) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Resumen del Día</h1>
+        <p className="text-sm text-slate-500">Métricas clave y estado de la tienda</p>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <KPICard
+          title="Ventas de Hoy"
+          val={`Q${(stats.revenueToday ?? 0).toFixed(2)}`}
+          sub={`${stats.salesCountToday} transacciones`}
+          icon={<DollarSign className="w-6 h-6 text-green-600" />}
+          bg="bg-green-50"
+        />
+        <KPICard
+          title="Productos Activos"
+          val={stats.totalProducts}
+          sub="En inventario"
+          icon={<Package className="w-6 h-6 text-blue-600" />}
+          bg="bg-blue-50"
+        />
+        <KPICard
+          title="Alertas de Stock"
+          val={stats.lowStockProducts}
+          sub="Productos por reabastecer"
+          icon={<AlertTriangle className="w-6 h-6 text-amber-600" />}
+          bg="bg-amber-50"
+          alert={stats.lowStockProducts > 0}
+        />
+        <KPICard
+          title="Estado del Sistema"
+          val="Óptimo"
+          sub="Última sinc. hace 1 min"
+          icon={<Activity className="w-6 h-6 text-indigo-600" />}
+          bg="bg-indigo-50"
+        />
+      </div>
+
+      {/* Charts Row */}
+      {charts && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Daily Sales Bar Chart */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+              <h2 className="font-bold text-slate-800">Ventas últimos 7 días</h2>
+            </div>
+            {charts.dailySales.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={charts.dailySales}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#94a3b8" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" tickFormatter={v => `Q${v}`} />
+                  <Tooltip
+                    formatter={(value: any) => [`Q${Number(value).toFixed(2)}`, 'Total']}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13px' }}
+                  />
+                  <Bar dataKey="total" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[240px] flex items-center justify-center text-slate-300 text-sm">
+                Sin datos para mostrar
+              </div>
+            )}
+          </div>
+
+          {/* Payment Methods Pie Chart */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h2 className="font-bold text-slate-800 mb-4">Métodos de Pago</h2>
+            {charts.paymentMethods.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={charts.paymentMethods.map(pm => ({
+                      ...pm,
+                      name: PAYMENT_LABELS[pm.method] || pm.method,
+                    }))}
+                    cx="50%" cy="50%"
+                    innerRadius={55} outerRadius={90}
+                    paddingAngle={5}
+                    dataKey="total"
+                    nameKey="name"
+                  >
+                    {charts.paymentMethods.map((_, index) => (
+                      <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any) => [`Q${Number(value).toFixed(2)}`]} />
+                  <Legend
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: '12px' }}
+                    formatter={(value) => <span className="text-slate-600">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[240px] flex items-center justify-center text-slate-300 text-sm">
+                Sin datos de pagos
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Top Products + Recent Sales Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Products */}
+        {charts && charts.topProducts.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100">
+              <h2 className="font-bold text-slate-800">Productos Más Vendidos</h2>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {charts.topProducts.map((product, idx) => (
+                <div key={idx} className="px-6 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
+                      idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-slate-400' : 'bg-orange-400'
+                    }`}>
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">{product.name}</p>
+                      <p className="text-xs text-slate-600">{product.quantity} vendidos</p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-slate-700">Q{product.revenue.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent Sales */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="font-bold text-slate-800">Últimas Ventas</h2>
+            <a href="/reports" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              Ver todas <ArrowUpRight className="w-4 h-4" />
+            </a>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {stats.recentSales.length > 0 ? (
+              stats.recentSales.map((sale) => (
+                <div key={sale.id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Venta #{sale.id.slice(-6).toUpperCase()}</p>
+                    <p className="text-xs text-slate-500">
+                      {sale.user.name} {sale.branch ? `· ${sale.branch.name}` : ''} · {new Date(sale.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-slate-800">Q{Number(sale.total).toFixed(2)}</p>
+                    <span className="inline-flex mt-1 items-center px-2 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800">
+                      Completado
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="px-6 py-8 text-center text-slate-600 text-sm">
+                No hay ventas registradas el día de hoy.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KPICard({ title, val, sub, icon, bg, alert }: { title: string, val: string | number, sub: string, icon: React.ReactNode, bg: string, alert?: boolean }) {
+  return (
+    <div className={`rounded-2xl border ${alert ? 'border-amber-300' : 'border-slate-200'} bg-white p-6 shadow-sm flex flex-col`}>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{title}</p>
+          <p className="text-3xl font-bold text-slate-800 mt-2">{val}</p>
+        </div>
+        <div className={`p-3 rounded-xl ${bg}`}>
+          {icon}
+        </div>
+      </div>
+      <p className={`text-xs mt-4 ${alert ? 'text-amber-600 font-medium' : 'text-slate-600'}`}>
+        {sub}
+      </p>
+    </div>
+  );
+}

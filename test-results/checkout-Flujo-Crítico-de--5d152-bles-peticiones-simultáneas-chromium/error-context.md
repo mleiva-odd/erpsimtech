@@ -1,0 +1,78 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e7] [cursor=pointer]:
+    - img [ref=e8]
+  - alert [ref=e11]
+  - generic [ref=e12]:
+    - complementary [ref=e13]:
+      - generic [ref=e14]:
+        - img [ref=e15]
+        - generic [ref=e19]: SIMTECH
+      - navigation [ref=e20]:
+        - link "Dashboard" [ref=e21] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e22]
+          - generic [ref=e25]: Dashboard
+        - link "Terminal Punto de Venta" [ref=e26] [cursor=pointer]:
+          - /url: /pos
+          - img [ref=e27]
+          - generic [ref=e31]: Terminal Punto de Venta
+        - generic [ref=e32]: Gestión
+        - link "Inventario" [ref=e33] [cursor=pointer]:
+          - /url: /inventory
+          - img [ref=e34]
+          - generic [ref=e38]: Inventario
+        - link "Clientes" [ref=e39] [cursor=pointer]:
+          - /url: /customers
+          - img [ref=e40]
+          - generic [ref=e45]: Clientes
+        - link "Reportes" [ref=e46] [cursor=pointer]:
+          - /url: /reports
+          - img [ref=e47]
+          - generic [ref=e49]: Reportes
+        - link "Transferencias" [ref=e50] [cursor=pointer]:
+          - /url: /stock-transfers
+          - img [ref=e51]
+          - generic [ref=e54]: Transferencias
+        - generic [ref=e55]: Administración
+        - link "Sucursales" [ref=e56] [cursor=pointer]:
+          - /url: /branches
+          - img [ref=e57]
+          - generic [ref=e61]: Sucursales
+        - link "Equipo" [ref=e62] [cursor=pointer]:
+          - /url: /users
+          - img [ref=e63]
+          - generic [ref=e68]: Equipo
+        - link "Auditoría" [ref=e69] [cursor=pointer]:
+          - /url: /audit
+          - img [ref=e70]
+          - generic [ref=e72]: Auditoría
+        - link "Configuración" [ref=e73] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e74]
+          - generic [ref=e77]: Configuración
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - generic [ref=e81]: A
+          - generic [ref=e82]:
+            - generic [ref=e83]: Admin Demo
+            - generic [ref=e84]: admin
+        - button [ref=e86]:
+          - img [ref=e87]
+    - main [ref=e91]:
+      - generic [ref=e93]:
+        - img [ref=e95]
+        - heading "Caja Cerrada" [level=1] [ref=e98]
+        - paragraph [ref=e99]: Debes inicializar el turno con un monto base de efectivo para comenzar a despachar ventas.
+        - generic [ref=e100]:
+          - generic [ref=e101]:
+            - generic [ref=e102]: Fondo de Caja (Monto Inicial)
+            - generic [ref=e103]:
+              - generic [ref=e104]: Q
+              - spinbutton [ref=e105]
+          - button "Aperturar Turno" [disabled] [ref=e106]:
+            - img [ref=e107]
+            - text: Aperturar Turno
+```

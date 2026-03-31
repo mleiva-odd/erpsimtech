@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Package, Search, Plus, Edit2, ShieldAlert } from 'lucide-react';
+import { Package, Search, Plus, Edit2, ShieldAlert, FileSpreadsheet } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
 import { ProductModal } from '@/components/inventory/ProductModal';
 import { CategoryModal } from '@/components/inventory/CategoryModal';
+import { ImportExcelModal } from '@/components/inventory/ImportExcelModal';
 
 interface ProductData {
   id: string;
@@ -30,6 +31,7 @@ export default function InventoryPage() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductData | null>(null);
 
   const debouncedQuery = useDebounce(query, 500);
@@ -77,15 +79,22 @@ export default function InventoryPage() {
         </div>
         <div className="flex items-center gap-3">
           <button 
+            onClick={() => setIsImportModalOpen(true)}
+            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-200 border border-emerald-100 px-4 py-2.5 rounded-xl font-bold shadow-sm transition-all flex items-center gap-2"
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            Carga Masiva (CSV)
+          </button>
+          <button 
             onClick={() => setIsCategoryModalOpen(true)}
             className="bg-white border text-slate-600 border-slate-200 hover:bg-slate-50 px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Nueva Categoría
+            Catálogo
           </button>
           <button onClick={handleNew} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2">
             <Plus className="w-5 h-5" />
-            Nuevo Producto
+            Producto
           </button>
         </div>
       </div>
@@ -185,6 +194,17 @@ export default function InventoryPage() {
         <CategoryModal
           onClose={() => setIsCategoryModalOpen(false)}
           onSuccess={() => setIsCategoryModalOpen(false)}
+        />
+      )}
+
+      {/* Modal Excel/CSV Import */}
+      {isImportModalOpen && (
+        <ImportExcelModal
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={() => {
+            setIsImportModalOpen(false);
+            fetchProducts();
+          }}
         />
       )}
     </div>

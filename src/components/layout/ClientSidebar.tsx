@@ -33,7 +33,7 @@ export function ClientSidebar({ session, role, isAdmin, isSupervisor, isSuperAdm
         className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
           isActive 
             ? 'bg-blue-600/20 text-blue-400' 
-            : 'text-slate-600 hover:text-white hover:bg-slate-800'
+            : 'text-slate-300 hover:text-white hover:bg-slate-800 shadow-sm'
         }`}
         title={isCollapsed ? label : undefined}
       >
@@ -59,7 +59,7 @@ export function ClientSidebar({ session, role, isAdmin, isSupervisor, isSuperAdm
       {/* Botón retráctil */}
       <button 
         onClick={toggleSidebar}
-        className="absolute -right-3.5 top-6 w-7 h-7 bg-slate-800 border-2 border-slate-900 text-slate-600 rounded-full flex items-center justify-center hover:text-white hover:bg-blue-600 transition-colors z-50 shadow-md"
+        className="absolute -right-3.5 top-6 w-7 h-7 bg-slate-800 border-2 border-slate-900 text-slate-300 rounded-full flex items-center justify-center hover:text-white hover:bg-blue-600 transition-colors z-50 shadow-md"
       >
         {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>

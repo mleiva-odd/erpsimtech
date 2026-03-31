@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 SIMTECH POS - Enterprise SaaS
 
-## Getting Started
+Bienvenido al repositorio oficial de **SIMTECH POS**, un Punto de Venta (ERP) avanzado con arquitectura de software como servicio (SaaS) Multi-Sucursal, construido en **Next.js 16**, **Tailwind CSS**, **Prisma ORM** y **PostgreSQL**.
 
-First, run the development server:
+---
 
+## 🏗️ Requisitos Previos (Local)
+
+Para ejecutar este proyecto en un entorno local, asegúrate de tener instalados:
+- **Node.js** (v18.0 o superior)
+- **PostgreSQL** corriendo localmente o una URI válida (ej. Supabase)
+
+---
+
+## ⚙️ Despliegue en Entorno Local (Paso a Paso)
+
+Sigue estas estrictas instrucciones si vas a probar este sistema en modo "Desarrollador/QA":
+
+### 1. Clonar e Instalar Independencias
+Clona el repositorio e instala los paquetes de Node:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone git@github.com:mleiva-odd/SIMTECHPOS.git
+cd SIMTECHPOS
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Variables de Entorno (`.env`)
+En la raíz del proyecto, asegúrate de crear el archivo `.env` configurando la base de datos de Postgres y tu secreto de NextAuth:
+```bash
+# Variables Obligatorias
+DATABASE_URL="postgresql://USUARIO:CONTRASEÑA@localhost:5432/simtechdb?schema=public"
+NEXTAUTH_SECRET="cualquier-string-largo-aleatorio-para-encriptacion-de-sesiones"
+NEXTAUTH_URL="http://localhost:3000"
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Sincronización DB y Sembrado de Datos (Seed)
+Este proyecto cuenta con un script inyector (`prisma/seed.ts`), el cual construirá toda la base de datos inicial y cargará usuarios e inventario base.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Sube las tablas a tu base de datos:
+```bash
+npx prisma db push
+```
 
-## Learn More
+Corre la Semilla (Seeder):
+```bash
+npx prisma db seed
+# Node inyectará el inventario semilla y las credenciales maestras.
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 4. Levantar Servidor
+Finalmente, arranca la máquina en modo desarrollo (Turbopack):
+```bash
+npm run dev
+```
+Dirígete a `http://localhost:3000` en tu navegador para ver el App Launcher.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔑 Credenciales Generadas Automáticamente (Para Pruebas)
 
-## Deploy on Vercel
+Al correr el comando `npx prisma db seed`, el sistema crea por defecto estas dos identidades para que inicies sesión:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Usuario / Rol | Correo Electrónico (Login) | Contraseña | ¿Qué puede hacer? |
+| --- | --- | --- | --- |
+| **Súper Administrador** | `admin@simtechpos.com` | `admin123` | Control global de la aplicación, auditorías, empresas y facturación global. |
+| **Admin de Empresa** | `simtech@simtech.com` | `admin123` | Control del Negocio (SIMTECH), gestión de toda su Sucursal Central, Stock y Usuarios. |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> **Nota Adicional:** El Seeder del `Admin de Empresa` ya incluye un inventario de **3 Productos Tecnológicos** inyectados automáticamente en la sucursal para que puedas empezar a cobrar en el `POS` o trasladarlos apenas ingreses.
+
+---
+**Simtech Enterprise Solutions © 2026**

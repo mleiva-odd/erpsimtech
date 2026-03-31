@@ -12,10 +12,10 @@ datasource db {
 // =======================
 
 enum Role {
-  SUPER_ADMIN  // Platform admin (SIMTECH team)
-  ADMIN        // Company owner/admin
-  SUPERVISOR   // Branch supervisor
-  CASHIER      // Point of sale operator
+  SUPER_ADMIN // Platform admin (SIMTECH team)
+  ADMIN // Company owner/admin
+  SUPERVISOR // Branch supervisor
+  CASHIER // Point of sale operator
 }
 
 enum PaymentMethod {
@@ -45,12 +45,12 @@ enum FelProvider {
 }
 
 enum UnitOfMeasure {
-  UNIT     // Por pieza
-  KG       // Kilogramos
-  LB       // Libras
-  LITER    // Litros
-  GALLON   // Galones
-  BOX      // Caja/Fardo
+  UNIT // Por pieza
+  KG // Kilogramos
+  LB // Libras
+  LITER // Litros
+  GALLON // Galones
+  BOX // Caja/Fardo
 }
 
 // =======================
@@ -70,16 +70,18 @@ model Company {
   updatedAt DateTime @updatedAt
 
   // Relations
-  branches      Branch[]
-  users         User[]
-  products      Product[]
-  categories    Category[]
-  customers     Customer[]
-  sales         Sale[]
-  settings      CompanySettings?
-  subscription  Subscription?
-  auditLogs     AuditLog[]
-  notifications Notification[]
+  branches       Branch[]
+  users          User[]
+  products       Product[]
+  categories     Category[]
+  customers      Customer[]
+  suppliers      Supplier[]
+  purchases      PurchaseOrder[]
+  sales          Sale[]
+  settings       CompanySettings?
+  subscription   Subscription?
+  auditLogs      AuditLog[]
+  notifications  Notification[]
   stockTransfers StockTransfer[]
 }
 
@@ -88,7 +90,7 @@ model Branch {
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name      String
-  code      String   // e.g., "SUC-01"
+  code      String // e.g., "SUC-01"
   address   String?
   phone     String?
   isMain    Boolean  @default(false)
@@ -97,14 +99,15 @@ model Branch {
   updatedAt DateTime @updatedAt
 
   // Relations
-  users          User[]
-  productStocks  ProductStock[]
-  sales          Sale[]
-  cashRegisters  CashRegister[]
-  auditLogs      AuditLog[]
-  userAccess     UserBranchAccess[]
-  transfersFrom  StockTransfer[] @relation("TransfersFrom")
-  transfersTo    StockTransfer[] @relation("TransfersTo")
+  users         User[]
+  productStocks ProductStock[]
+  sales         Sale[]
+  cashRegisters CashRegister[]
+  auditLogs     AuditLog[]
+  userAccess    UserBranchAccess[]
+  transfersFrom StockTransfer[]    @relation("TransfersFrom")
+  transfersTo   StockTransfer[]    @relation("TransfersTo")
+  purchases     PurchaseOrder[]    @relation("PurchasesTo")
 
   @@unique([companyId, code])
 }
@@ -115,9 +118,9 @@ model Branch {
 
 model User {
   id        String   @id @default(uuid())
-  companyId String?  // null for SUPER_ADMIN
+  companyId String? // null for SUPER_ADMIN
   company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String?  // assigned branch (null = access to all branches in company)
+  branchId  String? // assigned branch (null = access to all branches in company)
   branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   name      String
   email     String   @unique
@@ -128,12 +131,13 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  sales         Sale[]
-  cashRegisters CashRegister[]
-  sessions      SessionLog[]
-  auditLogs     AuditLog[]
-  branchAccess  UserBranchAccess[]
+  sales          Sale[]
+  cashRegisters  CashRegister[]
+  sessions       SessionLog[]
+  auditLogs      AuditLog[]
+  branchAccess   UserBranchAccess[]
   stockTransfers StockTransfer[]
+  purchases      PurchaseOrder[]
 }
 
 model UserBranchAccess {
@@ -141,7 +145,7 @@ model UserBranchAccess {
   branchId String
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  
+
   @@id([userId, branchId])
   @@index([userId])
   @@index([branchId])
@@ -174,28 +178,31 @@ model Category {
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  sku         String
-  barcode     String?
-  name        String
-  description String?
-  price       Decimal  @db.Decimal(10, 2) // Precio Detalle (Retail)
-  wholesalePrice Decimal? @db.Decimal(10, 2) // Precio Mayoreo (B2B)
-  cost        Decimal  @db.Decimal(10, 2)
-  isTaxExempt Boolean  @default(false)    // Producto exento de IVA
-  unitOfMeasure UnitOfMeasure @default(UNIT) // Forma de despacho
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String        @id @default(uuid())
+  companyId      String
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoryId     String
+  category       Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  sku            String
+  barcode        String?
+  name           String
+  description    String?
+  price          Decimal       @db.Decimal(10, 2) // Precio Detalle (Retail)
+  wholesalePrice Decimal?      @db.Decimal(10, 2) // Precio Mayoreo (B2B)
+  cost           Decimal       @db.Decimal(10, 2)
+  isTaxExempt    Boolean       @default(false) // Producto exento de IVA
+  unitOfMeasure  UnitOfMeasure @default(UNIT) // Forma de despacho
+  supplierId     String?
+  supplier       Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   // Relations
-  stocks    ProductStock[]
-  saleItems SaleItem[]
+  stocks        ProductStock[]
+  saleItems     SaleItem[]
   transferItems StockTransferItem[]
+  purchaseItems PurchaseOrderItem[]
 
   @@unique([companyId, sku])
   @@unique([companyId, barcode])
@@ -213,6 +220,67 @@ model ProductStock {
   updatedAt DateTime @updatedAt
 
   @@unique([productId, branchId])
+}
+
+// =======================
+// Suppliers & Purchasing
+// =======================
+
+model Supplier {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  nit         String?
+  address     String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products  Product[]
+  purchases PurchaseOrder[]
+
+  @@unique([companyId, nit])
+  @@unique([companyId, name])
+}
+
+enum PurchaseStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id         String         @id @default(uuid())
+  companyId  String
+  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String
+  branch     Branch         @relation("PurchasesTo", fields: [branchId], references: [id])
+  supplierId String
+  supplier   Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  userId     String // Quien recibio
+  user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  reference  String? // Numero de factura o recibo de compra
+  total      Decimal        @db.Decimal(10, 2)
+  status     PurchaseStatus @default(COMPLETED)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  items PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity        Int
+  unitCost        Decimal       @db.Decimal(10, 2)
+  subtotal        Decimal       @db.Decimal(10, 2)
 }
 
 // =======================
@@ -242,27 +310,27 @@ model Customer {
 // =======================
 
 model Sale {
-  id             String     @id @default(uuid())
+  id             String        @id @default(uuid())
   companyId      String
-  company        Company    @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  company        Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   branchId       String
-  branch         Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
   userId         String
-  user           User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Restrict)
   customerId     String?
-  customer       Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
   cashRegisterId String?
   cashRegister   CashRegister? @relation(fields: [cashRegisterId], references: [id])
-  
-  invoiceNumber  String?
-  subtotal       Decimal    @db.Decimal(10, 2)
-  discount       Decimal    @default(0) @db.Decimal(10, 2) // discount percentage
-  tax            Decimal    @default(0) @db.Decimal(10, 2)
-  total          Decimal    @db.Decimal(10, 2)
-  status         SaleStatus @default(COMPLETED)
-  
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+
+  invoiceNumber String?
+  subtotal      Decimal    @db.Decimal(10, 2)
+  discount      Decimal    @default(0) @db.Decimal(10, 2) // discount percentage
+  tax           Decimal    @default(0) @db.Decimal(10, 2)
+  total         Decimal    @db.Decimal(10, 2)
+  status        SaleStatus @default(COMPLETED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   items    SaleItem[]
@@ -290,7 +358,7 @@ model Payment {
   sale      Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
   method    PaymentMethod
   amount    Decimal       @db.Decimal(10, 2)
-  reference String?       // voucher number, transfer ref, etc.
+  reference String? // voucher number, transfer ref, etc.
   createdAt DateTime      @default(now())
 }
 
@@ -331,11 +399,11 @@ model CompanySettings {
   receiptMsg String? @default("¡Gracias por su compra!")
 
   // FEL / Electronic invoicing
-  felEnabled     Boolean     @default(false)
-  felProvider    FelProvider @default(NONE)
-  felNitEmisor   String?
-  felApiUser     String?     // encrypted
-  felApiKey      String?     // encrypted
+  felEnabled        Boolean     @default(false)
+  felProvider       FelProvider @default(NONE)
+  felNitEmisor      String?
+  felApiUser        String? // encrypted
+  felApiKey         String? // encrypted
   felCertificateUrl String?
 
   // Payment methods enabled
@@ -345,11 +413,11 @@ model CompanySettings {
   acceptsCredit   Boolean @default(false)
 
   // Tax
-  taxRate    Decimal @default(0.12) @db.Decimal(5, 4) // 12% IVA Guatemala
+  taxRate     Decimal @default(0.12) @db.Decimal(5, 4) // 12% IVA Guatemala
   taxIncluded Boolean @default(true) // true = price already includes tax
 
   // Currency
-  currency     String @default("GTQ")
+  currency       String @default("GTQ")
   currencySymbol String @default("Q")
 
   updatedAt DateTime @updatedAt
@@ -360,20 +428,20 @@ model CompanySettings {
 // =======================
 
 model Subscription {
-  id                   String             @id @default(uuid())
-  companyId            String             @unique
-  company              Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  plan                 String             @default("trial") // trial, starter, pro, enterprise
-  status               SubscriptionStatus @default(TRIAL)
-  price                Decimal            @default(0) @db.Decimal(10, 2)
-  maxBranches          Int                @default(1)
-  maxUsersPerBranch    Int                @default(3)
-  currentPeriodStart   DateTime           @default(now())
-  currentPeriodEnd     DateTime
-  trialEndsAt          DateTime?
-  paymentProviderId    String?            // Stripe customer/subscription ID
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  id                 String             @id @default(uuid())
+  companyId          String             @unique
+  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan               String             @default("trial") // trial, starter, pro, enterprise
+  status             SubscriptionStatus @default(TRIAL)
+  price              Decimal            @default(0) @db.Decimal(10, 2)
+  maxBranches        Int                @default(1)
+  maxUsersPerBranch  Int                @default(3)
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime
+  trialEndsAt        DateTime?
+  paymentProviderId  String? // Stripe customer/subscription ID
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 }
 
 // =======================
@@ -388,10 +456,10 @@ model AuditLog {
   branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  entity    String   // "Product", "Sale", "User", etc.
-  entityId  String   // ID of the affected record
-  action    String   // "CREATE", "UPDATE", "DELETE"
-  changes   Json?    // { field: { old: "x", new: "y" } }
+  entity    String // "Product", "Sale", "User", etc.
+  entityId  String // ID of the affected record
+  action    String // "CREATE", "UPDATE", "DELETE"
+  changes   Json? // { field: { old: "x", new: "y" } }
   ipAddress String?
   createdAt DateTime @default(now())
 
@@ -429,21 +497,21 @@ enum TransferStatus {
 }
 
 model StockTransfer {
-  id           String             @id @default(uuid())
+  id           String         @id @default(uuid())
   companyId    String
-  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   fromBranchId String
-  fromBranch   Branch             @relation("TransfersFrom", fields: [fromBranchId], references: [id])
+  fromBranch   Branch         @relation("TransfersFrom", fields: [fromBranchId], references: [id])
   toBranchId   String
-  toBranch     Branch             @relation("TransfersTo", fields: [toBranchId], references: [id])
+  toBranch     Branch         @relation("TransfersTo", fields: [toBranchId], references: [id])
   userId       String
-  user         User               @relation(fields: [userId], references: [id])
+  user         User           @relation(fields: [userId], references: [id])
   reference    String?
-  status       TransferStatus     @default(COMPLETED)
-  createdAt    DateTime           @default(now())
+  status       TransferStatus @default(COMPLETED)
+  createdAt    DateTime       @default(now())
 
   // Relations
-  items        StockTransferItem[]
+  items StockTransferItem[]
 }
 
 model StockTransferItem {

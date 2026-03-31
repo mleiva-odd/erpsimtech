@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { 
   Home, Store, Settings, Package, Users, BarChart3, 
   Building2, Shield, ArrowRightLeft, Activity, 
-  ChevronLeft, ChevronRight, AppWindow
+  ChevronLeft, ChevronRight, AppWindow, Truck
 } from 'lucide-react';
 import { NotificationsMenu } from '@/components/layout/NotificationsMenu';
 import { LogoutButton } from '@/components/layout/LogoutButton';
@@ -92,6 +92,7 @@ export function ClientSidebar({ session, role, isAdmin, isSupervisor, isSuperAdm
         
         <SectionTitle>Operación</SectionTitle>
         <NavItem href="/inventory" icon={<Package className="w-5 h-5" />} label="Inventario" />
+        <NavItem href="/suppliers" icon={<Truck className="w-5 h-5" />} label="Proveedores" />
         <NavItem href="/customers" icon={<Users className="w-5 h-5" />} label="Clientes" />
         <NavItem href="/reports" icon={<BarChart3 className="w-5 h-5" />} label="Reportes" />
         

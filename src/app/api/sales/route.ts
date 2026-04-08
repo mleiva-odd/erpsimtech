@@ -8,21 +8,23 @@ import { z } from 'zod';
 
 const SaleItemSchema = z.object({
   productId: z.string().uuid(),
+  variantId: z.string().uuid().optional().nullable(),
   quantity: z.number().int().positive(),
   unitPrice: z.number().positive(),
 });
 
 const PaymentSchema = z.object({
-  method: z.enum(['CASH', 'CARD', 'TRANSFER']),
+  method: z.enum(['CASH', 'CARD', 'TRANSFER', 'CREDIT']),
   amount: z.number().positive(),
   reference: z.string().optional().nullable(),
 });
 
 const CreateSaleSchema = z.object({
   items: z.array(SaleItemSchema).min(1, 'La venta debe tener al menos un ítem'),
-  payments: z.array(PaymentSchema).min(1, 'Debe incluir al menos un pago'),
+  payments: z.array(PaymentSchema).optional(),
   discount: z.number().min(0).max(100).default(0),
   customerId: z.string().uuid().optional().nullable(),
+  status: z.enum(['COMPLETED', 'QUOTE']).default('COMPLETED'),
 });
 
 export async function POST(req: NextRequest) {
@@ -43,7 +45,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { items, payments, discount, customerId } = parsed.data;
+  const { items, payments = [], discount, customerId, status } = parsed.data;
+
+  if (status === 'COMPLETED' && payments.length === 0) {
+    return NextResponse.json({ error: 'La venta de contado requiere métodos de pago.' }, { status: 400 });
+  }
 
   // Determine the branch for this sale
   let branchId = tenant.branchId;
@@ -58,34 +64,64 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Verify open cash register
-    const activeRegister = await prisma.cashRegister.findFirst({
-      where: { userId: tenant.userId, branchId, status: 'OPEN' },
-    });
-
-    if (!activeRegister) {
-      return NextResponse.json({ error: 'Debes abrir turno de caja primero' }, { status: 400 });
+    let activeRegisterId = null;
+    if (status === 'COMPLETED') {
+      const activeRegister = await prisma.cashRegister.findFirst({
+        where: { userId: tenant.userId, branchId, status: 'OPEN' },
+      });
+      if (!activeRegister) {
+        return NextResponse.json({ error: 'Debes abrir turno de caja primero' }, { status: 400 });
+      }
+      activeRegisterId = activeRegister.id;
     }
-
+    
     const transactionResult = await prisma.$transaction(async (tx) => {
-      // 1. Verify stock in this branch
+      // Fetch all products needed
       const productIds = items.map((i) => i.productId);
       const products = await tx.product.findMany({
         where: { id: { in: productIds }, companyId: tenant.companyId, active: true },
         include: {
-          stocks: { where: { branchId } },
+          bundleItems: true,
+          stocks: { where: { branchId, variantId: null } },
+          variants: { include: { stocks: { where: { branchId } } } }
         },
       });
 
-      for (const item of items) {
-        const product = products.find((p) => p.id === item.productId);
-        if (!product) {
-          throw new Error(`Producto ${item.productId} no encontrado`);
-        }
-        const branchStock = product.stocks[0];
-        const available = branchStock?.quantity ?? 0;
-        if (available < item.quantity) {
-          throw new Error(`Stock insuficiente para "${product.name}". Disponible: ${available}`);
+      // 1. Verify stock if COMPLETED
+      if (status === 'COMPLETED') {
+        for (const item of items) {
+          const product = products.find((p) => p.id === item.productId);
+          if (!product) throw new Error(`Producto ${item.productId} no encontrado`);
+          
+          if (product.isBundle) {
+            // VERIFY COMPONENTS STOCK
+             for (const bundleItem of product.bundleItems) {
+               const componentStock = await tx.productStock.findFirst({
+                 where: { productId: bundleItem.componentId, branchId, variantId: null }
+               });
+               const required = item.quantity * bundleItem.quantity;
+               if (!componentStock || componentStock.quantity < required) {
+                 throw new Error(`Stock insuficiente de la pieza "${bundleItem.componentId}" para el combo "${product.name}". Disp: ${componentStock?.quantity||0}, Req: ${required}`);
+               }
+             }
+          } else {
+            // REGULAR VERIFICATION
+            let available = 0;
+            let itemName = product.name;
+  
+            if (item.variantId) {
+              const variant = product.variants.find((v: any) => v.id === item.variantId);
+              if (!variant) throw new Error(`Variante no encontrada para ${product.name}`);
+              available = variant.stocks[0]?.quantity ?? 0;
+              itemName = `${product.name} - ${variant.name}`;
+            } else {
+              available = product.stocks[0]?.quantity ?? 0;
+            }
+  
+            if (available < item.quantity) {
+              throw new Error(`Stock insuficiente para "${itemName}". Disponible: ${available}`);
+            }
+          }
         }
       }
 
@@ -94,73 +130,123 @@ export async function POST(req: NextRequest) {
       const discountAmount = subtotal * (discount / 100);
       const total = subtotal - discountAmount;
 
-      // 3. Validate payment amounts cover the total
-      const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
-      if (totalPaid < total) {
-        throw new Error(`Pago insuficiente. Total: Q${total.toFixed(2)}, Pagado: Q${totalPaid.toFixed(2)}`);
+      // 3. Validate payment amounts & Handle Credit Payment
+      let hasCreditPayment = false;
+      if (status === 'COMPLETED') {
+        const totalPaid = payments.reduce((acc, p) => acc + p.amount, 0);
+        if (totalPaid < total) {
+          throw new Error(`Pago insuficiente. Total: Q${total.toFixed(2)}, Pagado: Q${totalPaid.toFixed(2)}`);
+        }
+        
+        hasCreditPayment = payments.some(p => p.method === 'CREDIT');
+        if (hasCreditPayment && !customerId) {
+           throw new Error('Debes seleccionar un cliente para otorgar crédito.');
+        }
       }
 
-      // 4. Handle credit payment
-      const hasCreditPayment = payments.some(p => p.method === 'TRANSFER' && false); // Credit handled differently now
-      // Credit logic would go here if needed
-
-      // 5. Validate customer if provided
+      // 4. Validate customer if provided
       if (customerId) {
         const customer = await tx.customer.findFirst({
           where: { id: customerId, companyId: tenant.companyId },
         });
         if (!customer) throw new Error('Cliente no encontrado');
+        
+        // Handle credit logic
+        if (hasCreditPayment && status === 'COMPLETED') {
+           const creditPaymentAmount = payments.find(p => p.method === 'CREDIT')?.amount || 0;
+           
+           const currentBalance = Number(customer.balance) || 0;
+           const creditLimit = Number(customer.creditLimit) || 0;
+
+           if (creditLimit <= 0) {
+               throw new Error(`El cliente ${customer.name} no tiene crédito autorizado.`);
+           }
+           if ((currentBalance + creditPaymentAmount) > creditLimit) {
+               throw new Error(`El abono excede el límite de crédito de Q${creditLimit.toFixed(2)}.`);
+           }
+
+           await tx.customer.update({
+             where: { id: customer.id },
+             data: { balance: { increment: creditPaymentAmount } }
+           });
+        }
       }
 
-      // 6. Create the sale
+      // 5. Create the sale
       const newSale = await tx.sale.create({
         data: {
           companyId: tenant.companyId,
           branchId,
           userId: tenant.userId,
           customerId: customerId || null,
-          cashRegisterId: activeRegister.id,
+          cashRegisterId: activeRegisterId,
           subtotal,
           discount,
           tax: 0,
           total,
-          status: 'COMPLETED',
+          status: status as any,
           items: {
             create: items.map((item) => ({
               productId: item.productId,
+              variantId: item.variantId || null,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               subtotal: item.unitPrice * item.quantity,
             })),
           },
-          payments: {
-            create: payments.map((p) => ({
-              method: p.method,
-              amount: p.amount,
-              reference: p.reference || null,
-            })),
-          },
+          ...(status === 'COMPLETED' ? {
+            payments: {
+              create: payments.map((p) => ({
+                method: p.method,
+                amount: p.amount,
+                reference: p.reference || null,
+              })),
+            }
+          } : {})
         },
         include: {
-          items: { include: { product: { select: { id: true, name: true, sku: true } } } },
+          items: { include: { product: { select: { id: true, name: true, sku: true } }, variant: { select: { id: true, name: true } } } },
           payments: true,
           user: { select: { id: true, name: true } },
           customer: { select: { id: true, name: true } },
         },
       });
 
-      // 7. Decrement stock in this branch and capture new stock data
-      const updatedStocks = await Promise.all(
-        items.map((item) =>
-          tx.productStock.update({
-            where: {
-              productId_branchId: { productId: item.productId, branchId: branchId! },
-            },
-            data: { quantity: { decrement: item.quantity } },
-            include: { product: { select: { name: true } } }
-          })
-        )
-      );
+      // 6. Decrement stock in this branch and capture new stock data ONLY IF COMPLETED
+      const updatedStocks = [];
+      if (status === 'COMPLETED') {
+        for (const item of items) {
+           const product = products.find(p => p.id === item.productId);
+           if (!product) continue;
+           
+           if (product.isBundle) {
+             for (const bundleItem of product.bundleItems) {
+                await tx.productStock.updateMany({
+                   where: { productId: bundleItem.componentId, branchId: branchId!, variantId: null },
+                   data: { quantity: { decrement: item.quantity * bundleItem.quantity } }
+                });
+                const stk = await tx.productStock.findFirst({ where: { productId: bundleItem.componentId, branchId: branchId!, variantId: null }, include: { product: true } });
+                if (stk) updatedStocks.push(stk);
+             }
+           } else {
+             if (item.variantId) {
+                await tx.productStock.updateMany({
+                   where: { productId: item.productId, branchId: branchId!, variantId: item.variantId },
+                   data: { quantity: { decrement: item.quantity } }
+                });
+                const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: item.variantId }, include: { product: true } });
+                if (stk) updatedStocks.push(stk);
+             } else {
+                await tx.productStock.updateMany({
+                   where: { productId: item.productId, branchId: branchId!, variantId: null },
+                   data: { quantity: { decrement: item.quantity } }
+                });
+                const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: null }, include: { product: true } });
+                if (stk) updatedStocks.push(stk);
+             }
+           }
+        }
+      }
 
       return { newSale, updatedStocks };
     });
@@ -207,12 +293,22 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const page = parseInt(searchParams.get('page') ?? '1');
   const limit = parseInt(searchParams.get('limit') ?? '20');
+  const requestedBranchId = searchParams.get('branchId');
+  const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+
+  const targetBranchId = (!isAdmin || !requestedBranchId || requestedBranchId === 'null')
+    ? tenant.branchId
+    : requestedBranchId;
+
+  const status = searchParams.get('status');
 
   const where: any = { companyId: tenant.companyId };
+  if (status) {
+    where.status = status;
+  }
 
-  // If user has a branch, only show that branch's sales
-  if (tenant.branchId) {
-    where.branchId = tenant.branchId;
+  if (targetBranchId) {
+    where.branchId = targetBranchId;
   }
 
   const sales = await prisma.sale.findMany({

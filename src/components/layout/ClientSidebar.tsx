@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { 
   Home, Store, Settings, Package, Users, BarChart3, 
   Building2, Shield, ArrowRightLeft, Activity, 
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react';
 import { NotificationsMenu } from '@/components/layout/NotificationsMenu';
 import { LogoutButton } from '@/components/layout/LogoutButton';
+import { BranchSelector } from '@/components/layout/BranchSelector';
 
 // Definir la interfaz de props que recibirá
 interface SidebarProps {
@@ -19,9 +21,18 @@ interface SidebarProps {
   isSuperAdmin: boolean;
 }
 
-export function ClientSidebar({ session, role, isAdmin, isSupervisor, isSuperAdmin }: SidebarProps) {
+export function ClientSidebar({ session: initialSession, role: propRole, isAdmin: propIsAdmin, isSupervisor: propIsSupervisor, isSuperAdmin: propIsSuperAdmin }: SidebarProps) {
+  const { data: sessionData } = useSession();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
+
+  // RSC and CSR sync resolution to avoid ghost-flashes on soft navigation
+  const activeSession = sessionData || initialSession;
+  const reliableRole = activeSession?.user?.role || propRole;
+  
+  const isSuperAdmin = reliableRole === 'SUPER_ADMIN' || propIsSuperAdmin;
+  const isAdmin = reliableRole === 'ADMIN' || isSuperAdmin || propIsAdmin;
+  const isSupervisor = reliableRole === 'SUPERVISOR' || isAdmin || propIsSupervisor;
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
@@ -67,7 +78,7 @@ export function ClientSidebar({ session, role, isAdmin, isSupervisor, isSuperAdm
       {/* Header Logo (App Launcher Return) */}
       <a 
         href="/apps" 
-        className={`h-16 flex items-center ${isCollapsed ? 'justify-center px-0' : 'px-6'} border-b border-slate-800 transition-all hover:bg-slate-800/50 cursor-pointer group`}
+        className={`h-16 flex items-center ${isCollapsed ? 'justify-center px-0' : 'px-6'} border-b border-slate-800 transition-all hover:bg-slate-800/50 cursor-pointer group mb-4`}
         title="Volver a Aplicaciones"
       >
         <div className="shrink-0 w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-inner group-hover:scale-105 transition-transform">
@@ -84,21 +95,27 @@ export function ClientSidebar({ session, role, isAdmin, isSupervisor, isSuperAdm
           </>
         )}
       </a>
+
+      {/* Selector de Contexto Multi-Sucursal */}
+      <BranchSelector isCollapsed={isCollapsed} />
       
       {/* Navegación */}
-      <nav className={`flex-1 py-4 flex flex-col gap-1 overflow-y-auto ${isCollapsed ? 'px-3 items-center' : 'px-4'} custom-scrollbar`}>
-        <NavItem href="/dashboard" icon={<Home className="w-5 h-5" />} label="Métricas" />
+      <nav className={`flex-1 flex flex-col gap-1 overflow-y-auto ${isCollapsed ? 'px-3 items-center' : 'px-4'} custom-scrollbar`}>
+        {/* Operación Base (Cajeros) */}
         <NavItem href="/pos" icon={<Store className="w-5 h-5" />} label="Punto de Venta" />
-        
-        <SectionTitle>Operación</SectionTitle>
-        <NavItem href="/inventory" icon={<Package className="w-5 h-5" />} label="Inventario" />
-        <NavItem href="/purchases" icon={<Inbox className="w-5 h-5" />} label="Ingresos de Bodega" />
-        <NavItem href="/suppliers" icon={<Truck className="w-5 h-5" />} label="Proveedores" />
         <NavItem href="/customers" icon={<Users className="w-5 h-5" />} label="Clientes" />
-        <NavItem href="/reports" icon={<BarChart3 className="w-5 h-5" />} label="Reportes" />
         
+        {/* Jefatura / Operación Pesada (Supervisores y Admins) */}
         {isSupervisor && (
-          <NavItem href="/stock-transfers" icon={<ArrowRightLeft className="w-5 h-5" />} label="Transferencias" />
+          <>
+            <SectionTitle>Métricas y Operación</SectionTitle>
+            <NavItem href="/dashboard" icon={<Home className="w-5 h-5" />} label="Métricas" />
+            <NavItem href="/inventory" icon={<Package className="w-5 h-5" />} label="Inventario" />
+            <NavItem href="/purchases" icon={<Inbox className="w-5 h-5" />} label="Ingresos de Bodega" />
+            <NavItem href="/suppliers" icon={<Truck className="w-5 h-5" />} label="Proveedores" />
+            <NavItem href="/reports" icon={<BarChart3 className="w-5 h-5" />} label="Reportes" />
+            <NavItem href="/stock-transfers" icon={<ArrowRightLeft className="w-5 h-5" />} label="Transferencias" />
+          </>
         )}
 
         {isAdmin && (
@@ -124,15 +141,15 @@ export function ClientSidebar({ session, role, isAdmin, isSupervisor, isSuperAdm
         <div className={`flex items-center ${isCollapsed ? 'justify-center flex-col gap-3' : 'justify-between'} mb-4`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 shrink-0 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-sm shadow-inner">
-              {session?.user?.name?.charAt(0) || 'U'}
+              {activeSession?.user?.name?.charAt(0) || 'U'}
             </div>
             {!isCollapsed && (
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-white truncate w-24">
-                  {session?.user?.name || 'Usuario'}
+                  {activeSession?.user?.name || 'Usuario'}
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                  {role?.replace('_', ' ') || 'CAJERO'}
+                  {reliableRole?.replace('_', ' ') || 'CAJERO'}
                 </span>
               </div>
             )}

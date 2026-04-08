@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Printer, RefreshCw, BarChart3, TrendingUp, AlertCircle, Download, FileText, Lock } from 'lucide-react';
 import { TicketModal } from '@/components/pos/TicketModal';
+import { useBranchStore } from '@/stores/branchStore';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -37,11 +38,14 @@ export default function ReportsPage() {
   const [closingBalanceInput, setClosingBalanceInput] = useState('');
   const [isSubmittingClose, setIsSubmittingClose] = useState(false);
 
+  const { selectedBranchId } = useBranchStore();
+
   const fetchSalesAndRegister = async () => {
     setIsLoading(true);
     try {
+      const branchQuery = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
       const [resSales, resReg] = await Promise.all([
-        fetch('/api/sales?limit=50'),
+        fetch(`/api/sales?limit=50${branchQuery}`),
         fetch('/api/cash-register')
       ]);
       const dataSales = await resSales.json();
@@ -58,7 +62,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchSalesAndRegister();
-  }, []);
+  }, [selectedBranchId]);
 
   const handleOpenCloseModal = () => {
     if (!register) return;

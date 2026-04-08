@@ -1,22 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ProductSearch } from '@/components/pos/ProductSearch';
 import { CustomerSearch } from '@/components/pos/CustomerSearch';
+import { QuotesModal } from '@/components/pos/QuotesModal';
 import { TicketModal } from '@/components/pos/TicketModal';
 import { CashRegisterGuard } from '@/components/pos/CashRegisterGuard';
 import { Cart } from '@/components/pos/Cart';
 import { CheckoutModal } from '@/components/pos/CheckoutModal';
 import { ProductGrid } from '@/components/pos/ProductGrid';
+import { CloseRegisterModal } from '@/components/pos/CloseRegisterModal';
+import { ExpenseModal } from '@/components/pos/ExpenseModal';
 import { useCartStore } from '@/stores/cartStore';
-import { ShoppingCart, CheckCircle } from 'lucide-react';
+import { ShoppingCart, CheckCircle, Lock, Wallet, FileText } from 'lucide-react';
 
 export default function POSPage() {
   const [showCheckout, setShowCheckout] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showQuotesModal, setShowQuotesModal] = useState(false);
   const itemCount = useCartStore((s) => s.itemCount());
-  const totalWithDiscount = useCartStore((s) => s.totalWithDiscount());
+  const { items, discount, customerId, totalWithDiscount, clearCart } = useCartStore();
+  const [isQuoting, setIsQuoting] = useState(false);
 
   const handleSuccess = (saleId: string) => {
     setLastSaleId(saleId);
@@ -24,20 +31,103 @@ export default function POSPage() {
     setShowSuccess(true);
   };
 
+  const handleCreateQuote = async () => {
+    if (!customerId) return alert("Seleccione un cliente registrado para crear una cotización.");
+    setIsQuoting(true);
+    try {
+      const res = await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'QUOTE',
+          items: items.map((i) => ({
+            productId: i.product.id,
+            variantId: i.product.variantId || null,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+          })),
+          payments: [],
+          discount,
+          customerId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      clearCart();
+      alert("✅ Cotización guardada exitosamente. \nID: " + data.id.split('-')[0].toUpperCase());
+    } catch (e: any) {
+      alert(e.message || "Error al crear cotización");
+    } finally {
+      setIsQuoting(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Evitar que actúen si el modal de cierre de caja o de éxito están abiertos
+      if (showCloseModal || showSuccess) return;
+
+      if (e.key === 'F8') {
+        e.preventDefault();
+        if (useCartStore.getState().itemCount() > 0) {
+          setShowCheckout(true);
+        }
+      } else if (e.key === 'F12') {
+        e.preventDefault();
+        useCartStore.getState().clearCart();
+      } else if (e.key === 'F2') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[placeholder*="producto"]') as HTMLInputElement;
+        if (searchInput) searchInput.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showCloseModal, showSuccess]);
+
   return (
     <CashRegisterGuard>
       <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
         <div className="flex flex-1 overflow-hidden">
           <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between z-20">
               <div>
-              <h1 className="text-xl font-bold text-slate-800">Terminal de Venta</h1>
-              <p className="text-sm text-slate-500">Busca o escanea un producto para agregarlo</p>
+                <h1 className="text-2xl font-black text-slate-800 tracking-tight">Terminal de Venta</h1>
+                <p className="text-sm font-medium text-slate-500 mt-1">Busca o escanea un producto para agregarlo al ticket</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowQuotesModal(true)}
+                  className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm active:scale-95"
+                  title="Ver cotizaciones pendientes"
+                >
+                  <FileText className="w-4 h-4" />
+                  Cotizaciones
+                </button>
+                <button
+                  onClick={() => setShowExpenseModal(true)}
+                  className="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm active:scale-95"
+                  title="Registrar un Gasto o Retiro de Efectivo"
+                >
+                  <Wallet className="w-4 h-4" />
+                  Egreso
+                </button>
+                <button 
+                  onClick={() => setShowCloseModal(true)}
+                  className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm active:scale-95"
+                  title="Cerrar tu turno y bloquear el sistema"
+                >
+                  <Lock className="w-4 h-4" />
+                  Cerrar Caja
+                </button>
+                <div className="text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm min-w-[120px] text-center hidden sm:block">
+                  {new Date().toLocaleDateString('es-GT', { weekday: 'short', day: '2-digit', month: 'short' }).toUpperCase()}
+                </div>
+              </div>
             </div>
-            <div className="text-sm text-slate-500 bg-white border border-slate-200 rounded-lg px-3 py-2">
-              {new Date().toLocaleDateString('es-GT', { weekday: 'long', day: '2-digit', month: 'long' })}
-            </div>
-          </div>
 
           <div className="flex flex-col sm:flex-row gap-4 z-10">
             {/* Buscador de cliente (izq) y productos (der) */}
@@ -71,23 +161,54 @@ export default function POSPage() {
             <Cart />
           </div>
 
-          {/* Botón de cobrar */}
+          {/* Botón de cobrar / Cotizar */}
           {itemCount > 0 && (
-            <button
-              onClick={() => setShowCheckout(true)}
-              className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-lg transition-colors shadow-lg shadow-blue-200 active:scale-95"
-            >
-              Cobrar · Q{totalWithDiscount.toFixed(2)}
-            </button>
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                onClick={handleCreateQuote}
+                disabled={isQuoting}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-colors active:scale-95 flex items-center justify-center gap-2 border border-slate-200"
+              >
+                {isQuoting ? 'Guardando...' : 'Guardar Cotización'}
+              </button>
+              <button
+                onClick={() => setShowCheckout(true)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-lg transition-colors shadow-lg shadow-blue-200 active:scale-95"
+              >
+                Cobrar · Q{totalWithDiscount().toFixed(2)}
+              </button>
+            </div>
           )}
         </div>
       </div>
 
       {/* Modal de cobro */}
+      {showCloseModal && (
+        <CloseRegisterModal 
+          onClose={() => setShowCloseModal(false)}
+          onSuccess={() => window.location.reload()} 
+        />
+      )}
+
       {showCheckout && (
         <CheckoutModal
           onClose={() => setShowCheckout(false)}
           onSuccess={handleSuccess}
+        />
+      )}
+
+      {showQuotesModal && (
+        <QuotesModal onClose={() => setShowQuotesModal(false)} />
+      )}
+
+      {/* Modal Egresos */}
+      {showExpenseModal && (
+        <ExpenseModal 
+          onClose={() => setShowExpenseModal(false)}
+          onSuccess={() => {
+            setShowExpenseModal(false);
+            alert("Egreso registrado correctamente y descontado de tu cierre.");
+          }}
         />
       )}
 

@@ -22,12 +22,14 @@ enum PaymentMethod {
   CASH
   CARD
   TRANSFER
+  CREDIT
 }
 
 enum SaleStatus {
   COMPLETED
   PENDING
   CANCELLED
+  QUOTE
 }
 
 enum SubscriptionStatus {
@@ -83,6 +85,7 @@ model Company {
   auditLogs      AuditLog[]
   notifications  Notification[]
   stockTransfers StockTransfer[]
+  inventoryAdjustments InventoryAdjustment[]
 }
 
 model Branch {
@@ -108,6 +111,7 @@ model Branch {
   transfersFrom StockTransfer[]    @relation("TransfersFrom")
   transfersTo   StockTransfer[]    @relation("TransfersTo")
   purchases     PurchaseOrder[]    @relation("PurchasesTo")
+  inventoryAdjustments InventoryAdjustment[]
 
   @@unique([companyId, code])
 }
@@ -131,13 +135,17 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  sales          Sale[]
-  cashRegisters  CashRegister[]
-  sessions       SessionLog[]
-  auditLogs      AuditLog[]
-  branchAccess   UserBranchAccess[]
-  stockTransfers StockTransfer[]
-  purchases      PurchaseOrder[]
+  sales                    Sale[]
+  cashRegisters            CashRegister[]
+  sessions                 SessionLog[]
+  auditLogs                AuditLog[]
+  branchAccess             UserBranchAccess[]
+  stockTransfers           StockTransfer[]
+  purchases                PurchaseOrder[]
+  cashRegisterTransactions CashRegisterTransaction[]
+  inventoryAdjustments     InventoryAdjustment[]
+  accountPayments          AccountPayment[]
+  saleReturns              SaleReturn[]
 }
 
 model UserBranchAccess {
@@ -192,9 +200,39 @@ model Product {
   cost           Decimal       @db.Decimal(10, 2)
   isTaxExempt    Boolean       @default(false) // Producto exento de IVA
   unitOfMeasure  UnitOfMeasure @default(UNIT) // Forma de despacho
+  hasVariants    Boolean       @default(false) // Phase 4: Matrix Variants
+  imageUrl       String?
+  isBundle       Boolean       @default(false)
   supplierId     String?
   supplier       Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  variants      ProductVariant[]
+  bundleItems   ProductBundleItem[] @relation("BundleParent")
+  partOfBundles ProductBundleItem[] @relation("BundleComponent")
+  stocks        ProductStock[]
+  saleItems     SaleItem[]
+  transferItems StockTransferItem[]
+  purchaseItems PurchaseOrderItem[]
+  inventoryAdjustments InventoryAdjustment[]
+
+  @@unique([companyId, sku])
+  @@unique([companyId, barcode])
+}
+
+model ProductVariant {
+  id             String        @id @default(uuid())
+  productId      String
+  product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku            String        // Specific SKU for the variant
+  barcode        String?
+  name           String        // e.g., "Rojo - Talla M" or "Caja x 12"
+  price          Decimal?      @db.Decimal(10, 2) // Optional override
+  wholesalePrice Decimal?      @db.Decimal(10, 2) // Optional override
+  cost           Decimal?      @db.Decimal(10, 2) // Optional override
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -203,23 +241,61 @@ model Product {
   saleItems     SaleItem[]
   transferItems StockTransferItem[]
   purchaseItems PurchaseOrderItem[]
+  bundleItems   ProductBundleItem[]
 
-  @@unique([companyId, sku])
-  @@unique([companyId, barcode])
+  @@unique([productId, sku])
 }
 
-/// Stock tracked per branch. A product has one stock row per branch.
+/// Stock tracked per branch. A product has one stock row per branch. // Phase 4: Per branch per Variant
 model ProductStock {
   id        String   @id @default(uuid())
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
   branchId  String
   branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   quantity  Int      @default(0)
   minStock  Int      @default(5)
   updatedAt DateTime @updatedAt
 
-  @@unique([productId, branchId])
+  // We remove the old constraint to let prisma auto-index correctly for variants constraint overlapping
+  // We use @@unique to avoid dual rows over the same variant. 
+  // Postgres treats NULLs as distinct so this allows multiple NULL variants (which we will handle logically).
+  @@index([productId, branchId, variantId])
+}
+
+model InventoryAdjustment {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  
+  oldQuantity Int
+  newQuantity Int
+  difference  Int
+  reason      String   // E.g., "Merma", "Conteo físico ciego", "Daño"
+  createdAt   DateTime @default(now())
+
+  @@index([branchId, productId])
+}
+
+model ProductBundleItem {
+  id              String   @id @default(uuid())
+  bundleProductId String
+  bundleProduct   Product  @relation("BundleParent", fields: [bundleProductId], references: [id], onDelete: Cascade)
+  componentId     String
+  component       Product  @relation("BundleComponent", fields: [componentId], references: [id], onDelete: Restrict)
+  variantId       String?
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  quantity        Int      @default(1)
+
+  @@unique([bundleProductId, componentId, variantId])
 }
 
 // =======================
@@ -278,6 +354,8 @@ model PurchaseOrderItem {
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   productId       String
   product         Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variantId       String?
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   quantity        Int
   unitCost        Decimal       @db.Decimal(10, 2)
   subtotal        Decimal       @db.Decimal(10, 2)
@@ -302,7 +380,22 @@ model Customer {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  sales Sale[]
+  sales         Sale[]
+  accountPayments AccountPayment[]
+}
+
+model AccountPayment {
+  id           String   @id @default(uuid())
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  
+  amount       Decimal  @db.Decimal(10, 2)
+  method       PaymentMethod
+  reference    String?
+  notes        String?
+  createdAt    DateTime @default(now())
 }
 
 // =======================
@@ -335,8 +428,24 @@ model Sale {
   // Relations
   items    SaleItem[]
   payments Payment[]
+  returns  SaleReturn[]
 
   @@unique([companyId, invoiceNumber])
+}
+
+model SaleReturn {
+  id          String   @id @default(uuid())
+  saleId      String
+  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  reason      String
+  amount      Decimal  @db.Decimal(10, 2)
+  stockAdded  Boolean  @default(true) // Whether the items were actually returned to the physical shelf
+  createdAt   DateTime @default(now())
+
+  // We could have item-level returns instead of full invoice returns, 
+  // keeping it simple for now, linked to entire Sale but describing amount.
 }
 
 model SaleItem {
@@ -345,6 +454,8 @@ model SaleItem {
   sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   quantity  Int
   unitPrice Decimal @db.Decimal(10, 2)
   discount  Decimal @default(0) @db.Decimal(10, 2) // per-item discount amount
@@ -379,7 +490,27 @@ model CashRegister {
   closedAt       DateTime?
 
   // Relations
-  sales Sale[]
+  sales        Sale[]
+  transactions CashRegisterTransaction[]
+}
+
+enum PayoutType {
+  EXPENSE
+  WITHDRAWAL
+  REFUND
+}
+
+model CashRegisterTransaction {
+  id             String       @id @default(uuid())
+  cashRegisterId String
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  type           PayoutType   @default(EXPENSE)
+  amount         Decimal      @db.Decimal(10, 2)
+  description    String
+  reference      String?
+  createdAt      DateTime     @default(now())
 }
 
 // =======================
@@ -520,5 +651,7 @@ model StockTransferItem {
   transfer        StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
   productId       String
   product         Product       @relation(fields: [productId], references: [id])
+  variantId       String?
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   quantity        Int
 }

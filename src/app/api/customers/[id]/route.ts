@@ -4,8 +4,9 @@ import { authOptions } from '@/lib/auth';
 import { getServerSession } from 'next-auth';
 
 // Actualizar Cliente Existente
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const resolvedParams = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.companyId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
@@ -14,7 +15,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     const customer = await prisma.customer.update({
       where: {
-        id: params.id,
+        id: resolvedParams.id,
         companyId: session.user.companyId,
       },
       data: {
@@ -35,14 +36,15 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 }
 
 // Opcional: Eliminar Cliente
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const resolvedParams = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.companyId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
     await prisma.customer.delete({
       where: {
-        id: params.id,
+        id: resolvedParams.id,
         companyId: session.user.companyId,
       },
     });

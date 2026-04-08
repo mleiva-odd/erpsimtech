@@ -27,18 +27,28 @@ export async function POST(req: NextRequest) {
     // Bulletproof Transaction mapping thousands of rows concurrently safely
     const createdCount = await prisma.$transaction(async (tx) => {
       let count = 0;
+
+      // Group rows by Parent Name
+      const productMap = new Map<string, any[]>();
       for (const p of products) {
-        if (!p.sku || !p.name) continue; // Skip totally broken rows
+        if (!p.name || !p.sku) continue; // Skip broken rows
+        const key = String(p.name).trim();
+        if (!productMap.has(key)) productMap.set(key, []);
+        productMap.get(key)!.push(p);
+      }
+
+      for (const [parentName, rows] of productMap.entries()) {
+        const firstRow = rows[0];
 
         // Dynamic Category Mapping
-        let categoryId = p.categoryId;
-        if (!categoryId && p.categoryName) {
+        let categoryId = firstRow.categoryId;
+        if (!categoryId && firstRow.categoryName) {
            let cat = await tx.category.findFirst({
-             where: { companyId: tenant.companyId, name: { equals: p.categoryName, mode: 'insensitive' } }
+             where: { companyId: tenant.companyId, name: { equals: String(firstRow.categoryName).trim(), mode: 'insensitive' } }
            });
            if (!cat) { // Auto-create requested missing category
               cat = await tx.category.create({
-                data: { companyId: tenant.companyId, name: p.categoryName, description: 'Generada por Smart Import' }
+                data: { companyId: tenant.companyId, name: String(firstRow.categoryName).trim(), description: 'Generada por Smart Import' }
               });
            }
            categoryId = cat.id;
@@ -51,39 +61,78 @@ export async function POST(req: NextRequest) {
            categoryId = fallback.id;
         }
 
-        // Anti-Fraud Duplication Check via SKU
-        const exists = await tx.product.findFirst({
-           where: { companyId: tenant.companyId, sku: String(p.sku) }
-        });
-
-        if (exists) continue; // Silent Skip (Do not break batch processing)
-
         // Map and Format UOM safely
         const validUOM = ['UNIT', 'KG', 'LB', 'LITER', 'GALLON', 'BOX'];
-        const chosenUOM = validUOM.includes(p.unitOfMeasure?.toUpperCase()) ? p.unitOfMeasure?.toUpperCase() : 'UNIT';
+        const chosenUOM = validUOM.includes(firstRow.unitOfMeasure?.toUpperCase()) ? firstRow.unitOfMeasure?.toUpperCase() : 'UNIT';
 
-        await tx.product.create({
-          data: {
-            companyId: tenant.companyId,
-            categoryId,
-            name: String(p.name).trim(),
-            sku: String(p.sku).trim(),
-            barcode: p.barcode ? String(p.barcode) : null,
-            price: Number(p.price) || 0,
-            wholesalePrice: p.wholesalePrice ? Number(p.wholesalePrice) : null,
-            cost: Number(p.cost) || 0,
-            unitOfMeasure: chosenUOM as any,
-            isTaxExempt: p.isTaxExempt === 'SI' || p.isTaxExempt === true || p.isTaxExempt === 'true',
-            stocks: {
-              create: {
-                branchId,
-                quantity: Number(p.stock) || 0,
-                minStock: Number(p.minStock) || 5
+        const isMatrix = rows.length > 1 || !!firstRow.variantName;
+
+        if (!isMatrix) {
+          // Normal Simple Product Check
+          const exists = await tx.product.findFirst({
+             where: { companyId: tenant.companyId, sku: String(firstRow.sku).trim() }
+          });
+          if (exists) continue;
+
+          await tx.product.create({
+            data: {
+              companyId: tenant.companyId,
+              categoryId,
+              name: parentName,
+              sku: String(firstRow.sku).trim(),
+              barcode: firstRow.barcode ? String(firstRow.barcode) : null,
+              price: Number(firstRow.price) || 0,
+              cost: Number(firstRow.cost) || 0,
+              stocks: {
+                create: {
+                  branchId,
+                  quantity: Number(firstRow.stock) || 0,
+                  minStock: Number(firstRow.minStock) || 5
+                }
               }
             }
+          });
+          count++;
+        } else {
+          // Matrix Multi-Variant Product grouping
+          const parentSku = `MAT-${String(firstRow.sku).trim().substring(0,6)}-${Date.now().toString().slice(-4)}`;
+          const exists = await tx.product.findFirst({ where: { companyId: tenant.companyId, name: parentName } });
+          
+          if (exists) continue; // Skip if parent exact name already injected
+          
+          const p = await tx.product.create({
+            data: {
+              companyId: tenant.companyId,
+              categoryId,
+              name: parentName,
+              sku: parentSku, // Virtual Master SKU for the Folder
+              price: 0,
+              cost: 0,
+              hasVariants: true
+            }
+          });
+
+          for (const r of rows) {
+             await tx.productVariant.create({
+               data: {
+                 productId: p.id,
+                 name: String(r.variantName || r.sku).trim(),
+                 sku: String(r.sku).trim(),
+                 barcode: r.barcode ? String(r.barcode) : null,
+                 price: Number(r.price) || Number(firstRow.price) || 0,
+                 stocks: {
+                   create: {
+                     productId: p.id,
+                     branchId,
+                     quantity: Number(r.stock) || 0,
+                     minStock: Number(r.minStock) || 5
+                   }
+                 }
+               }
+             });
           }
-        });
-        count++;
+          count++;
+        }
       }
       return count;
     }, { timeout: 30000 }); // Allowed 30 seconds for giant datasets

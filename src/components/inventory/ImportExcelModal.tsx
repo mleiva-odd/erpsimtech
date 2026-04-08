@@ -15,8 +15,10 @@ export function ImportExcelModal({ onClose, onSuccess }: ImportExcelModalProps) 
   const [error, setError] = useState<string | null>(null);
 
   const handleDownloadTemplate = () => {
-    const headers = "name,sku,barcode,categoryName,price,wholesalePrice,cost,stock,minStock,unitOfMeasure,isTaxExempt\n" + 
-                    "Silla Ergonómica,SILLA-001,894912,Muebles,800.00,750.00,500.00,10,3,UNIT,FALSE";
+    const headers = "name,variantName,sku,barcode,categoryName,price,wholesalePrice,cost,stock,minStock,unitOfMeasure,isTaxExempt\n" + 
+                    "Silla Ergonómica Normal,,SILLA-001,894912,Muebles,800.00,750.00,500.00,10,3,UNIT,FALSE\n" +
+                    "Camisa Polo Matriz,Talla S,POLOM-S,894913,Ropa,150.00,100.00,50.00,50,10,UNIT,FALSE\n" +
+                    "Camisa Polo Matriz,Talla M,POLOM-M,894914,Ropa,150.00,100.00,50.00,30,10,UNIT,FALSE";
     const blob = new Blob([headers], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);

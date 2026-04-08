@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Propuesta Comercial SIMTECH POS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0E2A47;
+            --secondary: #1F2937;
+            --text-regular: #4B5563;
+            --border-color: #E5E7EB;
+            --bg-table: #F3F4F6;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--secondary);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40mm 20mm; /* Simulando márgenes de hoja */
+            background-color: #fff;
+        }
+        .page-wrapper {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+        /* ENCABEZADO */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+        .logo-container {
+            width: 220px;
+        }
+        .logo {
+            width: 100%;
+            height: auto;
+            max-height: 70px;
+            object-fit: contain;
+            object-position: left bottom;
+        }
+        .doc-title-container {
+            text-align: right;
+        }
+        .doc-title {
+            color: var(--primary);
+            font-size: 26px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+        .doc-date {
+            color: var(--text-regular);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        /* BLOQUE INFO */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background-color: var(--bg-table);
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+        .info-grid p {
+            margin: 4px 0;
+        }
+        .info-grid strong {
+            color: var(--primary);
+            margin-right: 5px;
+        }
+
+        /* SECCIONES */
+        h2 {
+            color: var(--primary);
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            margin-top: 45px;
+            margin-bottom: 15px;
+            page-break-after: avoid;
+        }
+        p {
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: var(--secondary);
+            text-align: justify;
+        }
+        ul {
+            margin-top: 0;
+            margin-bottom: 25px;
+            padding-left: 20px;
+            font-size: 14px;
+            color: var(--secondary);
+        }
+        ul li {
+            margin-bottom: 8px;
+        }
+        ul li strong {
+            color: var(--primary);
+        }
+
+        /* TABLAS */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            font-size: 14px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            background-color: var(--primary);
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            text-align: left;
+            letter-spacing: 0.5px;
+        }
+        td {
+            text-align: left;
+            color: var(--secondary);
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .row-total {
+            background-color: var(--bg-table);
+            font-weight: 700;
+        }
+        
+        .section-desc {
+            font-size: 13px;
+            color: var(--text-regular);
+            font-style: italic;
+            margin-bottom: 15px;
+        }
+        
+        .note-box {
+            background-color: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 0 4px 4px 0;
+            font-size: 13px;
+            color: #92400E;
+            page-break-inside: avoid;
+        }
+
+        .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-regular);
+        }
+
+        /* REGLAS DE IMPRESIÓN PDF */
+        .no-break {
+            page-break-inside: avoid;
+        }
+        @media print {
+            body {
+                padding: 0;
+                margin: 15mm;
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .page-wrapper {
+                max-width: 100%;
+            }
+            h2, table, tr, th, td, .info-grid, .note-box {
+                page-break-inside: avoid;
+            }
+            ul {
+                page-break-inside: auto;
+            }
+            li {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+        
+        <!-- ENCABEZADO -->
+        <div class="header">
+            <div class="logo-container">
+                <!-- El logo se cargará directamente al abrir el HTML en la carpeta del proyecto -->
+                <img src="simtechlogo.png" alt="SIMTECH Logo" class="logo">
+            </div>
+            <div class="doc-title-container">
+                <h1 class="doc-title">PROPUESTA COMERCIAL</h1>
+                <div class="doc-date">Fecha: 6 de Abril de 2026</div>
+            </div>
+        </div>
+
+        <!-- INFO CLIENTE -->
+        <div class="info-grid no-break">
+            <div>
+                <p><strong>Elaborado por:</strong> SIMTECH Soluciones Tecnológicas</p>
+                <p><strong>Representante:</strong> Marvin Leiva</p>
+            </div>
+            <div>
+                <p><strong>Para:</strong> [Nombre Completo del Cliente / Empresa]</p>
+                <p><strong>Proyecto:</strong> Sistema ERP/POS Multi-Sucursal</p>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 1 -->
+        <h2>1. Objetivo del Proyecto</h2>
+        <p>Proveer a su empresa un sistema de Punto de Venta (POS) y gestión ERP en la nube, construido bajo los más altos estándares tecnológicos. El sistema está optimizado para el control centralizado de sus 5 sucursales, agilizando los tiempos en caja, controlando el stock en tiempo real y proveyendo métricas instantáneas para facilitar la toma de decisiones gerenciales.</p>
+
+        <!-- SECCIÓN 2 -->
+        <h2>2. Alcance Tecnológico y Funcional</h2>
+        <ul>
+            <li><strong>Gestión Multi-Sucursal en la Nube:</strong> Control integral de las 5 tiendas desde una sola plataforma unificada.</li>
+            <li><strong>Punto de Venta (POS):</strong> Interfaz ágil diseñada para 2 a 3 cajeros simultáneos por tienda. Cuenta con validación matemática estricta para garantizar cierres de caja exactos.</li>
+            <li><strong>Módulo de Inventarios:</strong> Monitoreo de transferencias entre canales, visibilidad de stock global y registro de entradas y salidas al instante.</li>
+            <li><strong>Gestión de Usuarios y Seguridad:</strong> Roles y permisos definidos (Cajeros, Encargados de Tienda y Propietarios) para restringir acciones sensibles.</li>
+            <li><strong>Reportabilidad Avanzada:</strong> Acceso remoto en cualquier momento a ventas diarias por sucursal, rentabilidad y desempeño del negocio.</li>
+        </ul>
+
+        <!-- SECCIÓN 3 -->
+        <h2>3. Plan de Precios e Inversión</h2>
+        <p>A continuación se detallan los costos asociados a la implementación y licenciamiento recurrente del sistema.</p>
+
+        <div class="no-break">
+            <p class="section-desc"><strong>A. Configuración Inicial e Implementación (Pago Único)</strong><br>
+            Incluye: Despliegue de servidores en la nube, configuración de la base de datos para las 5 sucursales, alta de usuarios iniciales, e inducción y capacitación a encargados.</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descripción</th>
+                        <th class="text-center" style="width: 15%">Cantidad</th>
+                        <th class="text-right" style="width: 20%">Costo Unit.</th>
+                        <th class="text-right" style="width: 20%">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Setup e Implementación de Entorno por Tienda</td>
+                        <td class="text-center">5</td>
+                        <td class="text-right">Q 1,400.00</td>
+                        <td class="text-right">Q 7,000.00</td>
+                    </tr>
+                    <tr class="row-total">
+                        <td colspan="3" class="text-right">Total Inversión Inicial:</td>
+                        <td class="text-right">Q 7,000.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="no-break" style="margin-top: 30px;">
+            <p class="section-desc"><strong>B. Uso de Servidores, Licencia y Soporte (Suscripción Mensual)</strong><br>
+            Incluye: Uso ilimitado de la plataforma (24/7), gastos de alojamiento en la nube, copias de seguridad de datos automáticas (Backups), y soporte técnico directo para asistencia.</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Descripción</th>
+                        <th class="text-center" style="width: 15%">Cantidad</th>
+                        <th class="text-right" style="width: 20%">Costo Unit.</th>
+                        <th class="text-right" style="width: 20%">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Licencia Mensual de Sistema (Por Sucursal Activa)</td>
+                        <td class="text-center">5</td>
+                        <td class="text-right">Q 450.00</td>
+                        <td class="text-right">Q 2,250.00</td>
+                    </tr>
+                    <tr class="row-total">
+                        <td colspan="3" class="text-right">Pago Mensual Recurrente:</td>
+                        <td class="text-right">Q 2,250.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- FACTURACIÓN EXTRAS -->
+        <div class="no-break" style="margin-top: 30px;">
+            <p class="section-desc" style="color: #0E2A47;"><strong>C. Integración con Facturación Electrónica en Línea (FEL) - [OPCIONAL/EXTRA]</strong></p>
+            <p>El sistema cuenta con la capacidad de integrarse con proveedores de Facturación Electrónica (Certificadores autorizados). Debido a que la facturación electrónica incluye costos por consumo de documentos (timbres) e integraciones con API externas:</p>
+            <ul>
+                <li>El desarrollo de la integración FEL (si no cuentan con un integrador compatible) o los paquetes de certificación (timbres) requerirán una cotización técnica adicional basada en el volumen mensual de documentos que la empresa procesa.</li>
+                <li>Este rubro no está cubierto en la Licencia Mensual regular y será definido independientemente.</li>
+            </ul>
+        </div>
+
+        <!-- SECCIÓN 4 -->
+        <h2>4. Condiciones Comerciales</h2>
+        <ul style="margin-bottom: 10px;">
+            <li><strong>Tiempo de entrega proyectado:</strong> 1 a 2 semanas a partir de la firma de aceptación y entrega de anticipo.</li>
+            <li><strong>Forma de pago (Implementación):</strong> 50% de anticipo para iniciar el despliegue técnico, y 50% restante al realizar la instalación definitiva en las sucursales.</li>
+            <li><strong>Forma de pago (Suscripción):</strong> Las mensualidades iniciarán su facturación a los 30 días posteriores al inicio de operaciones del sistema en tienda.</li>
+            <li><strong>Soporte Inmediato:</strong> Sin cobro por limitación de usuarios (Cajeros Ilimitados en la misma sucursal).</li>
+            <li><strong>Confidencialidad:</strong> Todo registro de transacciones e inventarios es estrictamente propiedad del cliente.</li>
+        </ul>
+
+        <div class="note-box">
+            <strong>Hardware No Incluido:</strong> Esta estimación contempla únicamente licencias lógicas y configuración de software. El hardware necesario (impresoras térmicas, lectores de código o terminales de escritorio) no está incluido.
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            <p>© 2026 SIMTECH - Soluciones de Software POS Avanzadas.</p>
+            <p>Este documento constituye una oferta comercial privada, confidencial y válida por 15 días.</p>
+        </div>
+
+    </div>
+</body>
+</html>

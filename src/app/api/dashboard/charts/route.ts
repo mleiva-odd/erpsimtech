@@ -2,12 +2,20 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 
-export async function GET() {
+export async function GET(req: Request) {
   const result = await requireTenant();
   if ('error' in result) return result.error;
   const { tenant } = result;
 
   try {
+    const { searchParams } = new URL(req.url);
+    const requestedBranchId = searchParams.get('branchId');
+    const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+
+    const targetBranchId = (!isAdmin || !requestedBranchId || requestedBranchId === 'null')
+      ? tenant.branchId
+      : requestedBranchId;
+
     const now = new Date();
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);
@@ -21,7 +29,7 @@ export async function GET() {
       companyId: tenant.companyId,
       status: 'COMPLETED',
     };
-    if (tenant.branchId) salesWhere.branchId = tenant.branchId;
+    if (targetBranchId) salesWhere.branchId = targetBranchId;
 
     const [
       salesLast7Days,

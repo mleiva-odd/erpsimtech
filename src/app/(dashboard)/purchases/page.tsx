@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { Inbox, Plus, Search, Trash2, ArrowLeft, Save, Loader2, PackageOpen } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
+import { VariantSelectionModal } from '@/components/pos/VariantSelectionModal';
 
 interface Supplier { id: string; name: string; }
-interface Product { id: string; name: string; sku: string; cost: string; unitOfMeasure: string; }
-interface PurchaseItem { product: Product; quantity: number; cost: number; }
+interface Product { id: string; name: string; sku: string; cost: string; unitOfMeasure: string; hasVariants?: boolean; variants?: any[]; }
+interface PurchaseItem { product: Product; variantId?: string; variantName?: string; quantity: number; cost: number; }
 
 export default function PurchasesPage() {
   const [view, setView] = useState<'history' | 'new'>('history');
@@ -22,6 +23,7 @@ export default function PurchasesPage() {
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [variantModalProduct, setVariantModalProduct] = useState<Product | null>(null);
 
   const debouncedSearch = useDebounce(searchQuery, 400);
 
@@ -56,17 +58,27 @@ export default function PurchasesPage() {
       .finally(() => setIsSearching(false));
   }, [debouncedSearch]);
 
-  const addProduct = (p: Product) => {
-    if (cart.find(item => item.product.id === p.id)) return; // prevent dups
-    setCart([...cart, { product: p, quantity: 1, cost: Number(p.cost) }]);
+  const addProduct = (p: Product, variantId?: string, variantName?: string) => {
+    if (p.hasVariants && !variantId) {
+      setVariantModalProduct(p);
+      return;
+    }
+
+    const uniqueKey = p.id + (variantId ? `-${variantId}` : '');
+    if (cart.find(item => (item.product.id + (item.variantId ? `-${item.variantId}` : '')) === uniqueKey)) return; 
+
+    setCart([...cart, { product: p, variantId, variantName, quantity: 1, cost: Number(p.cost) }]);
     setSearchQuery('');
     setSearchResults([]);
+    setVariantModalProduct(null);
   };
 
-  const removeProduct = (id: string) => setCart(cart.filter(item => item.product.id !== id));
+  const removeProduct = (productId: string, variantId?: string) => {
+    setCart(cart.filter(item => item.product.id !== productId || item.variantId !== variantId));
+  };
   
-  const updateProduct = (id: string, field: 'quantity'|'cost', value: number) => {
-    setCart(cart.map(item => item.product.id === id ? { ...item, [field]: value } : item));
+  const updateProduct = (productId: string, variantId: string | undefined, field: 'quantity'|'cost', value: number) => {
+    setCart(cart.map(item => (item.product.id === productId && item.variantId === variantId) ? { ...item, [field]: value } : item));
   };
 
   const handleSubmit = async () => {
@@ -78,7 +90,7 @@ export default function PurchasesPage() {
       const payload = {
         supplierId: selectedSupplier,
         reference,
-        items: cart.map(item => ({ productId: item.product.id, quantity: item.quantity, cost: item.cost }))
+        items: cart.map(item => ({ productId: item.product.id, variantId: item.variantId, quantity: item.quantity, cost: item.cost }))
       };
       const res = await fetch('/api/purchases', {
         method: 'POST',
@@ -111,6 +123,15 @@ export default function PurchasesPage() {
             <p className="text-sm text-slate-500">Documento Transaccional B2B ERP</p>
           </div>
         </div>
+
+        {variantModalProduct && (
+          <VariantSelectionModal
+            isOpen={!!variantModalProduct}
+            product={variantModalProduct}
+            onClose={() => setVariantModalProduct(null)}
+            onSelect={(_, variant) => addProduct(variantModalProduct as Product, variant.id, variant.name)}
+          />
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 overflow-hidden">
           {/* Form and Search Panel */}
@@ -171,22 +192,22 @@ export default function PurchasesPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {cart.map(item => (
-                      <tr key={item.product.id} className="hover:bg-slate-50/50">
+                      <tr key={item.product.id + (item.variantId ? `-${item.variantId}` : '')} className="hover:bg-slate-50/50">
                         <td className="p-4">
-                          <div className="font-bold text-slate-800">{item.product.name}</div>
-                          <div className="text-xs text-slate-500">{item.product.sku} ({item.product.unitOfMeasure})</div>
+                          <div className="font-bold text-slate-800">{item.product.name} {item.variantName && <span className="text-emerald-600 ml-1">({item.variantName})</span>}</div>
+                          <div className="text-xs text-slate-500">{item.product.sku}</div>
                         </td>
                         <td className="p-4">
-                          <input type="number" min="1" value={item.quantity} onChange={(e)=>updateProduct(item.product.id, 'quantity', Number(e.target.value))} className="w-20 text-center p-2 border border-slate-200 rounded-lg mx-auto block font-bold" />
+                          <input type="number" min="1" value={item.quantity} onChange={(e)=>updateProduct(item.product.id, item.variantId, 'quantity', Number(e.target.value))} className="w-20 text-center p-2 border border-slate-200 rounded-lg mx-auto block font-bold" />
                         </td>
                         <td className="p-4">
-                          <input type="number" step="0.01" min="0" value={item.cost} onChange={(e)=>updateProduct(item.product.id, 'cost', Number(e.target.value))} className="w-24 text-center p-2 border border-slate-200 rounded-lg mx-auto block" />
+                          <input type="number" step="0.01" min="0" value={item.cost} onChange={(e)=>updateProduct(item.product.id, item.variantId, 'cost', Number(e.target.value))} className="w-24 text-center p-2 border border-slate-200 rounded-lg mx-auto block" />
                         </td>
                         <td className="p-4 text-right font-bold text-slate-700">
                           Q{(item.quantity * item.cost).toFixed(2)}
                         </td>
                         <td className="p-4 text-center">
-                          <button onClick={()=>removeProduct(item.product.id)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+                          <button onClick={()=>removeProduct(item.product.id, item.variantId)} className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
                         </td>
                       </tr>
                     ))}

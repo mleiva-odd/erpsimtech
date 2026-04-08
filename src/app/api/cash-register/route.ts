@@ -105,6 +105,12 @@ export async function PUT(req: NextRequest) {
   try {
     const activeRegister = await prisma.cashRegister.findFirst({
       where: { userId: tenant.userId, status: 'OPEN' },
+      include: {
+        sales: {
+          include: { payments: true }
+        },
+        transactions: true
+      }
     });
 
     if (!activeRegister) {
@@ -114,6 +120,24 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const parsed = CloseRegisterSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
+
+    const cashPayments = activeRegister.sales
+      .flatMap(s => s.payments)
+      .filter(p => p.method === 'CASH')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+
+    const totalExpenses = activeRegister.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const expectedCash = Number(activeRegister.openingBalance) + cashPayments - totalExpenses;
+    const declaredCash = parsed.data.closingBalance;
+    const difference = declaredCash - expectedCash;
+
+    // Validación Estricta: Faltante o Sobrante (Tolerancia de 0.05 centavos para JS floats)
+    if (Math.abs(difference) > 0.05) {
+      return NextResponse.json({ 
+        error: `Descuadre de Caja: Declaraste Q${declaredCash.toFixed(2)}, pero el sistema calcula Q${expectedCash.toFixed(2)} (Fondo + Ventas - Egresos). ${difference < 0 ? `Faltan Q${Math.abs(difference).toFixed(2)}` : `Sobran Q${difference.toFixed(2)}`}.` 
+      }, { status: 400 });
+    }
 
     const closedRegister = await prisma.cashRegister.update({
       where: { id: activeRegister.id },

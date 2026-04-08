@@ -131,7 +131,14 @@ export function TicketModal({ saleId, onClose }: TicketModalProps) {
             {sale.items.map((item: any) => (
               <tr key={item.id}>
                 <td className="py-1 align-top">{item.quantity}</td>
-                <td className="py-1 align-top px-1">{item.product.name}</td>
+                <td className="py-1 align-top px-1">
+                  <div>{item.product.name}</div>
+                  {item.variant && (
+                    <div className="text-[10px] text-slate-500 font-medium">
+                      {item.variant.name}
+                    </div>
+                  )}
+                </td>
                 <td className="py-1 align-top text-right">{currencySymbol}{Number(item.subtotal).toFixed(2)}</td>
               </tr>
             ))}

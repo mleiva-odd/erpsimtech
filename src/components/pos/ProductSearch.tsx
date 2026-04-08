@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, X } from 'lucide-react';
 import { useCartStore, CartProduct } from '@/stores/cartStore';
 import { useDebounce } from '@/hooks/useDebounce';
+import { VariantSelectionModal } from '@/components/pos/VariantSelectionModal';
 
 interface Product {
   id: string;
@@ -13,6 +14,8 @@ interface Product {
   price: number;
   stock: number;
   category: { id: string; name: string };
+  hasVariants?: boolean;
+  variants?: any[];
 }
 
 export function ProductSearch() {
@@ -20,6 +23,7 @@ export function ProductSearch() {
   const [results, setResults] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [variantModal, setVariantModal] = useState<{isOpen: boolean, product: Product | null}>({ isOpen: false, product: null });
   const inputRef = useRef<HTMLInputElement>(null);
   const addItem = useCartStore((s) => s.addItem);
   const debouncedQuery = useDebounce(query, 300);
@@ -41,6 +45,10 @@ export function ProductSearch() {
   }, [debouncedQuery]);
 
   const handleSelect = (product: Product) => {
+    if (product.hasVariants && product.variants && product.variants.length > 0) {
+      setVariantModal({ isOpen: true, product });
+      return;
+    }
     const cartProduct: CartProduct = {
       id: product.id,
       name: product.name,
@@ -49,6 +57,22 @@ export function ProductSearch() {
       stock: product.stock,
     };
     addItem(cartProduct);
+    setQuery('');
+    setResults([]);
+    setShowResults(false);
+    inputRef.current?.focus();
+  };
+
+  const handleVariantSelect = (product: Product, variant: any) => {
+    addItem({
+      id: product.id,
+      variantId: variant.id,
+      name: `${product.name} - ${variant.name}`,
+      sku: variant.sku,
+      price: Number(variant.price),
+      stock: variant.stocks?.[0]?.quantity ?? 0
+    });
+    setVariantModal({ isOpen: false, product: null });
     setQuery('');
     setResults([]);
     setShowResults(false);
@@ -102,6 +126,17 @@ export function ProductSearch() {
           ))}
         </div>
       )}
+
+      {/* Pop-up selector de Variantes */}
+      <VariantSelectionModal 
+        isOpen={variantModal.isOpen} 
+        product={variantModal.product as any} 
+        onClose={() => {
+          setVariantModal({ isOpen: false, product: null });
+          inputRef.current?.focus();
+        }} 
+        onSelect={handleVariantSelect as any} 
+      />
     </div>
   );
 }

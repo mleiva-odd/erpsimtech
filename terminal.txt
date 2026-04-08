@@ -1,0 +1,427 @@
+GET /api/auth/session 200 in 13ms (next.js: 4ms, proxy.ts: 3ms, application-code: 6ms)
+prisma:query SELECT 1
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt", COALESCE("aggr_selection_0_User"."_aggr_count_users", 0) AS "_aggr_count_users", COALESCE("aggr_selection_1_Sale"."_aggr_count_sales", 0) AS "_aggr_count_sales", COALESCE("aggr_selection_2_ProductStock"."_aggr_count_productStocks", 0) AS "_aggr_count_productStocks" FROM "public"."Branch" LEFT JOIN (SELECT "public"."User"."branchId", COUNT(*) AS "_aggr_count_users" FROM "public"."User" WHERE 1=1 GROUP BY "public"."User"."branchId") AS "aggr_selection_0_User" ON ("public"."Branch"."id" = "aggr_selection_0_User"."branchId") LEFT JOIN (SELECT "public"."Sale"."branchId", COUNT(*) AS "_aggr_count_sales" FROM "public"."Sale" WHERE 1=1 GROUP BY "public"."Sale"."branchId") AS "aggr_selection_1_Sale" ON ("public"."Branch"."id" = "aggr_selection_1_Sale"."branchId") LEFT JOIN (SELECT "public"."ProductStock"."branchId", COUNT(*) AS "_aggr_count_productStocks" FROM "public"."ProductStock" WHERE 1=1 GROUP BY "public"."ProductStock"."branchId") AS "aggr_selection_2_ProductStock" ON ("public"."Branch"."id" = "aggr_selection_2_ProductStock"."branchId") WHERE "public"."Branch"."companyId" = $1 ORDER BY "public"."Branch"."isMain" DESC, "public"."Branch"."name" ASC OFFSET $2
+ GET /api/branches 200 in 61ms (next.js: 1518µs, proxy.ts: 2ms, application-code: 57ms)
+prisma:warn In production, we recommend using `prisma generate --no-engine` (See: `prisma generate --help`)
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT 1
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT 1
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT "public"."Product"."id", "public"."Product"."name" FROM "public"."Product" WHERE ("public"."Product"."id" = $1 AND "public"."Product"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT "public"."Product"."id", "public"."Product"."name" FROM "public"."Product" WHERE ("public"."Product"."id" = $1 AND "public"."Product"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:error 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "24713dcb-833a-479e-8789-e9475817c193",
+            branchId: "cf1152a5-1810-40f3-b2cd-b95a48fb75ba"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+Transfer error: Error [PrismaClientValidationError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "24713dcb-833a-479e-8789-e9475817c193",
+            branchId: "cf1152a5-1810-40f3-b2cd-b95a48fb75ba"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+    at <unknown> (src/app/api/stock-transfers/route.ts:89:53)
+    at async POST (src/app/api/stock-transfers/route.ts:89:27)
+  87 |       if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+  88 |
+> 89 |       const originStock = await prisma.productStock.findUnique({
+     |                                                     ^
+  90 |         where: { productId_branchId: { productId: item.productId, branchId: fromBranchId } },
+  91 |       });
+  92 | {
+  clientVersion: '6.19.2'
+}
+ POST /api/stock-transfers 500 in 4.8s (next.js: 4.6s, proxy.ts: 3ms, application-code: 196ms)
+prisma:error 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "04f7b247-2848-46b9-a119-b036041c2ef1",
+            branchId: "14bf0ddb-a6b3-4626-8a23-38fcfec21d10"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+Transfer error: Error [PrismaClientValidationError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "04f7b247-2848-46b9-a119-b036041c2ef1",
+            branchId: "14bf0ddb-a6b3-4626-8a23-38fcfec21d10"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+    at <unknown> (src/app/api/stock-transfers/route.ts:89:53)
+    at async POST (src/app/api/stock-transfers/route.ts:89:27)
+  87 |       if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+  88 |
+> 89 |       const originStock = await prisma.productStock.findUnique({
+     |                                                     ^
+  90 |         where: { productId_branchId: { productId: item.productId, branchId: fromBranchId } },
+  91 |       });
+  92 | {
+  clientVersion: '6.19.2'
+}
+ POST /api/stock-transfers 500 in 34.7s (next.js: 34.4s, proxy.ts: 3ms, application-code: 270ms)
+ GET /api/auth/session 200 in 17ms (next.js: 6ms, proxy.ts: 3ms, application-code: 8ms)
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt", COALESCE("aggr_selection_0_User"."_aggr_count_users", 0) AS "_aggr_count_users", COALESCE("aggr_selection_1_Sale"."_aggr_count_sales", 0) AS "_aggr_count_sales", COALESCE("aggr_selection_2_ProductStock"."_aggr_count_productStocks", 0) AS "_aggr_count_productStocks" FROM "public"."Branch" LEFT JOIN (SELECT "public"."User"."branchId", COUNT(*) AS "_aggr_count_users" FROM "public"."User" WHERE 1=1 GROUP BY "public"."User"."branchId") AS "aggr_selection_0_User" ON ("public"."Branch"."id" = "aggr_selection_0_User"."branchId") LEFT JOIN (SELECT "public"."Sale"."branchId", COUNT(*) AS "_aggr_count_sales" FROM "public"."Sale" WHERE 1=1 GROUP BY "public"."Sale"."branchId") AS "aggr_selection_1_Sale" ON ("public"."Branch"."id" = "aggr_selection_1_Sale"."branchId") LEFT JOIN (SELECT "public"."ProductStock"."branchId", COUNT(*) AS "_aggr_count_productStocks" FROM "public"."ProductStock" WHERE 1=1 GROUP BY "public"."ProductStock"."branchId") AS "aggr_selection_2_ProductStock" ON ("public"."Branch"."id" = "aggr_selection_2_ProductStock"."branchId") WHERE "public"."Branch"."companyId" = $1 ORDER BY "public"."Branch"."isMain" DESC, "public"."Branch"."name" ASC OFFSET $2
+ GET /api/branches 200 in 57ms (next.js: 1319µs, proxy.ts: 2ms, application-code: 53ms)
+prisma:warn In production, we recommend using `prisma generate --no-engine` (See: `prisma generate --help`)
+ GET /stock-transfers 200 in 40ms (next.js: 1932µs, proxy.ts: 3ms, application-code: 35ms)
+ GET /api/auth/session 200 in 30ms (next.js: 16ms, proxy.ts: 8ms, application-code: 6ms)
+prisma:query SELECT "public"."Notification"."id", "public"."Notification"."companyId", "public"."Notification"."title", "public"."Notification"."message", "public"."Notification"."type"::text, "public"."Notification"."isRead", "public"."Notification"."createdAt" FROM "public"."Notification" WHERE "public"."Notification"."companyId" = $1 ORDER BY "public"."Notification"."createdAt" DESC LIMIT $2 OFFSET $3
+ GET /api/notifications 200 in 59ms (next.js: 4ms, proxy.ts: 24ms, application-code: 31ms)
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt", COALESCE("aggr_selection_0_User"."_aggr_count_users", 0) AS "_aggr_count_users", COALESCE("aggr_selection_1_Sale"."_aggr_count_sales", 0) AS "_aggr_count_sales", COALESCE("aggr_selection_2_ProductStock"."_aggr_count_productStocks", 0) AS "_aggr_count_productStocks" FROM "public"."Branch" LEFT JOIN (SELECT "public"."User"."branchId", COUNT(*) AS "_aggr_count_users" FROM "public"."User" WHERE 1=1 GROUP BY "public"."User"."branchId") AS "aggr_selection_0_User" ON ("public"."Branch"."id" = "aggr_selection_0_User"."branchId") LEFT JOIN (SELECT "public"."Sale"."branchId", COUNT(*) AS "_aggr_count_sales" FROM "public"."Sale" WHERE 1=1 GROUP BY "public"."Sale"."branchId") AS "aggr_selection_1_Sale" ON ("public"."Branch"."id" = "aggr_selection_1_Sale"."branchId") LEFT JOIN (SELECT "public"."ProductStock"."branchId", COUNT(*) AS "_aggr_count_productStocks" FROM "public"."ProductStock" WHERE 1=1 GROUP BY "public"."ProductStock"."branchId") AS "aggr_selection_2_ProductStock" ON ("public"."Branch"."id" = "aggr_selection_2_ProductStock"."branchId") WHERE "public"."Branch"."companyId" = $1 ORDER BY "public"."Branch"."isMain" DESC, "public"."Branch"."name" ASC OFFSET $2
+ GET /api/branches 200 in 88ms (next.js: 6ms, proxy.ts: 21ms, application-code: 62ms)
+prisma:query SELECT COUNT(*) AS "_count$_all" FROM (SELECT "public"."Product"."id" FROM "public"."Product" WHERE ("public"."Product"."companyId" = $1 AND "public"."Product"."active" = $2) OFFSET $3) AS "sub"
+prisma:query SELECT "public"."Product"."id", "public"."Product"."companyId", "public"."Product"."categoryId", "public"."Product"."sku", "public"."Product"."barcode", "public"."Product"."name", "public"."Product"."description", "public"."Product"."price", "public"."Product"."wholesalePrice", "public"."Product"."cost", "public"."Product"."isTaxExempt", "public"."Product"."unitOfMeasure"::text, "public"."Product"."hasVariants", "public"."Product"."supplierId", "public"."Product"."active", "public"."Product"."createdAt", "public"."Product"."updatedAt" FROM "public"."Product" WHERE ("public"."Product"."companyId" = $1 AND "public"."Product"."active" = $2) ORDER BY "public"."Product"."name" ASC LIMIT $3 OFFSET $4
+prisma:query SELECT "public"."Category"."id", "public"."Category"."name" FROM "public"."Category" WHERE "public"."Category"."id" IN ($1,$2) OFFSET $3
+prisma:query SELECT "public"."ProductStock"."id", "public"."ProductStock"."productId", "public"."ProductStock"."variantId", "public"."ProductStock"."branchId", "public"."ProductStock"."quantity", "public"."ProductStock"."minStock", "public"."ProductStock"."updatedAt" FROM "public"."ProductStock" WHERE ("public"."ProductStock"."variantId" IS NULL AND "public"."ProductStock"."productId" IN ($1,$2,$3)) OFFSET $4
+prisma:query SELECT "public"."ProductVariant"."id", "public"."ProductVariant"."productId", "public"."ProductVariant"."sku", "public"."ProductVariant"."barcode", "public"."ProductVariant"."name", "public"."ProductVariant"."price", "public"."ProductVariant"."wholesalePrice", "public"."ProductVariant"."cost", "public"."ProductVariant"."createdAt", "public"."ProductVariant"."updatedAt" FROM "public"."ProductVariant" WHERE "public"."ProductVariant"."productId" IN ($1,$2,$3) OFFSET $4
+prisma:query SELECT "public"."ProductStock"."id", "public"."ProductStock"."productId", "public"."ProductStock"."variantId", "public"."ProductStock"."branchId", "public"."ProductStock"."quantity", "public"."ProductStock"."minStock", "public"."ProductStock"."updatedAt" FROM "public"."ProductStock" WHERE "public"."ProductStock"."variantId" IN ($1,$2) OFFSET $3
+ GET /api/products?limit=500 200 in 127ms (next.js: 8ms, proxy.ts: 19ms, application-code: 99ms)
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt", COALESCE("aggr_selection_0_User"."_aggr_count_users", 0) AS "_aggr_count_users", COALESCE("aggr_selection_1_Sale"."_aggr_count_sales", 0) AS "_aggr_count_sales", COALESCE("aggr_selection_2_ProductStock"."_aggr_count_productStocks", 0) AS "_aggr_count_productStocks" FROM "public"."Branch" LEFT JOIN (SELECT "public"."User"."branchId", COUNT(*) AS "_aggr_count_users" FROM "public"."User" WHERE 1=1 GROUP BY "public"."User"."branchId") AS "aggr_selection_0_User" ON ("public"."Branch"."id" = "aggr_selection_0_User"."branchId") LEFT JOIN (SELECT "public"."Sale"."branchId", COUNT(*) AS "_aggr_count_sales" FROM "public"."Sale" WHERE 1=1 GROUP BY "public"."Sale"."branchId") AS "aggr_selection_1_Sale" ON ("public"."Branch"."id" = "aggr_selection_1_Sale"."branchId") LEFT JOIN (SELECT "public"."ProductStock"."branchId", COUNT(*) AS "_aggr_count_productStocks" FROM "public"."ProductStock" WHERE 1=1 GROUP BY "public"."ProductStock"."branchId") AS "aggr_selection_2_ProductStock" ON ("public"."Branch"."id" = "aggr_selection_2_ProductStock"."branchId") WHERE "public"."Branch"."companyId" = $1 ORDER BY "public"."Branch"."isMain" DESC, "public"."Branch"."name" ASC OFFSET $2
+ GET /api/branches 200 in 40ms (next.js: 1225µs, proxy.ts: 1813µs, application-code: 37ms)
+prisma:warn In production, we recommend using `prisma generate --no-engine` (See: `prisma generate --help`)
+prisma:query SELECT "public"."StockTransfer"."id", "public"."StockTransfer"."companyId", "public"."StockTransfer"."fromBranchId", "public"."StockTransfer"."toBranchId", "public"."StockTransfer"."userId", "public"."StockTransfer"."reference", "public"."StockTransfer"."status"::text, "public"."StockTransfer"."createdAt" FROM "public"."StockTransfer" WHERE "public"."StockTransfer"."companyId" = $1 ORDER BY "public"."StockTransfer"."createdAt" DESC LIMIT $2 OFFSET $3
+ GET /api/stock-transfers/history 200 in 46ms (next.js: 2ms, proxy.ts: 5ms, application-code: 39ms)
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT 1
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT "public"."Product"."id", "public"."Product"."name" FROM "public"."Product" WHERE ("public"."Product"."id" = $1 AND "public"."Product"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:error 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "24713dcb-833a-479e-8789-e9475817c193",
+            branchId: "cf1152a5-1810-40f3-b2cd-b95a48fb75ba"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+Transfer error: Error [PrismaClientValidationError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "24713dcb-833a-479e-8789-e9475817c193",
+            branchId: "cf1152a5-1810-40f3-b2cd-b95a48fb75ba"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+    at <unknown> (src/app/api/stock-transfers/route.ts:89:53)
+    at async POST (src/app/api/stock-transfers/route.ts:89:27)
+  87 |       if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+  88 |
+> 89 |       const originStock = await prisma.productStock.findUnique({
+     |                                                     ^
+  90 |         where: { productId_branchId: { productId: item.productId, branchId: fromBranchId } },
+  91 |       });
+  92 | {
+  clientVersion: '6.19.2'
+}
+ POST /api/stock-transfers 500 in 171ms (next.js: 3ms, proxy.ts: 3ms, application-code: 165ms)
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT 1
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT "public"."Product"."id", "public"."Product"."name" FROM "public"."Product" WHERE ("public"."Product"."id" = $1 AND "public"."Product"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:error 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "24713dcb-833a-479e-8789-e9475817c193",
+            branchId: "cf1152a5-1810-40f3-b2cd-b95a48fb75ba"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+Transfer error: Error [PrismaClientValidationError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "24713dcb-833a-479e-8789-e9475817c193",
+            branchId: "cf1152a5-1810-40f3-b2cd-b95a48fb75ba"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+    at <unknown> (src/app/api/stock-transfers/route.ts:89:53)
+    at async POST (src/app/api/stock-transfers/route.ts:89:27)
+  87 |       if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+  88 |
+> 89 |       const originStock = await prisma.productStock.findUnique({
+     |                                                     ^
+  90 |         where: { productId_branchId: { productId: item.productId, branchId: fromBranchId } },
+  91 |       });
+  92 | {
+  clientVersion: '6.19.2'
+}
+ POST /api/stock-transfers 500 in 140ms (next.js: 1814µs, proxy.ts: 4ms, application-code: 134ms)
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT "public"."Branch"."id", "public"."Branch"."companyId", "public"."Branch"."name", "public"."Branch"."code", "public"."Branch"."address", "public"."Branch"."phone", "public"."Branch"."isMain", "public"."Branch"."active", "public"."Branch"."createdAt", "public"."Branch"."updatedAt" FROM "public"."Branch" WHERE ("public"."Branch"."id" = $1 AND "public"."Branch"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:query SELECT "public"."Product"."id", "public"."Product"."name" FROM "public"."Product" WHERE ("public"."Product"."id" = $1 AND "public"."Product"."companyId" = $2) LIMIT $3 OFFSET $4
+prisma:error 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "04f7b247-2848-46b9-a119-b036041c2ef1",
+            branchId: "14bf0ddb-a6b3-4626-8a23-38fcfec21d10"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+Transfer error: Error [PrismaClientValidationError]: 
+Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique()` invocation in
+/Users/marvinleiva/Library/CloudStorage/OneDrive-WOL-GROUP/Progra/Desarrollo/POS/.next/dev/server/chunks/[root-of-the-server]__0ifuibs._.js:446:181
+
+  443     }
+  444 });
+  445 if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+→ 446 const originStock = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$prisma$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].productStock.findUnique({
+        where: {
+          productId_branchId: {
+          ~~~~~~~~~~~~~~~~~~
+            productId: "04f7b247-2848-46b9-a119-b036041c2ef1",
+            branchId: "14bf0ddb-a6b3-4626-8a23-38fcfec21d10"
+          },
+      ?   id?: String,
+      ?   AND?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   OR?: ProductStockWhereInput[],
+      ?   NOT?: ProductStockWhereInput | ProductStockWhereInput[],
+      ?   productId?: StringFilter | String,
+      ?   variantId?: StringNullableFilter | String | Null,
+      ?   branchId?: StringFilter | String,
+      ?   quantity?: IntFilter | Int,
+      ?   minStock?: IntFilter | Int,
+      ?   updatedAt?: DateTimeFilter | DateTime,
+      ?   product?: ProductScalarRelationFilter | ProductWhereInput,
+      ?   variant?: ProductVariantNullableScalarRelationFilter | ProductVariantWhereInput | Null,
+      ?   branch?: BranchScalarRelationFilter | BranchWhereInput
+        }
+      })
+
+Unknown argument `productId_branchId`. Available options are marked with ?.
+    at <unknown> (src/app/api/stock-transfers/route.ts:89:53)
+    at async POST (src/app/api/stock-transfers/route.ts:89:27)
+  87 |       if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+  88 |
+> 89 |       const originStock = await prisma.productStock.findUnique({
+     |                                                     ^
+  90 |         where: { productId_branchId: { productId: item.productId, branchId: fromBranchId } },
+  91 |       });
+  92 | {
+  clientVersion: '6.19.2'
+}
+ POST /api/stock-transfers 500 in 144ms (next.js: 1322µs, proxy.ts: 4ms, application-code: 139ms)
+prisma:query SELECT 1
+prisma:query SELECT "public"."Notification"."id", "public"."Notification"."companyId", "public"."Notification"."title", "public"."Notification"."message", "public"."Notification"."type"::text, "public"."Notification"."isRead", "public"."Notification"."createdAt" FROM "public"."Notification" WHERE "public"."Notification"."companyId" = $1 ORDER BY "public"."Notification"."createdAt" DESC LIMIT $2 OFFSET $3
+ GET /api/notifications 200 in 40ms (next.js: 1173µs, proxy.ts: 4ms, application-code: 35ms)
+prisma:query SELECT "public"."Notification"."id", "public"."Notification"."companyId", "public"."Notification"."title", "public"."Notification"."message", "public"."Notification"."type"::text, "public"."Notification"."isRead", "public"."Notification"."createdAt" FROM "public"."Notification" WHERE "public"."Notification"."companyId" = $1 ORDER BY "public"."Notification"."createdAt" DESC LIMIT $2 OFFSET $3
+ GET /api/notifications 200 in 34ms (next.js: 1219µs, proxy.ts: 3ms, application-code: 29ms)
+prisma:query SELECT 1
+prisma:query SELECT "public"."Notification"."id", "public"."Notification"."companyId", "public"."Notification"."title", "public"."Notification"."message", "public"."Notification"."type"::text, "public"."Notification"."isRead", "public"."Notification"."createdAt" FROM "public"."Notification" WHERE "public"."Notification"."companyId" = $1 ORDER BY "public"."Notification"."createdAt" DESC LIMIT $2 OFFSET $3
+ GET /api/notifications 200 in 41ms (next.js: 1267µs, proxy.ts: 3ms, application-code: 36ms)
+prisma:query SELECT 1
+prisma:query SELECT "public"."Notification"."id", "public"."Notification"."companyId", "public"."Notification"."title", "public"."Notification"."message", "public"."Notification"."type"::text, "public"."Notification"."isRead", "public"."Notification"."createdAt" FROM "public"."Notification" WHERE "public"."Notification"."companyId" = $1 ORDER BY "public"."Notification"."createdAt" DESC LIMIT $2 OFFSET $3
+ GET /api/notifications 200 in 44ms (next.js: 1177µs, proxy.ts: 6ms, application-code: 37ms)

@@ -25,7 +25,7 @@ export function Cart() {
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
         {items.map((item) => (
           <div
-            key={item.product.id}
+            key={`${item.product.id}-${item.product.variantId || 'base'}`}
             className="flex items-center gap-3 bg-slate-50 rounded-xl p-3 border border-slate-100"
           >
             <div className="flex-1 min-w-0">
@@ -38,8 +38,9 @@ export function Cart() {
             {/* Controles de cantidad */}
             <div className="flex items-center gap-1">
               <button
-                onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.product.variantId)}
                 className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors"
+                aria-label="Disminuir"
               >
                 <Minus className="w-3 h-3" />
               </button>
@@ -47,9 +48,10 @@ export function Cart() {
                 {item.quantity}
               </span>
               <button
-                onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.product.variantId)}
                 disabled={item.quantity >= item.product.stock}
                 className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-green-50 hover:border-green-300 hover:text-green-600 transition-colors disabled:opacity-30"
+                aria-label="Aumentar"
               >
                 <Plus className="w-3 h-3" />
               </button>
@@ -62,8 +64,9 @@ export function Cart() {
             </div>
 
             <button
-              onClick={() => removeItem(item.product.id)}
+              onClick={() => removeItem(item.product.id, item.product.variantId)}
               className="text-slate-300 hover:text-red-500 transition-colors"
+              aria-label="Eliminar"
             >
               <Trash2 className="w-4 h-4" />
             </button>

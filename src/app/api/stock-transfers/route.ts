@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 const TransferItemSchema = z.object({
   productId: z.string().uuid(),
+  variantId: z.string().uuid().optional().nullable(),
   quantity: z.number().int().positive('La cantidad debe ser mayor a cero'),
 });
 
@@ -86,40 +87,26 @@ export async function POST(req: NextRequest) {
       
       if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
 
-      const originStock = await prisma.productStock.findUnique({
-        where: { productId_branchId: { productId: item.productId, branchId: fromBranchId } },
+      const originStock = await prisma.productStock.findFirst({
+        where: { productId: item.productId, branchId: fromBranchId, variantId: item.variantId || null },
       });
 
       if (!originStock || originStock.quantity < item.quantity) {
         throw new Error(`Stock insuficiente para "${product.name}". Disponible en ${fromBranch.name}: ${originStock?.quantity ?? 0}`);
       }
 
-      // Restar Origen
+      // Solo deducimos del origen ("En tránsito")
       transactions.push(
         prisma.productStock.update({
-          where: { productId_branchId: { productId: item.productId, branchId: fromBranchId } },
+          where: { id: originStock.id },
           data: { quantity: { decrement: item.quantity } },
-        })
-      );
-
-      // Sumar/Crear Destino
-      transactions.push(
-        prisma.productStock.upsert({
-          where: { productId_branchId: { productId: item.productId, branchId: toBranchId } },
-          update: { quantity: { increment: item.quantity } },
-          create: {
-            productId: item.productId,
-            branchId: toBranchId,
-            quantity: item.quantity,
-            minStock: 5,
-          },
         })
       );
 
       auditDetails.push({ product: product.name, qty: item.quantity });
     }
 
-    // Create the master transfer document
+    // Create the master transfer document as PENDING
     const transferRecord = prisma.stockTransfer.create({
       data: {
         companyId: tenant.companyId,
@@ -127,9 +114,11 @@ export async function POST(req: NextRequest) {
         toBranchId: toBranchId,
         userId: tenant.userId,
         reference: notes,
+        status: 'PENDING', // Mercadería en ruta
         items: {
           create: items.map((i: any) => ({
             productId: i.productId,
+            variantId: i.variantId || null,
             quantity: i.quantity
           }))
         }

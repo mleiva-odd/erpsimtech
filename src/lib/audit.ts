@@ -16,7 +16,10 @@ type AuditAction =
   | 'CASH_REGISTER_CLOSED'
   | 'COMPANY_CREATED'
   | 'COMPANY_SUSPENDED'
-  | 'SUBSCRIPTION_CHANGED';
+  | 'SUBSCRIPTION_CHANGED'
+  | 'SALE_RETURNED'
+  | 'STOCK_RECEIVED'
+  | 'INVENTORY_ADJUSTMENT';
 
 interface AuditLogParams {
   companyId: string;

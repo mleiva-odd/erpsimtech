@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
+import { useBranchStore } from '@/stores/branchStore';
 
 interface DashboardStats {
   revenueToday: number;
@@ -31,11 +32,16 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [charts, setCharts] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  const { selectedBranchId } = useBranchStore();
 
   useEffect(() => {
+    setLoading(true);
+    const branchQuery = selectedBranchId ? `?branchId=${selectedBranchId}` : '';
+    
     Promise.all([
-      fetch('/api/dashboard').then(r => r.json()),
-      fetch('/api/dashboard/charts').then(r => r.json()),
+      fetch(`/api/dashboard${branchQuery}`).then(r => r.json()),
+      fetch(`/api/dashboard/charts${branchQuery}`).then(r => r.json()),
     ]).then(([statsData, chartsData]) => {
       setStats({
         revenueToday: statsData.revenueToday ?? 0,
@@ -47,7 +53,7 @@ export default function DashboardPage() {
       setCharts(chartsData.error ? null : chartsData);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+  }, [selectedBranchId]);
 
   if (loading || !stats) {
     return (

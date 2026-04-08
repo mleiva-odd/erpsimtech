@@ -2,12 +2,21 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 
-export async function GET() {
+export async function GET(req: Request) {
   const result = await requireTenant();
   if ('error' in result) return result.error;
   const { tenant } = result;
 
   try {
+    const { searchParams } = new URL(req.url);
+    const requestedBranchId = searchParams.get('branchId');
+    const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+
+    // Determinar la sucursal de destino: Admin usa URL, empleados usan su token
+    const targetBranchId = (!isAdmin || !requestedBranchId || requestedBranchId === 'null') 
+      ? tenant.branchId 
+      : requestedBranchId;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -16,9 +25,8 @@ export async function GET() {
       status: 'COMPLETED',
     };
 
-    // If user has a specific branch, scope to it
-    if (tenant.branchId) {
-      salesWhere.branchId = tenant.branchId;
+    if (targetBranchId) {
+      salesWhere.branchId = targetBranchId;
     }
 
     const [salesToday, totalProducts, lowStockProducts, recentSales] = await Promise.all([
@@ -39,7 +47,7 @@ export async function GET() {
       prisma.productStock.count({
         where: {
           product: { companyId: tenant.companyId, active: true },
-          ...(tenant.branchId && { branchId: tenant.branchId }),
+          ...(targetBranchId && { branchId: targetBranchId }),
           quantity: { lte: 5 }, // Simple threshold; will use minStock comparison later
         },
       }),

@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       totalAmount += sub;
       return {
         productId: item.productId,
+        variantId: item.variantId || null,
         quantity: Number(item.quantity),
         unitCost: Number(item.cost),
         subtotal: sub,
@@ -77,13 +78,36 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // 2. Adjust Physical Stock automatically and update internal product cost
+        // 2. Adjust Physical Stock automatically and update internal product cost
       for (const item of itemsData) {
-        await tx.productStock.upsert({
-          where: { productId_branchId: { productId: item.productId, branchId } },
-          update: { quantity: { increment: item.quantity } },
-          create: { productId: item.productId, branchId, quantity: item.quantity, minStock: 5 },
-        });
+        let existingStock;
+        
+        if (item.variantId) {
+           existingStock = await tx.productStock.findFirst({
+             where: { variantId: item.variantId, branchId }
+           });
+        } else {
+           existingStock = await tx.productStock.findFirst({
+             where: { productId: item.productId, variantId: null, branchId }
+           });
+        }
+
+        if (existingStock) {
+           await tx.productStock.update({
+             where: { id: existingStock.id },
+             data: { quantity: { increment: item.quantity } }
+           });
+        } else {
+           await tx.productStock.create({
+             data: {
+               productId: item.productId,
+               variantId: item.variantId || null,
+               branchId,
+               quantity: item.quantity,
+               minStock: 5
+             }
+           });
+        }
 
         // Si el precio del proveedor cambia, nosotros ajustamos el Costo base
         await tx.product.update({

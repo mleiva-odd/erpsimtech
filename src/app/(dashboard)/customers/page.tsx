@@ -29,6 +29,42 @@ export default function CustomersPage() {
     name: '', email: '', phone: '', nit: '', address: '', creditLimit: 0
   });
 
+  // Pay Modal States
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentCustomer, setPaymentCustomer] = useState<Customer | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [isPaying, setIsPaying] = useState(false);
+
+  const handlePay = (c: Customer) => {
+    setPaymentCustomer(c);
+    setPaymentAmount('');
+    setIsPaymentModalOpen(true);
+  };
+
+  const submitPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentCustomer) return;
+    setIsPaying(true);
+    try {
+      const res = await fetch(`/api/customers/${paymentCustomer.id}/pay`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: Number(paymentAmount) }),
+      });
+      if (res.ok) {
+        setIsPaymentModalOpen(false);
+        fetchCustomers(debouncedSearch);
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Error al procesar el abono');
+      }
+    } catch (e) {
+      alert('Error de conexión al procesar abono');
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
   const handleEdit = (c: Customer) => {
     setSelectedId(c.id);
     setFormData({
@@ -156,7 +192,7 @@ export default function CustomersPage() {
 
                   return (
                     <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
+                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
                             <UserCircle className="w-5 h-5" />
@@ -188,9 +224,20 @@ export default function CustomersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <button onClick={() => handleEdit(c)} className="text-slate-600 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button onClick={() => handleEdit(c)} className="text-slate-600 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50" title="Editar">
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          {hasDebt && (
+                             <button
+                               onClick={() => handlePay(c)}
+                               className="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-md hover:bg-emerald-200 transition"
+                               title="Recibir Abono"
+                             >
+                               Abonar
+                             </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -200,6 +247,34 @@ export default function CustomersPage() {
           </table>
         </div>
       </div>
+
+      {/* Modal De Pago (Abono) */}
+      {isPaymentModalOpen && paymentCustomer && (
+         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col p-6 text-center">
+               <h3 className="font-bold text-xl text-slate-800 mb-2">Recibir Abono</h3>
+               <p className="text-sm text-slate-500 mb-6">Deuda actual de {paymentCustomer.name}: <strong className="text-rose-600">Q{Number(paymentCustomer.balance).toFixed(2)}</strong></p>
+
+               <form onSubmit={submitPayment} className="space-y-4">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-bold">Q</span>
+                    <input 
+                      type="number" autoFocus required step="0.01" min="0.01" max={Number(paymentCustomer.balance)}
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                      className="w-full text-center text-xl font-bold bg-slate-50 border border-slate-200 py-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                     <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="flex-1 bg-slate-100 text-slate-600 font-bold py-2.5 rounded-xl hover:bg-slate-200 transition">Cancelar</button>
+                     <button type="submit" disabled={isPaying} className="flex-1 bg-emerald-600 text-white font-bold py-2.5 rounded-xl hover:bg-emerald-700 transition disabled:opacity-50">
+                       {isPaying ? '...' : 'Confirmar Abono'}
+                     </button>
+                  </div>
+               </form>
+           </div>
+         </div>
+      )}
 
       {/* Modal Modernizado */}
       {isModalOpen && (
@@ -233,6 +308,10 @@ export default function CustomersPage() {
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Teléfono</label>
                     <input type="text" placeholder="Ej: +502 0000-0000" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Correo Electrónico</label>
+                    <input type="email" placeholder="cliente@correo.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors" />
                   </div>
                 </div>
 

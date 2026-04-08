@@ -9,7 +9,7 @@ interface CheckoutModalProps {
   onSuccess: (saleId: string) => void;
 }
 
-type PaymentMethodType = 'CASH' | 'CARD' | 'TRANSFER';
+type PaymentMethodType = 'CASH' | 'CARD' | 'TRANSFER' | 'CREDIT';
 
 interface PaymentEntry {
   method: PaymentMethodType;
@@ -21,6 +21,7 @@ const METHODS: { value: PaymentMethodType; label: string; icon: React.ReactNode 
   { value: 'CASH', label: 'Efectivo', icon: <Banknote className="w-4 h-4" /> },
   { value: 'CARD', label: 'Tarjeta', icon: <CreditCard className="w-4 h-4" /> },
   { value: 'TRANSFER', label: 'Transferencia', icon: <ArrowLeftRight className="w-4 h-4" /> },
+  { value: 'CREDIT', label: 'Crédito', icon: <UserCircle className="w-4 h-4" /> },
 ];
 
 export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
@@ -56,6 +57,11 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
   };
 
   const handleCheckout = async () => {
+    if (payments.some(p => p.method === 'CREDIT') && !customerId) {
+       setError("Para vender al crédito debes seleccionar un Cliente registrado.");
+       return;
+    }
+
     if (totalPaid < total) {
       setError(`Pago insuficiente. Faltan Q${remaining.toFixed(2)}`);
       return;
@@ -82,6 +88,7 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
         body: JSON.stringify({
           items: items.map((i) => ({
             productId: i.product.id,
+            variantId: i.product.variantId || null,
             quantity: i.quantity,
             unitPrice: i.unitPrice,
           })),
@@ -158,8 +165,10 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
                               ? m.value === 'CARD' 
                                 ? 'bg-slate-800 text-white shadow-md' // Premium look for CARD
                                 : m.value === 'TRANSFER'
-                                  ? 'bg-purple-600 text-white shadow-md'
-                                  : 'bg-green-600 text-white shadow-md'
+                                    ? 'bg-purple-600 text-white shadow-md'
+                                  : m.value === 'CREDIT'
+                                    ? 'bg-amber-600 text-white shadow-md'
+                                    : 'bg-green-600 text-white shadow-md'
                               : 'text-slate-500 hover:bg-slate-50'
                           }`}
                         >

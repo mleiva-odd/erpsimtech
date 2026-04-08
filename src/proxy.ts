@@ -43,18 +43,18 @@ export async function proxy(request: NextRequest) {
   }
 
   // Company admin routes
-  const companyAdminPaths = ['/branches', '/users', '/settings'];
-  if (companyAdminPaths.some(path => pathname === path)) {
+  const companyAdminPaths = ['/branches', '/users', '/settings', '/audit'];
+  if (companyAdminPaths.some(path => pathname.startsWith(path))) {
     if (role !== 'ADMIN') {
-      return NextResponse.redirect(new URL('/apps', request.url));
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
-  // Supervisor+ routes
-  const supervisorPaths = ['/stock-transfers'];
-  if (supervisorPaths.some(path => pathname === path)) {
+  // Supervisor+ routes (Jefatura y Operaciones pesadas)
+  const supervisorPaths = ['/stock-transfers', '/inventory', '/purchases', '/suppliers', '/reports', '/dashboard'];
+  if (supervisorPaths.some(path => pathname.startsWith(path))) {
     if (role !== 'ADMIN' && role !== 'SUPERVISOR') {
-      return NextResponse.redirect(new URL('/apps', request.url));
+      return NextResponse.redirect(new URL('/pos', request.url));
     }
   }
 

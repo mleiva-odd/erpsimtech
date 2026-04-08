@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenant, requireRole } from '@/lib/tenant';
+import { z } from 'zod';
 
 export async function GET(req: NextRequest) {
   const result = await requireTenant();
@@ -12,6 +13,13 @@ export async function GET(req: NextRequest) {
   const categoryId = searchParams.get('categoryId') ?? '';
   const page = parseInt(searchParams.get('page') ?? '1');
   const limit = parseInt(searchParams.get('limit') ?? '24');
+  const requestedBranchId = searchParams.get('branchId');
+
+  const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+
+  const targetBranchId = (!isAdmin || !requestedBranchId || requestedBranchId === 'null')
+    ? tenant.branchId
+    : requestedBranchId;
 
   const where = {
     companyId: tenant.companyId,
@@ -31,9 +39,16 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         category: { select: { id: true, name: true } },
-        stocks: tenant.branchId
-          ? { where: { branchId: tenant.branchId } }
-          : true,
+        stocks: targetBranchId
+          ? { where: { branchId: targetBranchId, variantId: null } }
+          : { where: { variantId: null } },
+        variants: {
+          include: {
+            stocks: targetBranchId
+              ? { where: { branchId: targetBranchId } }
+              : true,
+          }
+        }
       },
       take: limit,
       skip: (page - 1) * limit,
@@ -42,18 +57,60 @@ export async function GET(req: NextRequest) {
     prisma.product.count({ where }),
   ]);
 
-  // Map stock data for backward compatibility with frontend
+  // Map stock data for backward compatibility with frontend, inject matrix computations
   const productsWithStock = products.map((p) => {
-    const branchStock = p.stocks[0]; // first matching stock entry
+    let computedStock = 0;
+    
+    if (p.hasVariants && p.variants.length > 0) {
+       // Sum physical stock across all variants
+       if (targetBranchId) {
+         p.variants.forEach(v => { computedStock += (v.stocks[0]?.quantity || 0); });
+       } else {
+         p.variants.forEach(v => {
+           v.stocks.forEach(s => { computedStock += s.quantity; });
+         });
+       }
+    } else {
+       // Classic direct stock
+       if (targetBranchId) {
+         computedStock = p.stocks[0]?.quantity ?? 0;
+       } else {
+         computedStock = p.stocks.reduce((acc, s) => acc + s.quantity, 0);
+       }
+    }
+
     return {
       ...p,
-      stock: branchStock?.quantity ?? 0,
-      minStock: branchStock?.minStock ?? 5,
+      stock: computedStock,
+      minStock: p.stocks[0]?.minStock ?? 5,
     };
   });
 
   return NextResponse.json({ products: productsWithStock, total, page, limit });
 }
+
+const ProductSchema = z.object({
+  name: z.string().min(1, 'El nombre es requerido'),
+  sku: z.string().min(1, 'El SKU es requerido'),
+  barcode: z.string().optional().nullable(),
+  price: z.preprocess((val) => Number(val), z.number().min(0)),
+  wholesalePrice: z.preprocess((val) => val === '' || val == null ? null : Number(val), z.number().min(0).nullable().optional()),
+  cost: z.preprocess((val) => Number(val), z.number().min(0)),
+  stock: z.preprocess((val) => Number(val), z.number().min(0)),
+  minStock: z.preprocess((val) => Number(val), z.number().min(0)),
+  categoryId: z.string().uuid('Categoría inválida'),
+  description: z.string().optional().nullable(),
+  isTaxExempt: z.boolean().optional().default(false),
+  unitOfMeasure: z.enum(['UNIT', 'KG', 'LB', 'LITER', 'GALLON', 'BOX']).optional().default('UNIT'),
+  hasVariants: z.boolean().optional().default(false),
+  variants: z.array(z.any()).optional(), 
+  imageUrl: z.string().optional().nullable(),
+  isBundle: z.boolean().optional().default(false),
+  bundleItems: z.array(z.object({
+    componentId: z.string(),
+    quantity: z.number().min(1)
+  })).optional(),
+});
 
 export async function POST(req: NextRequest) {
   const result = await requireRole('SUPERVISOR');
@@ -61,18 +118,23 @@ export async function POST(req: NextRequest) {
   const { tenant } = result;
 
   const body = await req.json();
-  const { name, sku, barcode, price, wholesalePrice, cost, stock, minStock, categoryId, description, isTaxExempt, unitOfMeasure } = body;
+  const parsed = ProductSchema.safeParse(body);
 
-  if (!name || !sku || price === undefined || cost === undefined || !categoryId) {
-    return NextResponse.json({ error: 'Campos requeridos faltantes' }, { status: 400 });
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const { name, sku, barcode, price, wholesalePrice, cost, stock, minStock, categoryId, description, isTaxExempt, unitOfMeasure, hasVariants, variants, imageUrl, isBundle, bundleItems } = parsed.data;
+  let finalBarcode = barcode && barcode.trim() !== '' ? barcode : null;
+  if (!finalBarcode) {
+    const randomNum = Math.floor(1000000 + Math.random() * 9000000); // 7 random digits
+    finalBarcode = `SIM-${randomNum}`;
   }
 
   try {
-    // Create product + initial stock for the user's branch (or main branch)
     const targetBranchId = tenant.branchId;
     let branchId = targetBranchId;
 
-    // If user has no branch assigned, use main branch
     if (!branchId) {
       const mainBranch = await prisma.branch.findFirst({
         where: { companyId: tenant.companyId, isMain: true },
@@ -80,36 +142,77 @@ export async function POST(req: NextRequest) {
       branchId = mainBranch?.id ?? null;
     }
 
-    const product = await prisma.product.create({
-      data: {
-        companyId: tenant.companyId,
-        name,
-        sku,
-        barcode: barcode || null,
-        description: description || null,
-        price,
-        wholesalePrice: wholesalePrice || null,
-        cost,
-        isTaxExempt: isTaxExempt ?? false,
-        unitOfMeasure: unitOfMeasure || 'UNIT',
-        categoryId,
-        ...(branchId && {
-          stocks: {
-            create: {
-              branchId,
-              quantity: stock ?? 0,
-              minStock: minStock ?? 5,
+    const product = await prisma.$transaction(async (tx) => {
+      const p = await tx.product.create({
+        data: {
+          companyId: tenant.companyId,
+          name,
+          sku,
+          barcode: finalBarcode,
+          description: description || null,
+          price: hasVariants ? 0 : price,
+          wholesalePrice: wholesalePrice ? Number(wholesalePrice) : null,
+          cost: hasVariants ? 0 : cost,
+          isTaxExempt: isTaxExempt ?? false,
+          unitOfMeasure: unitOfMeasure || 'UNIT',
+          categoryId,
+          hasVariants: hasVariants ?? false,
+          imageUrl: imageUrl || null,
+          isBundle: isBundle ?? false,
+
+          // Stock clásico (Básico)
+          ...((branchId && !hasVariants && !isBundle) && {
+            stocks: {
+              create: {
+                branchId,
+                quantity: Number(stock) || 0,
+                minStock: Number(minStock) || 5,
+              },
             },
-          },
-        }),
-      },
-      include: { category: true, stocks: true },
+          }),
+
+          ...(isBundle && bundleItems && bundleItems.length > 0 && {
+            bundleItems: {
+               create: bundleItems.map((b) => ({
+                 componentId: b.componentId,
+                 quantity: b.quantity
+               }))
+            }
+          })
+        }
+      });
+
+      // Anidación Multi-Dimensión secuencial para heredar la jerarquía correcta
+      if (hasVariants && variants && variants.length > 0 && branchId) {
+        for (const v of variants) {
+           await tx.productVariant.create({
+             data: {
+               productId: p.id,
+               name: String(v.name).trim(),
+               sku: String(v.sku).trim(),
+               barcode: v.barcode ? String(v.barcode) : null,
+               price: Number(v.price) || 0,
+               cost: Number(v.cost) || 0,
+               stocks: {
+                 create: {
+                   productId: p.id, // VITAL: Enlace que pedía la BBDD
+                   branchId: branchId,
+                   quantity: Number(v.stock) || 0,
+                   minStock: Number(minStock) || 5
+                 }
+               }
+             }
+           });
+        }
+      }
+
+      return tx.product.findUnique({
+         where: { id: p.id },
+         include: { category: true, stocks: true, variants: { include: { stocks: true } } }
+      });
     });
 
-    return NextResponse.json(
-      { ...product, stock: stock ?? 0, minStock: minStock ?? 5 },
-      { status: 201 }
-    );
+    return NextResponse.json(product, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Error al crear producto';
     if (message.includes('Unique constraint')) {

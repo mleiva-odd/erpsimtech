@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Package, Search, Plus, Edit2, ShieldAlert, FileSpreadsheet } from 'lucide-react';
+import { Package, Search, Plus, Edit2, ShieldAlert, FileSpreadsheet, Printer, Layers } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
 import { ProductModal } from '@/components/inventory/ProductModal';
+import { BundleModal } from '@/components/inventory/BundleModal';
 import { CategoryModal } from '@/components/inventory/CategoryModal';
 import { ImportExcelModal } from '@/components/inventory/ImportExcelModal';
+import { PrintBarcodeModal } from '@/components/inventory/PrintBarcodeModal';
+import { useBranchStore } from '@/stores/branchStore';
 
 interface ProductData {
   id: string;
@@ -30,15 +33,19 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductData | null>(null);
 
   const debouncedQuery = useDebounce(query, 500);
+  const { selectedBranchId } = useBranchStore();
 
   const fetchProducts = () => {
     setLoading(true);
-    fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=50`)
+    const branchQuery = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
+    fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=50${branchQuery}`)
       .then((res) => res.json())
       .then((data) => {
         setProducts(data.products || []);
@@ -49,11 +56,20 @@ export default function InventoryPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, selectedBranchId]);
 
   const handleEdit = (product: ProductData) => {
     setSelectedProduct(product);
-    setIsModalOpen(true);
+    if ((product as any).isBundle) {
+       setIsBundleModalOpen(true);
+    } else {
+       setIsModalOpen(true);
+    }
+  };
+
+  const handlePrintBarcode = (product: ProductData) => {
+    setSelectedProduct(product);
+    setIsPrintModalOpen(true);
   };
 
   const handleNew = () => {
@@ -90,7 +106,11 @@ export default function InventoryPage() {
             className="bg-white border text-slate-600 border-slate-200 hover:bg-slate-50 px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Catálogo
+            Categoría
+          </button>
+          <button onClick={() => { setSelectedProduct(null); setIsBundleModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2">
+            <Layers className="w-5 h-5" />
+            Combo
           </button>
           <button onClick={handleNew} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2">
             <Plus className="w-5 h-5" />
@@ -132,7 +152,7 @@ export default function InventoryPage() {
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-600">
                     <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    Cargando inventario...
+                    Cargando Directorio de Inventario...
                   </td>
                 </tr>
               ) : products.length > 0 ? (
@@ -143,12 +163,19 @@ export default function InventoryPage() {
                       <td className="px-6 py-4 font-mono text-slate-500">{product.sku}</td>
                       <td className="px-6 py-4 font-medium text-slate-800">
                         {product.name}
-                        {product.isTaxExempt && <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] rounded uppercase font-bold tracking-wider">Exento IVA</span>}
+                        {product.isTaxExempt && <span className="ml-2 px-1.5 py-0.5 bg-orange-100 text-orange-700 text-[10px] rounded uppercase font-bold tracking-wider">Exento IVA</span>}
+                        {(product as any).hasVariants && <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[10px] rounded-full uppercase font-bold tracking-wider border border-indigo-200">Matriz ({((product as any).variants?.length || 0)} Vars)</span>}
                       </td>
                       <td className="px-6 py-4 text-slate-500">{product.category.name}</td>
                       <td className="px-6 py-4 text-right">
-                        <div className="font-bold text-slate-800">Q{Number(product.price).toFixed(2)}</div>
-                        {product.wholesalePrice && <div className="text-[11px] text-blue-600 font-bold uppercase">B2B: Q{Number(product.wholesalePrice).toFixed(2)}</div>}
+                         {(product as any).hasVariants ? (
+                             <div className="font-bold text-indigo-600 text-[11px] uppercase tracking-wider bg-indigo-50 inline-block px-2 py-1 rounded">Múltiples Precios</div>
+                         ) : (
+                             <>
+                               <div className="font-bold text-slate-800">Q{Number(product.price).toFixed(2)}</div>
+                               {product.wholesalePrice && <div className="text-[11px] text-blue-600 font-bold uppercase">B2B: Q{Number(product.wholesalePrice).toFixed(2)}</div>}
+                             </>
+                         )}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
@@ -161,9 +188,14 @@ export default function InventoryPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <button onClick={() => handleEdit(product)} className="text-slate-600 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex justify-center gap-2">
+                           <button onClick={() => handlePrintBarcode(product)} title="Imprimir Etiqueta" className="text-slate-500 hover:text-indigo-600 transition-colors p-2 rounded-lg hover:bg-indigo-50">
+                             <Printer className="w-4 h-4" />
+                           </button>
+                           <button onClick={() => handleEdit(product)} title="Editar Producto" className="text-slate-500 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50">
+                             <Edit2 className="w-4 h-4" />
+                           </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -171,7 +203,7 @@ export default function InventoryPage() {
               ) : (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-600">
-                    No se encontraron productos en el catálogo.
+                    No se encontraron productos en el directorio.
                   </td>
                 </tr>
               )}
@@ -186,6 +218,18 @@ export default function InventoryPage() {
           product={selectedProduct} 
           onClose={() => setIsModalOpen(false)} 
           onSuccess={handleModalSuccess} 
+        />
+      )}
+
+      {/* Modal De Combos */}
+      {isBundleModalOpen && (
+        <BundleModal
+          product={selectedProduct}
+          onClose={() => setIsBundleModalOpen(false)}
+          onSuccess={() => {
+            setIsBundleModalOpen(false);
+            fetchProducts();
+          }}
         />
       )}
 
@@ -205,6 +249,14 @@ export default function InventoryPage() {
             setIsImportModalOpen(false);
             fetchProducts();
           }}
+        />
+      )}
+
+      {/* Modal Impresión Código de Barras */}
+      {isPrintModalOpen && selectedProduct && (
+        <PrintBarcodeModal
+          product={selectedProduct}
+          onClose={() => setIsPrintModalOpen(false)}
         />
       )}
     </div>

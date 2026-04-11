@@ -238,11 +238,11 @@ export default function AdminPage() {
 
       {/* Registrar Empresa Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden my-8 border border-slate-200">
-            <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-amber-50/50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-300">
+            <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-amber-50/30">
               <h2 className="font-bold text-xl text-slate-800 flex items-center gap-3">
-                <Building2 className="w-6 h-6 text-amber-600" /> Registrar Nueva Empresa
+                <Building2 className="w-6 h-6 text-amber-600" /> Registro de Nueva Empresa
               </h2>
               <button 
                  onClick={() => setIsModalOpen(false)} 
@@ -252,119 +252,134 @@ export default function AdminPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8 space-y-8">
-              {/* Sección 1: Información de la Empresa */}
-              <div className="space-y-5">
-                <div className="flex items-center gap-2 pb-1 border-b border-slate-50">
-                   <div className="w-1.5 h-4 bg-amber-500 rounded-full"></div>
-                   <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Información de la Empresa</h3>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-5">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase ml-1">Nombre Comercial *</label>
-                    <input required type="text" value={formData.name}
-                      onChange={e => setFormData({...formData, name: e.target.value, slug: generateSlug(e.target.value)})}
-                      className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none transition-all font-semibold text-slate-800"
-                      placeholder="Ej: Inversiones Simtech S.A."
-                    />
-                  </div>
+            <form onSubmit={handleSubmit} className="flex flex-col max-h-[85vh]">
+              <div className="p-8 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-8">
                   
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase ml-1">Correo de la Empresa *</label>
-                    <input required type="email" value={formData.email}
-                      onChange={e => setFormData({...formData, email: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none transition-all font-semibold text-slate-800"
-                      placeholder="info@empresa.com"
-                    />
+                  {/* Columna 1: Empresa */}
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
+                       <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
+                       <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Información de la Empresa</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Nombre Comercial *</label>
+                        <input required type="text" value={formData.name}
+                          onChange={e => setFormData({...formData, name: e.target.value, slug: generateSlug(e.target.value)})}
+                          className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none transition-all font-semibold text-slate-800 text-sm"
+                          placeholder="Ej: Inversiones Simtech S.A."
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Correo de la Empresa *</label>
+                          <input required type="email" value={formData.email}
+                            onChange={e => setFormData({...formData, email: e.target.value})}
+                            className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none transition-all font-semibold text-slate-800 text-sm"
+                            placeholder="info@empresa.com"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Slug (URL del Portal)</label>
+                          <input type="text" value={formData.slug}
+                            onChange={e => setFormData({...formData, slug: e.target.value})}
+                            className="w-full px-4 py-2 border-2 border-slate-50 bg-slate-50 text-slate-400 font-mono text-[11px] rounded-xl outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">NIT</label>
+                          <input type="text" value={formData.nit}
+                            onChange={e => setFormData({...formData, nit: e.target.value})}
+                            className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Teléfono</label>
+                          <input type="text" value={formData.phone}
+                            onChange={e => setFormData({...formData, phone: e.target.value})}
+                            className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase ml-1">Slug (URL del Portal)</label>
-                    <input type="text" value={formData.slug}
-                      onChange={e => setFormData({...formData, slug: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-slate-50 bg-slate-50 text-slate-400 font-mono text-xs rounded-2xl outline-none"
-                    />
-                  </div>
+                  {/* Columna 2: Usuario e Inversión */}
+                  <div className="space-y-8">
+                    {/* Usuario */}
+                    <div className="space-y-5">
+                      <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
+                         <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
+                         <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Usuario Administrador</h3>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Nombre Completo *</label>
+                          <input required type="text" value={formData.adminName}
+                            onChange={e => setFormData({...formData, adminName: e.target.value})}
+                            className="w-full px-4 py-2.5 border-2 border-blue-50 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800 text-sm"
+                            placeholder="Ej: Marvin Leiva"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Correo de Acceso *</label>
+                            <input required type="email" value={formData.adminEmail}
+                              onChange={e => setFormData({...formData, adminEmail: e.target.value})}
+                              className="w-full px-4 py-2.5 border-2 border-blue-50 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800 text-sm"
+                              placeholder="personal@correo.com"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Contraseña *</label>
+                            <input required type="password" value={formData.adminPassword}
+                              onChange={e => setFormData({...formData, adminPassword: e.target.value})}
+                              className="w-full px-4 py-2.5 border-2 border-blue-50 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none font-semibold text-sm"
+                              placeholder="••••••••"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                  <div className="col-span-1">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase ml-1">NIT</label>
-                    <input type="text" value={formData.nit}
-                      onChange={e => setFormData({...formData, nit: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none transition-all font-semibold text-slate-800"
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase ml-1">Teléfono</label>
-                    <input type="text" value={formData.phone}
-                      onChange={e => setFormData({...formData, phone: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none transition-all font-semibold text-slate-800"
-                    />
+                    {/* Plan */}
+                    <div className="pt-2">
+                      <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase ml-1">Plan Corporativo Inicial</label>
+                      <select value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}
+                        className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl bg-white font-black text-amber-700 outline-none focus:ring-4 focus:ring-amber-50 text-sm cursor-pointer shadow-sm">
+                        <option value="trial">Trial (30 días de prueba)</option>
+                        <option value="basic">Plan Básico (POS)</option>
+                        <option value="professional">Plan Profesional (ERP)</option>
+                        <option value="enterprise">Plan Enterprise (Corporativo)</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
+
+                {error && (
+                  <div className="mt-8 bg-rose-50 text-rose-600 text-[12px] font-bold px-5 py-3 rounded-2xl border border-rose-100 flex items-center gap-3 animate-in shake duration-300">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    {error}
+                  </div>
+                )}
               </div>
 
-              {/* Sección 2: Usuario Administrador */}
-              <div className="space-y-5">
-                <div className="flex items-center gap-2 pb-1 border-b border-slate-50">
-                   <div className="w-1.5 h-4 bg-blue-500 rounded-full"></div>
-                   <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Usuario Administrador</h3>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-5">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase ml-1">Nombre Completo *</label>
-                    <input required type="text" value={formData.adminName}
-                      onChange={e => setFormData({...formData, adminName: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-blue-50 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800"
-                      placeholder="Ej: Marvin Leiva"
-                    />
-                  </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase ml-1">Correo de Acceso *</label>
-                    <input required type="email" value={formData.adminEmail}
-                      onChange={e => setFormData({...formData, adminEmail: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-blue-50 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800"
-                      placeholder="personal@correo.com"
-                    />
-                  </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase ml-1">Contraseña *</label>
-                    <input required type="password" value={formData.adminPassword}
-                      onChange={e => setFormData({...formData, adminPassword: e.target.value})}
-                      className="w-full px-4 py-3 border-2 border-blue-50 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase ml-1">Plan Corporativo Inicial</label>
-                <select value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}
-                  className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl bg-white font-black text-amber-700 outline-none focus:ring-4 focus:ring-amber-50">
-                  <option value="trial">Trial (30 días de prueba)</option>
-                  <option value="basic">Plan Básico (POS)</option>
-                  <option value="professional">Plan Profesional (ERP)</option>
-                  <option value="enterprise">Plan Enterprise (Corporativo)</option>
-                </select>
-              </div>
-
-              {error && (
-                <div className="bg-rose-50 text-rose-600 text-[13px] font-bold px-5 py-4 rounded-2xl border border-rose-100 flex items-center gap-3 animate-in shake duration-300">
-                  <AlertTriangle className="w-5 h-5 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              <div className="pt-4 flex gap-4">
+              {/* Footer Fijo */}
+              <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-4 justify-end">
                 <button type="button" onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-4 border-2 border-slate-100 text-slate-400 font-bold rounded-2xl hover:bg-slate-50 hover:text-slate-600 transition-all">
+                  className="px-8 py-3 bg-white border-2 border-slate-200 text-slate-400 font-bold rounded-2xl hover:bg-slate-100 hover:border-slate-300 hover:text-slate-600 transition-all text-sm">
                   Cancelar
                 </button>
                 <button type="submit" disabled={isSaving}
-                  className="flex-1 px-4 py-4 bg-slate-900 text-white rounded-2xl hover:bg-black disabled:opacity-50 font-black shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-3 active:scale-95">
-                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                  className="px-10 py-3 bg-slate-900 text-white rounded-2xl hover:bg-black disabled:opacity-50 font-black shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-3 active:scale-95 text-sm">
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   Finalizar Registro
                 </button>
               </div>

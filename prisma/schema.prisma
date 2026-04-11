@@ -3,19 +3,510 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// =======================
-// Enums
-// =======================
+
+model Company {
+  id                   String                @id @default(uuid())
+  name                 String
+  slug                 String                @unique
+  nit                  String?
+  email                String
+  phone                String?
+  logoUrl              String?
+  active               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  auditLogs            AuditLog[]
+  branches             Branch[]
+  categories           Category[]
+  settings             CompanySettings?
+  customers            Customer[]
+  inventoryAdjustments InventoryAdjustment[]
+  notifications        Notification[]
+  products             Product[]
+  purchases            PurchaseOrder[]
+  sales                Sale[]
+  stockTransfers       StockTransfer[]
+  subscription         Subscription?
+  suppliers            Supplier[]
+  users                User[]
+}
+
+model Branch {
+  id                   String                @id @default(uuid())
+  companyId            String
+  name                 String
+  code                 String
+  address              String?
+  phone                String?
+  isMain               Boolean               @default(false)
+  active               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  auditLogs            AuditLog[]
+  company              Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  cashRegisters        CashRegister[]
+  inventoryAdjustments InventoryAdjustment[]
+  productStocks        ProductStock[]
+  purchases            PurchaseOrder[]       @relation("PurchasesTo")
+  sales                Sale[]
+  transfersFrom        StockTransfer[]       @relation("TransfersFrom")
+  transfersTo          StockTransfer[]       @relation("TransfersTo")
+  users                User[]
+  userAccess           UserBranchAccess[]
+
+  @@unique([companyId, code])
+}
+
+model User {
+  id                       String                    @id @default(uuid())
+  companyId                String?
+  branchId                 String?
+  name                     String
+  email                    String                    @unique
+  password                 String
+  role                     Role                      @default(CASHIER)
+  active                   Boolean                   @default(true)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  accountPayments          AccountPayment[]
+  auditLogs                AuditLog[]
+  cashRegisters            CashRegister[]
+  cashRegisterTransactions CashRegisterTransaction[]
+  inventoryAdjustments     InventoryAdjustment[]
+  purchases                PurchaseOrder[]
+  sales                    Sale[]
+  saleReturns              SaleReturn[]
+  sessions                 SessionLog[]
+  stockTransfers           StockTransfer[]
+  branch                   Branch?                   @relation(fields: [branchId], references: [id])
+  company                  Company?                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchAccess             UserBranchAccess[]
+}
+
+model UserBranchAccess {
+  userId   String
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+  @@index([userId])
+  @@index([branchId])
+}
+
+model SessionLog {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  companyId   String
+  name        String
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  products    Product[]
+
+  @@unique([companyId, name])
+}
+
+model Product {
+  id                   String                @id @default(uuid())
+  companyId            String
+  categoryId           String
+  sku                  String
+  barcode              String?
+  name                 String
+  description          String?
+  price                Decimal               @db.Decimal(10, 2)
+  cost                 Decimal               @db.Decimal(10, 2)
+  active               Boolean               @default(true)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  isTaxExempt          Boolean               @default(false)
+  unitOfMeasure        UnitOfMeasure         @default(UNIT)
+  wholesalePrice       Decimal?              @db.Decimal(10, 2)
+  supplierId           String?
+  hasVariants          Boolean               @default(false)
+  imageUrl             String?
+  isBundle             Boolean               @default(false)
+  inventoryAdjustments InventoryAdjustment[]
+  category             Category              @relation(fields: [categoryId], references: [id])
+  company              Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier             Supplier?             @relation(fields: [supplierId], references: [id])
+  bundleItems          ProductBundleItem[]   @relation("BundleParent")
+  partOfBundles        ProductBundleItem[]   @relation("BundleComponent")
+  stocks               ProductStock[]
+  variants             ProductVariant[]
+  purchaseItems        PurchaseOrderItem[]
+  saleItems            SaleItem[]
+  transferItems        StockTransferItem[]
+
+  @@unique([companyId, sku])
+  @@unique([companyId, barcode])
+}
+
+model ProductVariant {
+  id             String              @id @default(uuid())
+  productId      String
+  sku            String
+  barcode        String?
+  name           String
+  price          Decimal?            @db.Decimal(10, 2)
+  wholesalePrice Decimal?            @db.Decimal(10, 2)
+  cost           Decimal?            @db.Decimal(10, 2)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  bundleItems    ProductBundleItem[]
+  stocks         ProductStock[]
+  product        Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  purchaseItems  PurchaseOrderItem[]
+  saleItems      SaleItem[]
+  transferItems  StockTransferItem[]
+
+  @@unique([productId, sku])
+}
+
+/// Stock tracked per branch. A product has one stock row per branch. // Phase 4: Per branch per Variant
+model ProductStock {
+  id        String          @id @default(uuid())
+  productId String
+  branchId  String
+  quantity  Int             @default(0)
+  minStock  Int             @default(5)
+  updatedAt DateTime        @updatedAt
+  variantId String?
+  branch    Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, branchId, variantId])
+}
+
+
+model InventoryAdjustment {
+  id          String   @id @default(uuid())
+  companyId   String
+  branchId    String
+  productId   String
+  userId      String
+  oldQuantity Int
+  newQuantity Int
+  difference  Int
+  reason      String
+  createdAt   DateTime @default(now())
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([branchId, productId])
+}
+
+model ProductBundleItem {
+  id              String          @id @default(uuid())
+  bundleProductId String
+  componentId     String
+  quantity        Int             @default(1)
+  variantId       String?
+  bundleProduct   Product         @relation("BundleParent", fields: [bundleProductId], references: [id], onDelete: Cascade)
+  component       Product         @relation("BundleComponent", fields: [componentId], references: [id])
+  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@unique([bundleProductId, componentId, variantId])
+}
+
+model Supplier {
+  id          String          @id @default(uuid())
+  companyId   String
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  nit         String?
+  address     String?
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  products    Product[]
+  purchases   PurchaseOrder[]
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, nit])
+  @@unique([companyId, name])
+}
+
+model PurchaseOrder {
+  id         String              @id @default(uuid())
+  companyId  String
+  branchId   String
+  supplierId String
+  userId     String
+  reference  String?
+  total      Decimal             @db.Decimal(10, 2)
+  status     PurchaseStatus      @default(COMPLETED)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  branch     Branch              @relation("PurchasesTo", fields: [branchId], references: [id])
+  company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  user       User                @relation(fields: [userId], references: [id])
+  items      PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id              String          @id @default(uuid())
+  purchaseOrderId String
+  productId       String
+  quantity        Int
+  unitCost        Decimal         @db.Decimal(10, 2)
+  subtotal        Decimal         @db.Decimal(10, 2)
+  variantId       String?
+  product         Product         @relation(fields: [productId], references: [id])
+  purchaseOrder   PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  variant         ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model Customer {
+  id              String           @id @default(uuid())
+  companyId       String
+  name            String
+  email           String?
+  phone           String?
+  nit             String?
+  address         String?
+  creditLimit     Decimal          @default(0) @db.Decimal(10, 2)
+  balance         Decimal          @default(0) @db.Decimal(10, 2)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  accountPayments AccountPayment[]
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sales           Sale[]
+}
+
+model AccountPayment {
+  id         String        @id @default(uuid())
+  customerId String
+  userId     String
+  amount     Decimal       @db.Decimal(10, 2)
+  method     PaymentMethod
+  reference  String?
+  notes      String?
+  createdAt  DateTime      @default(now())
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id])
+}
+
+model Sale {
+  id             String        @id @default(uuid())
+  companyId      String
+  branchId       String
+  userId         String
+  customerId     String?
+  cashRegisterId String?
+  invoiceNumber  String?
+  subtotal       Decimal       @db.Decimal(10, 2)
+  discount       Decimal       @default(0) @db.Decimal(10, 2)
+  tax            Decimal       @default(0) @db.Decimal(10, 2)
+  total          Decimal       @db.Decimal(10, 2)
+  status         SaleStatus    @default(COMPLETED)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  payments       Payment[]
+  branch         Branch        @relation(fields: [branchId], references: [id])
+  cashRegister   CashRegister? @relation(fields: [cashRegisterId], references: [id])
+  company        Company       @relation(fields: [companyId], references: [id])
+  customer       Customer?     @relation(fields: [customerId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
+  items          SaleItem[]
+  returns        SaleReturn[]
+
+  @@unique([companyId, invoiceNumber])
+}
+
+model SaleReturn {
+  id         String   @id @default(uuid())
+  saleId     String
+  userId     String
+  reason     String
+  amount     Decimal  @db.Decimal(10, 2)
+  stockAdded Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model SaleItem {
+  id        String          @id @default(uuid())
+  saleId    String
+  productId String
+  quantity  Int
+  unitPrice Decimal         @db.Decimal(10, 2)
+  discount  Decimal         @default(0) @db.Decimal(10, 2)
+  subtotal  Decimal         @db.Decimal(10, 2)
+  variantId String?
+  product   Product         @relation(fields: [productId], references: [id])
+  sale      Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+/// Separate payments table allows mixed payments (split between cash + card, etc.)
+model Payment {
+  id        String        @id @default(uuid())
+  saleId    String
+  method    PaymentMethod
+  amount    Decimal       @db.Decimal(10, 2)
+  reference String?
+  createdAt DateTime      @default(now())
+  sale      Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+}
+
+model CashRegister {
+  id             String                    @id @default(uuid())
+  branchId       String
+  userId         String
+  openingBalance Decimal                   @db.Decimal(10, 2)
+  closingBalance Decimal?                  @db.Decimal(10, 2)
+  status         String                    @default("OPEN")
+  openedAt       DateTime                  @default(now())
+  closedAt       DateTime?
+  branch         Branch                    @relation(fields: [branchId], references: [id])
+  user           User                      @relation(fields: [userId], references: [id])
+  transactions   CashRegisterTransaction[]
+  sales          Sale[]
+}
+
+model CashRegisterTransaction {
+  id             String       @id @default(uuid())
+  cashRegisterId String
+  userId         String
+  type           PayoutType   @default(EXPENSE)
+  amount         Decimal      @db.Decimal(10, 2)
+  description    String
+  reference      String?
+  createdAt      DateTime     @default(now())
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id])
+}
+
+model CompanySettings {
+  id                String      @id @default(uuid())
+  companyId         String      @unique
+  storeName         String      @default("Mi Empresa POS")
+  address           String?
+  phone             String?
+  nit               String?
+  receiptMsg        String?     @default("¡Gracias por su compra!")
+  felEnabled        Boolean     @default(false)
+  felProvider       FelProvider @default(NONE)
+  felNitEmisor      String?
+  felApiUser        String?
+  felApiKey         String?
+  felCertificateUrl String?
+  acceptsCash       Boolean     @default(true)
+  acceptsCard       Boolean     @default(true)
+  acceptsTransfer   Boolean     @default(true)
+  acceptsCredit     Boolean     @default(false)
+  taxRate           Decimal     @default(0.12) @db.Decimal(5, 4)
+  taxIncluded       Boolean     @default(true)
+  currency          String      @default("GTQ")
+  currencySymbol    String      @default("Q")
+  updatedAt         DateTime    @updatedAt
+  company           Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id                 String             @id @default(uuid())
+  companyId          String             @unique
+  plan               String             @default("trial")
+  status             SubscriptionStatus @default(TRIAL)
+  price              Decimal            @default(0) @db.Decimal(10, 2)
+  maxBranches        Int                @default(1)
+  maxUsersPerBranch  Int                @default(3)
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime
+  trialEndsAt        DateTime?
+  paymentProviderId  String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  companyId String
+  branchId  String?
+  userId    String?
+  entity    String
+  entityId  String
+  action    String
+  changes   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([companyId, entity])
+  @@index([companyId, createdAt])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  companyId String
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, isRead])
+}
+
+model StockTransfer {
+  id           String              @id @default(uuid())
+  companyId    String
+  fromBranchId String
+  toBranchId   String
+  userId       String
+  reference    String?
+  status       TransferStatus      @default(COMPLETED)
+  createdAt    DateTime            @default(now())
+  company      Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fromBranch   Branch              @relation("TransfersFrom", fields: [fromBranchId], references: [id])
+  toBranch     Branch              @relation("TransfersTo", fields: [toBranchId], references: [id])
+  user         User                @relation(fields: [userId], references: [id])
+  items        StockTransferItem[]
+}
+
+model StockTransferItem {
+  id              String          @id @default(uuid())
+  stockTransferId String
+  productId       String
+  quantity        Int
+  variantId       String?
+  product         Product         @relation(fields: [productId], references: [id])
+  transfer        StockTransfer   @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  variant         ProductVariant? @relation(fields: [variantId], references: [id])
+}
 
 enum Role {
-  SUPER_ADMIN // Platform admin (SIMTECH team)
-  ADMIN // Company owner/admin
-  SUPERVISOR // Branch supervisor
-  CASHIER // Point of sale operator
+  SUPER_ADMIN
+  ADMIN
+  SUPERVISOR
+  CASHIER
 }
 
 enum PaymentMethod {
@@ -47,280 +538,12 @@ enum FelProvider {
 }
 
 enum UnitOfMeasure {
-  UNIT // Por pieza
-  KG // Kilogramos
-  LB // Libras
-  LITER // Litros
-  GALLON // Galones
-  BOX // Caja/Fardo
-}
-
-// =======================
-// Platform / Multi-Tenant
-// =======================
-
-model Company {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique // subdomain or identifier
-  nit       String?
-  email     String
-  phone     String?
-  logoUrl   String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  branches       Branch[]
-  users          User[]
-  products       Product[]
-  categories     Category[]
-  customers      Customer[]
-  suppliers      Supplier[]
-  purchases      PurchaseOrder[]
-  sales          Sale[]
-  settings       CompanySettings?
-  subscription   Subscription?
-  auditLogs      AuditLog[]
-  notifications  Notification[]
-  stockTransfers StockTransfer[]
-  inventoryAdjustments InventoryAdjustment[]
-}
-
-model Branch {
-  id        String   @id @default(uuid())
-  companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name      String
-  code      String // e.g., "SUC-01"
-  address   String?
-  phone     String?
-  isMain    Boolean  @default(false)
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  users         User[]
-  productStocks ProductStock[]
-  sales         Sale[]
-  cashRegisters CashRegister[]
-  auditLogs     AuditLog[]
-  userAccess    UserBranchAccess[]
-  transfersFrom StockTransfer[]    @relation("TransfersFrom")
-  transfersTo   StockTransfer[]    @relation("TransfersTo")
-  purchases     PurchaseOrder[]    @relation("PurchasesTo")
-  inventoryAdjustments InventoryAdjustment[]
-
-  @@unique([companyId, code])
-}
-
-// =======================
-// Users and Auth
-// =======================
-
-model User {
-  id        String   @id @default(uuid())
-  companyId String? // null for SUPER_ADMIN
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String? // assigned branch (null = access to all branches in company)
-  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(CASHIER)
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  sales                    Sale[]
-  cashRegisters            CashRegister[]
-  sessions                 SessionLog[]
-  auditLogs                AuditLog[]
-  branchAccess             UserBranchAccess[]
-  stockTransfers           StockTransfer[]
-  purchases                PurchaseOrder[]
-  cashRegisterTransactions CashRegisterTransaction[]
-  inventoryAdjustments     InventoryAdjustment[]
-  accountPayments          AccountPayment[]
-  saleReturns              SaleReturn[]
-}
-
-model UserBranchAccess {
-  userId   String
-  branchId String
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  @@id([userId, branchId])
-  @@index([userId])
-  @@index([branchId])
-}
-
-model SessionLog {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-}
-
-// =======================
-// Inventory & Products
-// =======================
-
-model Category {
-  id          String    @id @default(uuid())
-  companyId   String
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  products    Product[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@unique([companyId, name])
-}
-
-model Product {
-  id             String        @id @default(uuid())
-  companyId      String
-  company        Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  categoryId     String
-  category       Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  sku            String
-  barcode        String?
-  name           String
-  description    String?
-  price          Decimal       @db.Decimal(10, 2) // Precio Detalle (Retail)
-  wholesalePrice Decimal?      @db.Decimal(10, 2) // Precio Mayoreo (B2B)
-  cost           Decimal       @db.Decimal(10, 2)
-  isTaxExempt    Boolean       @default(false) // Producto exento de IVA
-  unitOfMeasure  UnitOfMeasure @default(UNIT) // Forma de despacho
-  hasVariants    Boolean       @default(false) // Phase 4: Matrix Variants
-  imageUrl       String?
-  isBundle       Boolean       @default(false)
-  supplierId     String?
-  supplier       Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  active         Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  // Relations
-  variants      ProductVariant[]
-  bundleItems   ProductBundleItem[] @relation("BundleParent")
-  partOfBundles ProductBundleItem[] @relation("BundleComponent")
-  stocks        ProductStock[]
-  saleItems     SaleItem[]
-  transferItems StockTransferItem[]
-  purchaseItems PurchaseOrderItem[]
-  inventoryAdjustments InventoryAdjustment[]
-
-  @@unique([companyId, sku])
-  @@unique([companyId, barcode])
-}
-
-model ProductVariant {
-  id             String        @id @default(uuid())
-  productId      String
-  product        Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku            String        // Specific SKU for the variant
-  barcode        String?
-  name           String        // e.g., "Rojo - Talla M" or "Caja x 12"
-  price          Decimal?      @db.Decimal(10, 2) // Optional override
-  wholesalePrice Decimal?      @db.Decimal(10, 2) // Optional override
-  cost           Decimal?      @db.Decimal(10, 2) // Optional override
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  // Relations
-  stocks        ProductStock[]
-  saleItems     SaleItem[]
-  transferItems StockTransferItem[]
-  purchaseItems PurchaseOrderItem[]
-  bundleItems   ProductBundleItem[]
-
-  @@unique([productId, sku])
-}
-
-/// Stock tracked per branch. A product has one stock row per branch. // Phase 4: Per branch per Variant
-model ProductStock {
-  id        String   @id @default(uuid())
-  productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  variantId String?
-  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  branchId  String
-  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  quantity  Int      @default(0)
-  minStock  Int      @default(5)
-  updatedAt DateTime @updatedAt
-
-  // We remove the old constraint to let prisma auto-index correctly for variants constraint overlapping
-  // We use @@unique to avoid dual rows over the same variant. 
-  // Postgres treats NULLs as distinct so this allows multiple NULL variants (which we will handle logically).
-  @@index([productId, branchId, variantId])
-}
-
-model InventoryAdjustment {
-  id          String   @id @default(uuid())
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId    String
-  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  
-  oldQuantity Int
-  newQuantity Int
-  difference  Int
-  reason      String   // E.g., "Merma", "Conteo físico ciego", "Daño"
-  createdAt   DateTime @default(now())
-
-  @@index([branchId, productId])
-}
-
-model ProductBundleItem {
-  id              String   @id @default(uuid())
-  bundleProductId String
-  bundleProduct   Product  @relation("BundleParent", fields: [bundleProductId], references: [id], onDelete: Cascade)
-  componentId     String
-  component       Product  @relation("BundleComponent", fields: [componentId], references: [id], onDelete: Restrict)
-  variantId       String?
-  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
-  quantity        Int      @default(1)
-
-  @@unique([bundleProductId, componentId, variantId])
-}
-
-// =======================
-// Suppliers & Purchasing
-// =======================
-
-model Supplier {
-  id          String   @id @default(uuid())
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name        String
-  contactName String?
-  email       String?
-  phone       String?
-  nit         String?
-  address     String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  products  Product[]
-  purchases PurchaseOrder[]
-
-  @@unique([companyId, nit])
-  @@unique([companyId, name])
+  UNIT
+  KG
+  LB
+  LITER
+  GALLON
+  BOX
 }
 
 enum PurchaseStatus {
@@ -329,273 +552,10 @@ enum PurchaseStatus {
   CANCELLED
 }
 
-model PurchaseOrder {
-  id         String         @id @default(uuid())
-  companyId  String
-  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String
-  branch     Branch         @relation("PurchasesTo", fields: [branchId], references: [id])
-  supplierId String
-  supplier   Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  userId     String // Quien recibio
-  user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  reference  String? // Numero de factura o recibo de compra
-  total      Decimal        @db.Decimal(10, 2)
-  status     PurchaseStatus @default(COMPLETED)
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-
-  items PurchaseOrderItem[]
-}
-
-model PurchaseOrderItem {
-  id              String        @id @default(uuid())
-  purchaseOrderId String
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  productId       String
-  product         Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
-  variantId       String?
-  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  quantity        Int
-  unitCost        Decimal       @db.Decimal(10, 2)
-  subtotal        Decimal       @db.Decimal(10, 2)
-}
-
-// =======================
-// Customers & CRM
-// =======================
-
-model Customer {
-  id          String   @id @default(uuid())
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name        String
-  email       String?
-  phone       String?
-  nit         String?
-  address     String?
-  creditLimit Decimal  @default(0) @db.Decimal(10, 2)
-  balance     Decimal  @default(0) @db.Decimal(10, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  sales         Sale[]
-  accountPayments AccountPayment[]
-}
-
-model AccountPayment {
-  id           String   @id @default(uuid())
-  customerId   String
-  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  
-  amount       Decimal  @db.Decimal(10, 2)
-  method       PaymentMethod
-  reference    String?
-  notes        String?
-  createdAt    DateTime @default(now())
-}
-
-// =======================
-// Sales & POS
-// =======================
-
-model Sale {
-  id             String        @id @default(uuid())
-  companyId      String
-  company        Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  branchId       String
-  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  userId         String
-  user           User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  customerId     String?
-  customer       Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  cashRegisterId String?
-  cashRegister   CashRegister? @relation(fields: [cashRegisterId], references: [id])
-
-  invoiceNumber String?
-  subtotal      Decimal    @db.Decimal(10, 2)
-  discount      Decimal    @default(0) @db.Decimal(10, 2) // discount percentage
-  tax           Decimal    @default(0) @db.Decimal(10, 2)
-  total         Decimal    @db.Decimal(10, 2)
-  status        SaleStatus @default(COMPLETED)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  items    SaleItem[]
-  payments Payment[]
-  returns  SaleReturn[]
-
-  @@unique([companyId, invoiceNumber])
-}
-
-model SaleReturn {
-  id          String   @id @default(uuid())
-  saleId      String
-  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
-  reason      String
-  amount      Decimal  @db.Decimal(10, 2)
-  stockAdded  Boolean  @default(true) // Whether the items were actually returned to the physical shelf
-  createdAt   DateTime @default(now())
-
-  // We could have item-level returns instead of full invoice returns, 
-  // keeping it simple for now, linked to entire Sale but describing amount.
-}
-
-model SaleItem {
-  id        String  @id @default(uuid())
-  saleId    String
-  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
-  variantId String?
-  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  quantity  Int
-  unitPrice Decimal @db.Decimal(10, 2)
-  discount  Decimal @default(0) @db.Decimal(10, 2) // per-item discount amount
-  subtotal  Decimal @db.Decimal(10, 2)
-}
-
-/// Separate payments table allows mixed payments (split between cash + card, etc.)
-model Payment {
-  id        String        @id @default(uuid())
-  saleId    String
-  sale      Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  method    PaymentMethod
-  amount    Decimal       @db.Decimal(10, 2)
-  reference String? // voucher number, transfer ref, etc.
-  createdAt DateTime      @default(now())
-}
-
-// =======================
-// Cash Register & Shifts
-// =======================
-
-model CashRegister {
-  id             String    @id @default(uuid())
-  branchId       String
-  branch         Branch    @relation(fields: [branchId], references: [id])
-  userId         String
-  user           User      @relation(fields: [userId], references: [id])
-  openingBalance Decimal   @db.Decimal(10, 2)
-  closingBalance Decimal?  @db.Decimal(10, 2)
-  status         String    @default("OPEN") // OPEN, CLOSED
-  openedAt       DateTime  @default(now())
-  closedAt       DateTime?
-
-  // Relations
-  sales        Sale[]
-  transactions CashRegisterTransaction[]
-}
-
 enum PayoutType {
   EXPENSE
   WITHDRAWAL
   REFUND
-}
-
-model CashRegisterTransaction {
-  id             String       @id @default(uuid())
-  cashRegisterId String
-  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
-  type           PayoutType   @default(EXPENSE)
-  amount         Decimal      @db.Decimal(10, 2)
-  description    String
-  reference      String?
-  createdAt      DateTime     @default(now())
-}
-
-// =======================
-// Company Settings
-// =======================
-
-model CompanySettings {
-  id        String  @id @default(uuid())
-  companyId String  @unique
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
-  // Store info (for receipt/invoices)
-  storeName  String  @default("Mi Empresa POS")
-  address    String?
-  phone      String?
-  nit        String?
-  receiptMsg String? @default("¡Gracias por su compra!")
-
-  // FEL / Electronic invoicing
-  felEnabled        Boolean     @default(false)
-  felProvider       FelProvider @default(NONE)
-  felNitEmisor      String?
-  felApiUser        String? // encrypted
-  felApiKey         String? // encrypted
-  felCertificateUrl String?
-
-  // Payment methods enabled
-  acceptsCash     Boolean @default(true)
-  acceptsCard     Boolean @default(true)
-  acceptsTransfer Boolean @default(true)
-  acceptsCredit   Boolean @default(false)
-
-  // Tax
-  taxRate     Decimal @default(0.12) @db.Decimal(5, 4) // 12% IVA Guatemala
-  taxIncluded Boolean @default(true) // true = price already includes tax
-
-  // Currency
-  currency       String @default("GTQ")
-  currencySymbol String @default("Q")
-
-  updatedAt DateTime @updatedAt
-}
-
-// =======================
-// Subscription / Billing
-// =======================
-
-model Subscription {
-  id                 String             @id @default(uuid())
-  companyId          String             @unique
-  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  plan               String             @default("trial") // trial, starter, pro, enterprise
-  status             SubscriptionStatus @default(TRIAL)
-  price              Decimal            @default(0) @db.Decimal(10, 2)
-  maxBranches        Int                @default(1)
-  maxUsersPerBranch  Int                @default(3)
-  currentPeriodStart DateTime           @default(now())
-  currentPeriodEnd   DateTime
-  trialEndsAt        DateTime?
-  paymentProviderId  String? // Stripe customer/subscription ID
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-}
-
-// =======================
-// Audit Trail
-// =======================
-
-model AuditLog {
-  id        String   @id @default(uuid())
-  companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId  String?
-  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  entity    String // "Product", "Sale", "User", etc.
-  entityId  String // ID of the affected record
-  action    String // "CREATE", "UPDATE", "DELETE"
-  changes   Json? // { field: { old: "x", new: "y" } }
-  ipAddress String?
-  createdAt DateTime @default(now())
-
-  @@index([companyId, entity])
-  @@index([companyId, createdAt])
 }
 
 enum NotificationType {
@@ -604,54 +564,8 @@ enum NotificationType {
   ERROR
 }
 
-model Notification {
-  id        String           @id @default(uuid())
-  companyId String
-  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  title     String
-  message   String
-  type      NotificationType @default(INFO)
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  @@index([companyId, isRead])
-}
-
-// =======================
-// Stock Transfers Log
-// =======================
-
 enum TransferStatus {
   COMPLETED
   PENDING
   CANCELLED
-}
-
-model StockTransfer {
-  id           String         @id @default(uuid())
-  companyId    String
-  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  fromBranchId String
-  fromBranch   Branch         @relation("TransfersFrom", fields: [fromBranchId], references: [id])
-  toBranchId   String
-  toBranch     Branch         @relation("TransfersTo", fields: [toBranchId], references: [id])
-  userId       String
-  user         User           @relation(fields: [userId], references: [id])
-  reference    String?
-  status       TransferStatus @default(COMPLETED)
-  createdAt    DateTime       @default(now())
-
-  // Relations
-  items StockTransferItem[]
-}
-
-model StockTransferItem {
-  id              String        @id @default(uuid())
-  stockTransferId String
-  transfer        StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
-  productId       String
-  product         Product       @relation(fields: [productId], references: [id])
-  variantId       String?
-  variant         ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  quantity        Int
 }

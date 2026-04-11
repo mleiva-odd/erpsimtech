@@ -130,6 +130,13 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
         </div>
 
         <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
+          {/* Error - Moved to top for visibility */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 animate-shake">
+              {error}
+            </div>
+          )}
+
           {/* Total */}
           <div className="bg-blue-50 rounded-xl p-4 text-center">
             <p className="text-sm text-blue-600 font-medium">Total a cobrar</p>
@@ -268,12 +275,6 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
             </div>
           )}
 
-          {/* Error */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-              {error}
-            </div>
-          )}
         </div>
 
         {/* Footer */}

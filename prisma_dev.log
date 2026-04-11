@@ -1,0 +1,22 @@
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Loaded Prisma config from prisma.config.ts.
+
+warn The Prisma config file in prisma.config.ts overrides the deprecated `package.json#prisma` property in package.json.
+  For more information, see: https://pris.ly/prisma-config
+
+⠋  Starting _prisma dev_ server default...
+
+
+
+
+
+
+⚠  Skipped! 😌
+
+   Your _prisma dev_ server default is already running and listening on ports 51213-51215.
+        
+   To start a different server, use the -n/--name flag with another name.
+
+

@@ -28,6 +28,7 @@ const CreateSaleSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  console.log('--- SOLICITUD DE VENTA RECIBIDA ---');
   const result = await requireTenant();
   if ('error' in result) return result.error;
   const { tenant } = result;
@@ -248,7 +249,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      return { newSale, updatedStocks };
+    return { newSale, updatedStocks };
     });
 
     const { newSale: sale, updatedStocks } = transactionResult;
@@ -279,6 +280,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error: unknown) {
+    console.error('ERROR EN VENTA:', error);
     const message = error instanceof Error ? error.message : 'Error al procesar la venta';
     const status = message.includes('Stock insuficiente') || message.includes('crédito') || message.includes('insuficiente') ? 409 : 500;
     return NextResponse.json({ error: message }, { status });

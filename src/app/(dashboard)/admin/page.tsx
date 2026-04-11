@@ -30,6 +30,7 @@ export default function AdminPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '', slug: '', email: '', phone: '', nit: '', plan: 'basic',
+    adminName: '', adminPassword: '',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -70,7 +71,10 @@ export default function AdminPage() {
       }
 
       setIsModalOpen(false);
-      setFormData({ name: '', slug: '', email: '', phone: '', nit: '', plan: 'basic' });
+      setFormData({ 
+        name: '', slug: '', email: '', phone: '', nit: '', plan: 'basic',
+        adminName: '', adminPassword: '',
+      });
       fetchCompanies();
     } catch (e) {
       setError('Error de conexión');
@@ -234,59 +238,96 @@ export default function AdminPage() {
 
       {/* Create Company Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden my-8">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-amber-50">
               <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-amber-600" /> Registrar Empresa
+                <Building2 className="w-5 h-5 text-amber-600" /> Registrar Nueva Empresa
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-600 hover:text-slate-600">✕</button>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">✕</button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Comercial *</label>
-                <input required type="text" value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value, slug: generateSlug(e.target.value)})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none"
-                  placeholder="Distribuidora XYZ"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Slug (URL)</label>
-                <input type="text" value={formData.slug}
-                  onChange={e => setFormData({...formData, slug: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none font-mono text-sm"
-                  placeholder="distribuidora-xyz"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email Contacto *</label>
-                <input required type="email" value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">NIT</label>
-                  <input type="text" value={formData.nit}
-                    onChange={e => setFormData({...formData, nit: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none"
-                  />
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              {/* Sección 1: Datos de la Empresa */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="w-3.5 h-3.5" /> Datos del Negocio
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nombre Comercial *</label>
+                    <input required type="text" value={formData.name}
+                      onChange={e => setFormData({...formData, name: e.target.value, slug: generateSlug(e.target.value)})}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none transition-all"
+                      placeholder="Distribuidora XYZ"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Slug (URL)</label>
+                    <input type="text" value={formData.slug}
+                      onChange={e => setFormData({...formData, slug: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none font-mono text-xs bg-slate-50"
+                      placeholder="distribuidora-xyz"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
-                  <input type="text" value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none"
-                  />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Email de Contacto y Dueño *</label>
+                    <input required type="email" value={formData.email}
+                      onChange={e => setFormData({...formData, email: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none transition-all"
+                      placeholder="admin@empresa.com"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Este email se usará para el inicio de sesión del dueño.</p>
+                  </div>
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">NIT</label>
+                    <input type="text" value={formData.nit}
+                      onChange={e => setFormData({...formData, nit: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+                    <input type="text" value={formData.phone}
+                      onChange={e => setFormData({...formData, phone: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none transition-all"
+                    />
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Plan</label>
+
+              {/* Sección 2: Datos del Dueño (NUEVO) */}
+              <div className="space-y-4 pt-4 border-t border-slate-100">
+                <h3 className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5" /> Datos del Administrador (Dueño)
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del Dueño *</label>
+                    <input required type="text" value={formData.adminName}
+                      onChange={e => setFormData({...formData, adminName: e.target.value})}
+                      className="w-full px-3 py-2 border-2 border-amber-100 rounded-lg focus:ring-2 focus:ring-amber-100 outline-none transition-all"
+                      placeholder="Ej: Marvin Leiva"
+                    />
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña Inicial *</label>
+                    <input required type="password" value={formData.adminPassword}
+                      onChange={e => setFormData({...formData, adminPassword: e.target.value})}
+                      className="w-full px-3 py-2 border-2 border-amber-100 rounded-lg focus:ring-2 focus:ring-amber-100 outline-none transition-all"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Plan de Suscripción</label>
                 <select value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none">
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-100 outline-none transition-all bg-white font-bold text-amber-700">
                   <option value="trial">Trial (30 días)</option>
                   <option value="basic">Básico</option>
                   <option value="professional">Profesional</option>
@@ -295,17 +336,21 @@ export default function AdminPage() {
               </div>
 
               {error && (
-                <div className="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg border border-red-200">{error}</div>
+                <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-lg border border-red-200 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  {error}
+                </div>
               )}
 
               <div className="pt-4 flex gap-3">
                 <button type="button" onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50">
+                  className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-bold transition-all">
                   Cancelar
                 </button>
                 <button type="submit" disabled={isSaving}
-                  className="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 font-medium">
-                  {isSaving ? 'Creando...' : 'Crear Empresa'}
+                  className="flex-1 px-4 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-600 disabled:opacity-50 font-bold shadow-lg shadow-amber-200 transition-all flex items-center justify-center gap-2">
+                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                  {isSaving ? 'Registrando...' : 'Registrar Empresa'}
                 </button>
               </div>
             </form>

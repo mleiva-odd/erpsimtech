@@ -31,11 +31,12 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, slug, email, phone, nit, plan, adminName, adminPassword } = body;
+    const { name, slug, email, phone, nit, plan, adminName, adminEmail, adminPassword } = body;
 
-    if (!name || !slug || !email || !adminName || !adminPassword) {
+    // Validación estricta de campos obligatorios
+    if (!name || !slug || !email || !adminName || !adminEmail || !adminPassword) {
       return NextResponse.json({ 
-        error: 'Nombre de empresa, slug, email, nombre del dueño y contraseña son requeridos' 
+        error: 'Los datos de la empresa y del administrador son obligatorios' 
       }, { status: 400 });
     }
 
@@ -45,13 +46,13 @@ export async function POST(req: NextRequest) {
     // 1. Hash the password
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
-    // 2. Create company with nested branch, settings, subscription, AND the first Admin user
+    // 2. Create company ecosystem (Transaction)
     const company = await prisma.$transaction(async (tx) => {
       const newCompany = await tx.company.create({
         data: {
           name,
           slug,
-          email,
+          email, // Correo de contacto de la empresa
           phone: phone || null,
           nit: nit || null,
           branches: {
@@ -85,13 +86,13 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // 3. Create the Admin User linked correctly
+      // 3. Create the Administrator User with their own access email
       const mainBranchId = newCompany.branches[0].id;
 
       await tx.user.create({
         data: {
           name: adminName,
-          email: email, // Usamos el email de la empresa para el admin por defecto
+          email: adminEmail, // Correo de ACCESO del administrador
           password: hashedPassword,
           role: 'ADMIN',
           companyId: newCompany.id,
@@ -105,13 +106,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(company, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '';
-    console.error('Error creating company:', error);
+    console.error('Error creating company/admin:', error);
     if (message.includes('Unique constraint')) {
       if (message.includes('email')) {
-        return NextResponse.json({ error: 'El email ya está registrado para otro usuario o empresa' }, { status: 409 });
+        return NextResponse.json({ error: 'El correo de acceso del administrador ya está en uso' }, { status: 409 });
       }
-      return NextResponse.json({ error: 'Ya existe una empresa con ese slug' }, { status: 409 });
+      return NextResponse.json({ error: 'Ya existe una empresa con ese slug (URL)' }, { status: 409 });
     }
-    return NextResponse.json({ error: 'Error al crear empresa y administrador' }, { status: 500 });
+    return NextResponse.json({ error: 'Error al procesar el registro' }, { status: 500 });
   }
 }

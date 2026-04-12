@@ -110,38 +110,47 @@ export function UserModal({ user, onClose, onSuccess }: UserModalProps) {
   const alternateBranches = branches.filter(b => b.id !== formData.branchId);
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[95vh]">
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h2 className="font-bold text-lg text-slate-800">
-            {user ? 'Editar Permisos del Empleado' : 'Registrar Nuevo Integrante'}
-          </h2>
-          <button onClick={onClose} className="text-slate-600 hover:text-rose-500 transition-colors bg-white p-1 rounded-full shadow-sm">
+    <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[95vh] border border-slate-100 animate-in fade-in zoom-in duration-300">
+        <div className="px-8 pt-8 pb-4 flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+              {user ? 'Editar Personal' : 'Nuevo Integrante'}
+            </h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Gestión de Accesos y Permisología</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="overflow-y-auto px-6 py-6 custom-scrollbar flex-1">
-          <form id="userForm" onSubmit={handleSubmit} className="space-y-6">
+        <div className="overflow-y-auto px-8 py-4 custom-scrollbar flex-1">
+          <form id="userForm" onSubmit={handleSubmit} className="space-y-8">
             
             {/* Block 1: Info */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Información Básica</h3>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Nombre Completo *</label>
-                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none transition-colors" />
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
+                <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
+                <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Información de Identidad</h3>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Correo Electrónico *</label>
-                  <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none transition-colors" />
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Nombre Completo *</label>
+                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800 text-sm" />
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">
-                    {user ? 'Nueva Contraseña' : 'Contraseña *'}
-                  </label>
-                  <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder={user ? "**** (opcional)" : "Mínimo 6 caracteres"} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none transition-colors" minLength={6} />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Correo de Acceso *</label>
+                    <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">
+                      {user ? 'Clave (Opcional)' : 'Contraseña *'}
+                    </label>
+                    <input type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder={user ? "••••" : "Min. 6 car."} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800 text-sm" minLength={6} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -216,14 +225,14 @@ export function UserModal({ user, onClose, onSuccess }: UserModalProps) {
           </form>
         </div>
 
-        <div className="p-5 border-t border-slate-100 bg-white flex justify-end gap-3 rounded-b-2xl shadow-[0_-10px_30px_-15px_rgba(0,0,0,0.05)] relative z-10">
-          {error && <span className="text-rose-500 text-sm font-medium absolute left-6 top-1/2 -translate-y-1/2">{error}</span>}
+        <div className="p-8 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-4 rounded-b-[2rem]">
+          {error && <span className="text-rose-500 text-[11px] font-bold uppercase absolute left-8 top-1/2 -translate-y-1/2">{error}</span>}
           
-          <button type="button" onClick={onClose} className="px-5 py-2.5 bg-slate-100 text-slate-600 font-medium rounded-xl hover:bg-slate-200 transition">
+          <button type="button" onClick={onClose} className="px-6 py-3 text-slate-500 font-bold rounded-2xl hover:bg-slate-100 transition-all text-sm">
             Cancelar
           </button>
-          <button type="submit" form="userForm" disabled={isLoading} className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl shadow-md shadow-blue-200 hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 transition active:scale-95">
-            {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Procesando...</> : 'Guardar Llaves'}
+          <button type="submit" form="userForm" disabled={isLoading} className="flex items-center gap-2.5 px-10 py-3.5 bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/20 text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 text-sm">
+            {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Procesando...</> : 'Guardar Cambios'}
           </button>
         </div>
       </div>

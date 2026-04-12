@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { UserPlus, Edit2, Zap, Shield, ShieldOff, Loader2 } from 'lucide-react';
+import { UserPlus, Edit2, Zap, Shield, ShieldOff, Loader2, CheckCircle } from 'lucide-react';
 import { UserModal } from '@/components/users/UserModal';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -56,34 +56,34 @@ export default function UsersPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <Shield className="w-6 h-6 text-blue-600" />
-            Roles y Cajeros
+            Equipo y Permisos
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Crea cuentas para tu personal y asígnales diferentes permisos</p>
+          <p className="text-[13px] text-slate-500 font-medium mt-1">Gestión administrativa de roles y acceso a sucursales</p>
         </div>
         <button
           onClick={() => { setSelectedUser(null); setIsModalOpen(true); }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm flex items-center gap-2 transition-all active:scale-95"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-blue-500/10 flex items-center gap-2.5 transition-all active:scale-95"
         >
-          <UserPlus className="w-5 h-5" /> Nuevo Integrante
+          <UserPlus className="w-4 h-4" /> Nuevo Integrante
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm flex-1 overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4 font-semibold">Cajero / Nombre</th>
-                <th className="px-6 py-4 font-semibold">Correo</th>
-                <th className="px-6 py-4 font-semibold text-center">Permiso</th>
-                <th className="px-6 py-4 font-semibold text-center">Sucursal</th>
-                <th className="px-6 py-4 font-semibold text-center">Estado</th>
-                <th className="px-6 py-4 font-semibold text-center">Fecha Ingreso</th>
-                <th className="px-6 py-4 font-semibold text-center">Opciones</th>
+                <th className="px-6 py-5">Identidad</th>
+                <th className="px-6 py-5">Correo Electrónico</th>
+                <th className="px-6 py-5 text-center">Nivel de Acceso</th>
+                <th className="px-6 py-5 text-center">Sucursal Base</th>
+                <th className="px-6 py-5 text-center">Estatus</th>
+                <th className="px-6 py-5 text-center">Fecha Ingreso</th>
+                <th className="px-6 py-5 text-center">Opciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -96,50 +96,49 @@ export default function UsersPage() {
                 </tr>
               ) : users.length > 0 ? (
                 users.map(user => (
-                  <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-slate-800 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-700">
+                  <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-5 font-bold text-slate-900 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center font-bold text-blue-600 shadow-sm">
                         {user.name.charAt(0).toUpperCase()}
                       </div>
-                      {user.name}
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-900">{user.name}</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-500">{user.email}</td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`px-2.5 py-1 rounded text-xs font-bold ${
-                        user.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
-                        user.role === 'SUPERVISOR' ? 'bg-amber-100 text-amber-700' :
-                        'bg-slate-100 text-slate-600'
+                    <td className="px-6 py-5 text-slate-500 font-medium">{user.email}</td>
+                    <td className="px-6 py-5 text-center">
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase border ${
+                        user.role === 'ADMIN' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                        user.role === 'SUPERVISOR' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                        'bg-slate-50 text-slate-500 border-slate-100'
                       }`}>
                         {user.role}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center text-sm">
+                    <td className="px-6 py-5 text-center">
                       <div className="flex flex-col items-center">
-                        <span className="font-medium text-slate-700">{user.branch?.name || <span className="text-slate-600 italic">No asignada</span>}</span>
-                        {user.branchAccess && user.branchAccess.length > 0 && (
-                          <span className="px-2 py-0.5 mt-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold border border-blue-100">
-                            +{user.branchAccess.length} extras
-                          </span>
-                        )}
+                        <span className="font-bold text-slate-800">{user.branch?.name || <span className="text-slate-400 italic font-normal">Sin asignar</span>}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-5 text-center">
                       {user.active ? (
-                        <span className="flex items-center justify-center gap-1 text-green-600 text-xs font-medium"><Zap className="w-3.5 h-3.5" /> Activo</span>
+                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-widest border border-emerald-100"><CheckCircle className="w-3 h-3" /> Activo</span>
                       ) : (
-                        <span className="text-red-500 text-xs font-medium line-through">Suspendido</span>
+                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-500 text-[10px] font-bold uppercase tracking-widest border border-rose-100 opacity-50">Suspendido</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center text-slate-600">
-                      {format(new Date(user.createdAt), "dd MMM yyyy", { locale: es })}
+                    <td className="px-6 py-5 text-center text-slate-400 font-mono text-xs">
+                      {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: es })}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <button 
-                        onClick={() => { setSelectedUser(user); setIsModalOpen(true); }}
-                        className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
+                    <td className="px-6 py-5 text-center">
+                      <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                        <button 
+                          onClick={() => { setSelectedUser(user); setIsModalOpen(true); }}
+                          className="p-3 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-sm hover:shadow-xl hover:shadow-blue-500/10 active:scale-90"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

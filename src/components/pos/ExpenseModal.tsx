@@ -46,14 +46,15 @@ export function ExpenseModal({ onClose, onSuccess }: ExpenseModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-fade-in">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300 border border-slate-100">
         
-        <div className="px-6 py-4 border-b border-rose-100 flex justify-between items-center bg-rose-600 text-white">
-          <h2 className="font-bold text-lg flex items-center gap-2">
-            <Wallet className="w-5 h-5" /> Retiro / Egreso de Caja
-          </h2>
-          <button onClick={onClose} className="text-rose-200 hover:text-white transition">
+        <div className="px-8 pt-8 pb-4 flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Registro de Egreso</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Retiro de Efectivo de Gaveta</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -84,7 +85,7 @@ export function ExpenseModal({ onClose, onSuccess }: ExpenseModalProps) {
              <label className="block text-sm font-bold text-slate-700 mb-1">Monto Retirado de Gaveta (Q) *</label>
              <div className="relative">
                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">Q</span>
-               <input autoFocus required type="number" step="0.01" min="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} className="w-full pl-8 pr-4 py-3 bg-slate-50 font-black text-rose-600 text-xl border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none transition-shadow" placeholder="0.00" />
+               <input autoFocus required type="number" step="0.01" min="0.01" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} className="w-full pl-8 pr-4 py-3 bg-slate-50 font-bold text-rose-600 text-xl border rounded-xl focus:ring-2 focus:ring-rose-500 outline-none transition-shadow" placeholder="0.00" />
              </div>
           </div>
 
@@ -93,10 +94,21 @@ export function ExpenseModal({ onClose, onSuccess }: ExpenseModalProps) {
              <textarea required rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-4 border bg-slate-50 rounded-xl focus:ring-2 focus:ring-rose-500 outline-none transition-shadow text-sm resize-none" placeholder="Ej: Pago de flete a Don Carlos para llevar bloques a Sucursal Norte..."></textarea>
           </div>
 
-          <div className="pt-2">
-            <button disabled={isLoading} type="submit" className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-xl font-bold transition-all shadow-lg shadow-rose-600/30 active:scale-[0.98]">
+          <div className="pt-4 flex gap-4">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="flex-1 py-3.5 text-slate-500 font-bold rounded-2xl hover:bg-slate-100 transition-all text-sm"
+            >
+              Cancelar
+            </button>
+            <button 
+              disabled={isLoading} 
+              type="submit" 
+              className="flex-[1.5] py-4 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-2xl font-bold transition-all shadow-xl shadow-rose-600/20 active:scale-[0.98] flex items-center justify-center gap-2.5 text-sm"
+            >
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wallet className="w-5 h-5" />} 
-              Descontar de Mi Caja
+              Confirmar Retiro
             </button>
           </div>
         </form>

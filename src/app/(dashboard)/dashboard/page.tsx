@@ -76,29 +76,29 @@ export default function DashboardPage() {
           title="Ventas de Hoy"
           val={`Q${(stats.revenueToday ?? 0).toFixed(2)}`}
           sub={`${stats.salesCountToday} transacciones`}
-          icon={<DollarSign className="w-6 h-6 text-green-600" />}
+          icon={<DollarSign className="w-5 h-5 text-green-600" />}
           bg="bg-green-50"
         />
         <KPICard
           title="Productos Activos"
           val={stats.totalProducts}
-          sub="En inventario"
-          icon={<Package className="w-6 h-6 text-blue-600" />}
+          sub="En inventario global"
+          icon={<Package className="w-5 h-5 text-blue-600" />}
           bg="bg-blue-50"
         />
         <KPICard
           title="Alertas de Stock"
           val={stats.lowStockProducts}
-          sub="Productos por reabastecer"
-          icon={<AlertTriangle className="w-6 h-6 text-amber-600" />}
+          sub="Reabastecimiento pendiente"
+          icon={<AlertTriangle className="w-5 h-5 text-amber-600" />}
           bg="bg-amber-50"
           alert={stats.lowStockProducts > 0}
         />
         <KPICard
           title="Estado del Sistema"
           val="Óptimo"
-          sub="Última sinc. hace 1 min"
-          icon={<Activity className="w-6 h-6 text-indigo-600" />}
+          sub="Sincronización en tiempo real"
+          icon={<Activity className="w-5 h-5 text-indigo-600" />}
           bg="bg-indigo-50"
         />
       </div>
@@ -107,10 +107,12 @@ export default function DashboardPage() {
       {charts && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Daily Sales Bar Chart */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
-              <h2 className="font-bold text-slate-800">Ventas últimos 7 días</h2>
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+              </div>
+              <h2 className="font-bold text-slate-800 tracking-tight">Rendimiento Semanal</h2>
             </div>
             {charts.dailySales.length > 0 ? (
               <ResponsiveContainer width="100%" height={240}>
@@ -133,8 +135,8 @@ export default function DashboardPage() {
           </div>
 
           {/* Payment Methods Pie Chart */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-            <h2 className="font-bold text-slate-800 mb-4">Métodos de Pago</h2>
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+            <h2 className="font-bold text-slate-800 mb-6 tracking-tight">Distribución de Pagos</h2>
             {charts.paymentMethods.length > 0 ? (
               <ResponsiveContainer width="100%" height={240}>
                 <PieChart>
@@ -174,9 +176,9 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Products */}
         {charts && charts.topProducts.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-100">
-              <h2 className="font-bold text-slate-800">Productos Más Vendidos</h2>
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-8 py-6 border-b border-slate-50">
+              <h2 className="font-bold text-slate-800 tracking-tight">Productos de Mayor Rotación</h2>
             </div>
             <div className="divide-y divide-slate-100">
               {charts.topProducts.map((product, idx) => (
@@ -200,11 +202,11 @@ export default function DashboardPage() {
         )}
 
         {/* Recent Sales */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="font-bold text-slate-800">Últimas Ventas</h2>
-            <a href="/reports" className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
-              Ver todas <ArrowUpRight className="w-4 h-4" />
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
+            <h2 className="font-bold text-slate-800 tracking-tight">Actividad Reciente</h2>
+            <a href="/reports" className="text-xs text-blue-600 hover:text-blue-700 font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors">
+              Historial Completo <ArrowUpRight className="w-3.5 h-3.5" />
             </a>
           </div>
           <div className="divide-y divide-slate-100">
@@ -239,19 +241,22 @@ export default function DashboardPage() {
 
 function KPICard({ title, val, sub, icon, bg, alert }: { title: string, val: string | number, sub: string, icon: React.ReactNode, bg: string, alert?: boolean }) {
   return (
-    <div className={`rounded-2xl border ${alert ? 'border-amber-300' : 'border-slate-200'} bg-white p-6 shadow-sm flex flex-col`}>
+    <div className={`rounded-3xl border ${alert ? 'border-amber-200 bg-amber-50/20' : 'border-slate-100 bg-white'} p-7 shadow-sm transition-all hover:shadow-md flex flex-col`}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-slate-500">{title}</p>
-          <p className="text-3xl font-bold text-slate-800 mt-2">{val}</p>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-3">{title}</p>
+          <p className="text-3xl font-bold text-slate-900 tracking-tight">{val}</p>
         </div>
-        <div className={`p-3 rounded-xl ${bg}`}>
+        <div className={`p-2.5 rounded-2xl ${bg} flex items-center justify-center shadow-sm`}>
           {icon}
         </div>
       </div>
-      <p className={`text-xs mt-4 ${alert ? 'text-amber-600 font-medium' : 'text-slate-600'}`}>
-        {sub}
-      </p>
+      <div className="mt-5 flex items-center gap-2">
+        <div className={`w-1 h-3 rounded-full ${alert ? 'bg-amber-500' : 'bg-slate-200'}`}></div>
+        <p className={`text-[11px] ${alert ? 'text-amber-600 font-bold' : 'text-slate-500 font-medium'}`}>
+          {sub}
+        </p>
+      </div>
     </div>
   );
 }

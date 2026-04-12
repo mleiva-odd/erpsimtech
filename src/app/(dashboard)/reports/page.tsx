@@ -371,7 +371,7 @@ export default function ReportsPage() {
                   value={closingBalanceInput}
                   onChange={(e) => setClosingBalanceInput(e.target.value)}
                   placeholder="0.00"
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none text-xl transition-colors font-black text-slate-900"
+                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none text-xl transition-colors font-bold text-slate-900"
                 />
               </div>
 

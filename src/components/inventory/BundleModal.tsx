@@ -121,41 +121,45 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
-        <div className="px-6 py-4 border-b border-indigo-100 flex justify-between items-center bg-indigo-600 text-white rounded-t-2xl">
-          <h2 className="font-bold text-lg flex items-center gap-2">
-            <Package className="w-5 h-5" /> Armar Nuevo Combo / Kit
-          </h2>
-          <button onClick={onClose} className="text-indigo-200 hover:text-white transition">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh] border border-slate-100 animate-in fade-in zoom-in duration-300">
+        <div className="px-8 pt-8 pb-4 flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Configurador de Combos</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Armado de Kits y Paquetes Promocionales</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 flex gap-6 custom-scrollbar">
           {/* Col 1: Datos del Combo */}
-          <form id="bundle-form" onSubmit={handleSubmit} className="w-1/2 space-y-4">
-            <h3 className="font-bold border-b pb-2 text-slate-800">Información del Combo</h3>
+          <form id="bundle-form" onSubmit={handleSubmit} className="w-1/2 space-y-6">
+            <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
+              <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
+              <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Atributos del Master SKU</h3>
+            </div>
             
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Nombre Comercial *</label>
-              <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Ej: Promo Parrillada Familiar" />
+              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Nombre del Combo *</label>
+              <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800 text-sm" placeholder="Ej: Promo Parrillada Familiar" />
             </div>
 
             <div className="flex gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-bold text-slate-700 mb-1">SKU *</label>
-                <input required type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono" placeholder="CMB-001" />
+                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">SKU *</label>
+                <input required type="text" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-mono font-bold text-slate-800 text-xs" placeholder="CMB-001" />
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-bold text-slate-700 mb-1">Precio Combo (Q) *</label>
-                <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-black text-indigo-600" />
+                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Precio Combo (Q) *</label>
+                <input required type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} className="w-full px-4 py-2.5 bg-blue-50/50 border-2 border-blue-100 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-bold text-blue-600 text-lg" />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Categoría *</label>
-              <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Categoría *</label>
+              <select required value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2.5 border-2 border-slate-100 bg-white rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800 text-sm">
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
@@ -163,11 +167,11 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
             <div className="bg-slate-50 border rounded-xl p-4 mt-4">
                <div className="flex justify-between text-sm">
                   <span className="text-slate-500 font-medium">Costo Calculado (Suma piezas):</span>
-                  <span className="font-black text-slate-700">Q{currentCost.toFixed(2)}</span>
+                  <span className="font-bold text-slate-700">Q{currentCost.toFixed(2)}</span>
                </div>
                <div className="flex justify-between text-sm mt-1">
                   <span className="text-slate-500 font-medium">Margen de Ganancia:</span>
-                  <span className="font-black text-emerald-600">Q{(formData.price - currentCost).toFixed(2)}</span>
+                  <span className="font-bold text-emerald-600">Q{(formData.price - currentCost).toFixed(2)}</span>
                </div>
             </div>
           </form>
@@ -251,13 +255,22 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex gap-3 justify-end items-center bg-slate-50 rounded-b-2xl">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 text-slate-600 hover:bg-white border border-slate-200 rounded-xl font-medium transition-colors">
+        <div className="px-8 py-6 border-t border-slate-100 flex gap-4 justify-end items-center bg-slate-50/50 rounded-b-[2rem]">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="px-6 py-3 text-slate-500 font-bold rounded-2xl hover:bg-slate-100 transition-all text-sm"
+            >
               Cancelar
             </button>
-            <button form="bundle-form" type="submit" disabled={isLoading} className="flex items-center gap-2 px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 text-white rounded-xl font-bold transition-all disabled:opacity-50">
+            <button 
+              form="bundle-form" 
+              type="submit" 
+              disabled={isLoading} 
+              className="flex items-center gap-2.5 px-10 py-3.5 bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/20 text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 text-sm"
+            >
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} 
-              Guardar Combo
+              Guardar Configuración
             </button>
         </div>
       </div>

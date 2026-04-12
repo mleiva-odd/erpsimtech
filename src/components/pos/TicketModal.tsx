@@ -61,18 +61,18 @@ export function TicketModal({ saleId, onClose }: TicketModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm print:bg-white print:backdrop-blur-none p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm print:bg-white print:backdrop-blur-none p-4">
       {/* Action buttons (hidden when printing) */}
-      <div className="absolute top-4 right-4 flex gap-2 print:hidden">
+      <div className="absolute top-8 right-8 flex gap-4 print:hidden">
         <button
           onClick={handlePrint}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-lg flex items-center gap-2 transition"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl font-bold shadow-xl shadow-blue-500/20 flex items-center gap-2.5 transition-all hover:scale-[1.02] active:scale-95 text-sm"
         >
           <Printer className="w-5 h-5" /> Imprimir Ticket
         </button>
         <button
           onClick={onClose}
-          className="bg-slate-800 hover:bg-slate-900 text-white p-2 rounded-lg shadow-lg flex items-center gap-2 transition"
+          className="bg-slate-900 hover:bg-black text-white p-3.5 rounded-2xl shadow-xl flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-95"
         >
           <X className="w-6 h-6" />
         </button>

@@ -120,7 +120,7 @@ export default function PurchasesPage() {
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
               <PackageOpen className="w-6 h-6 text-emerald-600" /> Nueva Recepción de Inventario
             </h1>
-            <p className="text-sm text-slate-500">Documento Transaccional B2B ERP</p>
+            <p className="text-sm text-slate-500">Documento de Abastecimiento Interno</p>
           </div>
         </div>
 
@@ -137,7 +137,7 @@ export default function PurchasesPage() {
           {/* Form and Search Panel */}
           <div className="md:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col gap-6 overflow-y-auto">
             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-2">Proveedor B2B *</label>
+               <label className="block text-sm font-bold text-slate-700 mb-2">Proveedor Mayorista / Corporativo *</label>
                <select required value={selectedSupplier} onChange={(e)=>setSelectedSupplier(e.target.value)} className="w-full border rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50">
                  <option value="" disabled>Seleccione el socio logístico</option>
                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -220,7 +220,7 @@ export default function PurchasesPage() {
               <div className="border-t border-slate-200 p-6 bg-slate-50 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Valorización del Inventario Recibido</p>
-                  <p className="text-3xl font-black text-slate-800">Q{totalInput.toFixed(2)}</p>
+                  <p className="text-3xl font-bold text-slate-800">Q{totalInput.toFixed(2)}</p>
                 </div>
                 <button disabled={isSubmitting} onClick={handleSubmit} className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2 disabled:opacity-50">
                   {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5"/>} Inyectar a Bodega

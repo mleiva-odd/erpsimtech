@@ -50,12 +50,12 @@ export default function LoginPage() {
            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10">
              <Store className="w-7 h-7 text-white" />
            </div>
-           <span className="text-2xl font-black text-white tracking-[0.2em]">SIMTECH</span>
+           <span className="text-2xl font-bold text-white tracking-[0.2em]">SIMTECH</span>
         </div>
 
         {/* Hero Text - Centered better vertically within its space */}
         <div className="relative z-10 max-w-lg mb-20 mt-auto animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150 fill-mode-both">
-          <h1 className="text-[3.5rem] font-black text-white leading-[1.05] mb-6 tracking-tight">
+          <h1 className="text-[3.5rem] font-bold text-white leading-[1.05] mb-6 tracking-tight">
             El corazón de tu<br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
               operación comercial.
@@ -79,19 +79,19 @@ export default function LoginPage() {
           <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/20 mb-5 transform -rotate-3 border border-blue-400/30">
             <Store className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">SIMTECH</h1>
-          <p className="text-[11px] font-black tracking-[0.2em] text-slate-400 mt-1 uppercase">Punto de Venta</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">SIMTECH</h1>
+          <p className="text-[11px] font-bold tracking-[0.2em] text-slate-400 mt-1 uppercase">Punto de Venta</p>
         </div>
 
         <div className="w-full max-w-sm xl:max-w-md animate-in fade-in slide-in-from-right-8 duration-700 delay-100 fill-mode-both">
           <div className="mb-12">
-            <h2 className="text-4xl font-black text-slate-900 tracking-tight mb-3">Bienvenido</h2>
+            <h2 className="text-4xl font-bold text-slate-900 tracking-tight mb-3">Bienvenido</h2>
             <p className="text-slate-500 text-lg font-medium">Ingresa tus credenciales maestras.</p>
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2.5">
-              <label className="text-[13px] font-black text-slate-700 ml-1 uppercase tracking-wider">Correo Electrónico</label>
+              <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider">Correo Electrónico</label>
               <div className="relative group">
                 <input
                   type="email"
@@ -106,8 +106,8 @@ export default function LoginPage() {
 
             <div className="space-y-2.5">
               <div className="flex justify-between items-center ml-1">
-                <label className="text-[13px] font-black text-slate-700 uppercase tracking-wider">Contraseña</label>
-                <a href="#" className="text-[13px] font-black text-blue-600 hover:text-blue-800 transition-colors">¿Olvidaste tu clave?</a>
+                <label className="text-[13px] font-bold text-slate-700 uppercase tracking-wider">Contraseña</label>
+                <a href="#" className="text-[13px] font-bold text-blue-600 hover:text-blue-800 transition-colors">¿Olvidaste tu clave?</a>
               </div>
               <div className="relative group">
                 <input
@@ -131,7 +131,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-slate-900 hover:bg-black text-white font-black text-[18px] rounded-2xl py-5 mt-8 shadow-2xl shadow-slate-900/20 transition-all active:scale-[0.98] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3 relative overflow-hidden group tracking-wide"
+              className="w-full bg-slate-900 hover:bg-black text-white font-bold text-[18px] rounded-2xl py-5 mt-8 shadow-2xl shadow-slate-900/20 transition-all active:scale-[0.98] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3 relative overflow-hidden group tracking-wide"
             >
               <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
               

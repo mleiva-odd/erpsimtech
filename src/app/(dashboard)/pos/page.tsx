@@ -92,11 +92,11 @@ export default function POSPage() {
     <CashRegisterGuard>
       <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
         <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 flex flex-col p-4 gap-4 overflow-hidden">
+          <div className="flex-1 flex flex-col p-6 gap-6 overflow-hidden">
             <div className="flex items-center justify-between z-20">
               <div>
-                <h1 className="text-2xl font-black text-slate-800 tracking-tight">Terminal de Venta</h1>
-                <p className="text-sm font-medium text-slate-500 mt-1">Busca o escanea un producto para agregarlo al ticket</p>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Terminal de Venta</h1>
+                <p className="text-[13px] font-medium text-slate-500 mt-1">Busca productos o escanea el código para el ticket</p>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -139,19 +139,21 @@ export default function POSPage() {
             </div>
           </div>
 
-          <div className="flex-1 flex overflow-hidden mt-4">
+          <div className="flex-1 flex overflow-hidden mt-6">
             <ProductGrid />
           </div>
         </div>
 
         {/* Panel derecho: carrito */}
-        <div className="w-96 border-l border-slate-200 bg-white flex flex-col p-4 shadow-inner">
-          <div className="flex items-center gap-2 mb-4">
-            <ShoppingCart className="w-5 h-5 text-blue-600" />
-            <h2 className="font-bold text-slate-800">Carrito</h2>
+        <div className="w-96 border-l border-slate-100 bg-white flex flex-col p-6 shadow-xl shadow-slate-200/20">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-50">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+              <ShoppingCart className="w-5 h-5 text-blue-600" />
+            </div>
+            <h2 className="font-bold text-slate-800 tracking-tight">Carrito de Venta</h2>
             {itemCount > 0 && (
-              <span className="ml-auto bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                {itemCount} ítem{itemCount !== 1 ? 's' : ''}
+              <span className="ml-auto bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md uppercase">
+                {itemCount} Ítem{itemCount !== 1 ? 's' : ''}
               </span>
             )}
           </div>
@@ -163,17 +165,18 @@ export default function POSPage() {
 
           {/* Botón de cobrar / Cotizar */}
           {itemCount > 0 && (
-            <div className="mt-4 flex flex-col gap-2">
+            <div className="mt-6 flex flex-col gap-3">
               <button
                 onClick={handleCreateQuote}
                 disabled={isQuoting}
-                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-colors active:scale-95 flex items-center justify-center gap-2 border border-slate-200"
+                className="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold py-3.5 rounded-2xl transition-all active:scale-95 flex items-center justify-center gap-2 border border-slate-100 text-sm"
               >
-                {isQuoting ? 'Guardando...' : 'Guardar Cotización'}
+                <div className="w-1.5 h-1.5 bg-slate-300 rounded-full"></div>
+                {isQuoting ? 'Guardando...' : 'Generar Cotización'}
               </button>
               <button
                 onClick={() => setShowCheckout(true)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-lg transition-colors shadow-lg shadow-blue-200 active:scale-95"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4.5 rounded-2xl text-lg transition-all shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2"
               >
                 Cobrar · Q{totalWithDiscount().toFixed(2)}
               </button>

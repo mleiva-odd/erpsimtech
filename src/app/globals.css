@@ -1,56 +1,67 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui;
+  
+  /* Colores Corporativos Estandarizados */
+  --color-brand-primary: #2563eb;
+  --color-brand-dark: #0f172a;
+  --color-brand-surface: #f8fafc;
+  
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  
+  --shadow-premium: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.015em; /* Ajuste óptimo para Geist en SaaS */
 }
 
-/* 
-  Regla Maestra de Accesibilidad (SaaS Nivel ERP)
-  Garantiza lectura en alto contraste en todos los formularios
-*/
+/* Estandarización Global de Formas (Nivel Formal) */
 input, select, textarea {
-  color: #0f172a !important; /* Tailwind slate-900 */
-  font-weight: 500 !important; /* Medium (No más negritas bruscas) */
-}
-
-input::placeholder, textarea::placeholder {
-  color: #64748b !important; /* Tailwind slate-500 */
+  color: #0f172a !important;
   font-weight: 500 !important;
+  border-radius: 12px !important; /* Standard xl */
+  transition: all 0.2s ease-in-out;
 }
 
-/* Override para desactivados (modo lectura) */
-input:disabled, select:disabled, textarea:disabled {
-  color: #475569 !important; /* Tailwind slate-600 */
-  background-color: #f8fafc !important; /* Tailwind slate-50 */
+input:focus, select:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.05) !important;
 }
 
-/* Animaciones Premium */
+/* Scrollbars Minimalistas */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+/* Cleanup de efectos */
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
 
 .animate-shimmer {
-  animation: shimmer 2s infinite;
+  display: none; /* Desactivado por preferencia de usuario en global, se puede activar por componente si es necesario */
 }

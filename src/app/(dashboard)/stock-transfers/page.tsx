@@ -398,7 +398,7 @@ export default function StockTransfersPage() {
           <div className="max-w-[800px] mx-auto p-12">
             <div className="border-b-2 border-slate-800 pb-6 mb-6 flex justify-between items-start">
               <div>
-                <h1 className="text-3xl font-black uppercase tracking-widest text-slate-900 flex items-center gap-3">
+                <h1 className="text-3xl font-bold uppercase tracking-widest text-slate-900 flex items-center gap-3">
                   <FileText className="w-8 h-8" /> ORDEN DE REMISIÓN
                 </h1>
                 <p className="font-mono text-sm mt-2 text-slate-600">ID: {printData.id}</p>
@@ -412,12 +412,12 @@ export default function StockTransfersPage() {
             <div className="grid grid-cols-2 gap-8 mb-8">
               <div className="p-4 border border-slate-300 rounded-lg">
                 <p className="text-xs uppercase font-bold text-slate-500 mb-1">Bodega de Origen (Expide)</p>
-                <p className="font-black text-xl text-slate-800">{printData.fromBranch.name}</p>
+                <p className="font-bold text-xl text-slate-800">{printData.fromBranch.name}</p>
                 <p className="text-sm mt-1 text-slate-600">A cargo de: {printData.user.name}</p>
               </div>
               <div className="p-4 border border-slate-300 rounded-lg bg-slate-50">
                 <p className="text-xs uppercase font-bold text-slate-500 mb-1">Bodega Destino (Recibe)</p>
-                <p className="font-black text-xl text-blue-800">{printData.toBranch.name}</p>
+                <p className="font-bold text-xl text-blue-800">{printData.toBranch.name}</p>
                 {printData.reference && <p className="text-sm mt-1 font-bold italic text-slate-700">Ref: {printData.reference}</p>}
               </div>
             </div>
@@ -435,14 +435,14 @@ export default function StockTransfersPage() {
                   <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     <td className="border border-slate-300 px-4 py-2 font-mono text-xs">{it.product.sku}</td>
                     <td className="border border-slate-300 px-4 py-2 font-bold">{it.product.name}</td>
-                    <td className="border border-slate-300 px-4 py-2 text-center font-black text-lg">{it.quantity}</td>
+                    <td className="border border-slate-300 px-4 py-2 text-center font-bold text-lg">{it.quantity}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-slate-800 text-white">
                   <td colSpan={2} className="border border-slate-800 px-4 py-3 text-right font-bold uppercase text-xs">Total Unidades Transferidas</td>
-                  <td className="border border-slate-800 px-4 py-3 text-center font-black text-xl">
+                  <td className="border border-slate-800 px-4 py-3 text-center font-bold text-xl">
                     {printData.items.reduce((a, b) => a + b.quantity, 0)}
                   </td>
                 </tr>

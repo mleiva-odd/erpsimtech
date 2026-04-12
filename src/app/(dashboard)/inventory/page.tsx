@@ -85,66 +85,66 @@ export default function InventoryPage() {
   return (
     <div className="p-8 max-w-7xl mx-auto h-full flex flex-col">
       {/* Encabezado */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-10">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <Package className="w-6 h-6 text-blue-600" />
             Control de Inventario
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Administra tu catálogo y monitorea el stock de productos</p>
+          <p className="text-[13px] text-slate-500 font-medium mt-1">Gestión integral del catálogo de productos y existencias</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setIsImportModalOpen(true)}
-            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-200 border border-emerald-100 px-4 py-2.5 rounded-xl font-bold shadow-sm transition-all flex items-center gap-2"
+            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2"
           >
-            <FileSpreadsheet className="w-5 h-5" />
-            Carga Masiva (CSV)
+            <FileSpreadsheet className="w-4 h-4" />
+            Carga Masiva
           </button>
           <button 
             onClick={() => setIsCategoryModalOpen(true)}
-            className="bg-white border text-slate-600 border-slate-200 hover:bg-slate-50 px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2"
+            className="bg-white border text-slate-600 border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors flex items-center gap-2"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
             Categoría
           </button>
-          <button onClick={() => { setSelectedProduct(null); setIsBundleModalOpen(true); }} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2">
-            <Layers className="w-5 h-5" />
-            Combo
+          <button onClick={() => { setSelectedProduct(null); setIsBundleModalOpen(true); }} className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 active:scale-95">
+            <Layers className="w-4 h-4 text-slate-400" />
+            Nuevo Combo
           </button>
-          <button onClick={handleNew} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Producto
+          <button onClick={handleNew} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-xl shadow-blue-500/10 transition-all flex items-center gap-2 active:scale-95">
+            <Plus className="w-4 h-4" />
+            Nuevo Producto
           </button>
         </div>
       </div>
 
       {/* Controles de Búsqueda */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6 flex gap-4">
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm mb-6 flex gap-4">
         <div className="relative flex-1">
-          <Search className="w-5 h-5 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Buscar por Nombre, SKU o Código de Barras..."
+            placeholder="Buscar por Nombre comercial, SKU o Código..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="w-full pl-11 pr-4 py-3 border-2 border-slate-50 bg-slate-50/50 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-semibold"
           />
         </div>
       </div>
 
       {/* Tabla */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col">
-        <div className="overflow-x-auto flex-1">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm flex-1 overflow-hidden flex flex-col">
+        <div className="overflow-x-auto flex-1 custom-scrollbar">
           <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="text-xs text-slate-500 bg-slate-50 uppercase sticky top-0 border-b border-slate-200">
+            <thead className="text-[10px] text-slate-500 bg-slate-50 uppercase tracking-widest sticky top-0 border-b border-slate-100 z-10">
               <tr>
-                <th className="px-6 py-4 font-semibold">SKU</th>
-                <th className="px-6 py-4 font-semibold">Producto</th>
-                <th className="px-6 py-4 font-semibold">Categoría</th>
-                <th className="px-6 py-4 font-semibold text-right">Precio (Detallista / Mayoreo)</th>
-                <th className="px-6 py-4 font-semibold text-center">Stock (UM)</th>
-                <th className="px-6 py-4 font-semibold text-center">Acciones</th>
+                <th className="px-6 py-5 font-bold">SKU</th>
+                <th className="px-6 py-5 font-bold">Producto</th>
+                <th className="px-6 py-5 font-bold">Categoría</th>
+                <th className="px-6 py-5 font-bold text-right">Precio</th>
+                <th className="px-6 py-5 font-bold text-center">Stock</th>
+                <th className="px-6 py-5 font-bold text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -159,40 +159,42 @@ export default function InventoryPage() {
                 products.map((product) => {
                   const isLowStock = product.stock <= product.minStock;
                   return (
-                    <tr key={product.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4 font-mono text-slate-500">{product.sku}</td>
-                      <td className="px-6 py-4 font-medium text-slate-800">
-                        {product.name}
-                        {product.isTaxExempt && <span className="ml-2 px-1.5 py-0.5 bg-orange-100 text-orange-700 text-[10px] rounded uppercase font-bold tracking-wider">Exento IVA</span>}
-                        {(product as any).hasVariants && <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[10px] rounded-full uppercase font-bold tracking-wider border border-indigo-200">Matriz ({((product as any).variants?.length || 0)} Vars)</span>}
+                    <tr key={product.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-6 py-5 font-mono text-slate-400 text-xs">{product.sku}</td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2">
+                           <span className="font-bold text-slate-800">{product.name}</span>
+                           {product.isTaxExempt && <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[9px] rounded-md uppercase font-bold tracking-widest border border-amber-100">Exento</span>}
+                           {(product as any).hasVariants && <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] rounded-md uppercase font-bold tracking-widest border border-blue-100">Varientable</span>}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-slate-500">{product.category.name}</td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-5 text-slate-600 font-medium">{product.category.name}</td>
+                      <td className="px-6 py-5 text-right">
                          {(product as any).hasVariants ? (
-                             <div className="font-bold text-indigo-600 text-[11px] uppercase tracking-wider bg-indigo-50 inline-block px-2 py-1 rounded">Múltiples Precios</div>
+                             <div className="font-bold text-blue-600 text-[10px] uppercase tracking-widest bg-blue-50 inline-block px-2.5 py-1 rounded-lg border border-blue-100">Variantes</div>
                          ) : (
-                             <>
-                               <div className="font-bold text-slate-800">Q{Number(product.price).toFixed(2)}</div>
-                               {product.wholesalePrice && <div className="text-[11px] text-blue-600 font-bold uppercase">B2B: Q{Number(product.wholesalePrice).toFixed(2)}</div>}
-                             </>
+                             <div className="flex flex-col items-end">
+                                <span className="font-bold text-slate-900 text-sm">Q{Number(product.price).toFixed(2)}</span>
+                                {product.wholesalePrice && <span className="text-[10px] text-blue-500 font-bold uppercase tracking-tight">Q{Number(product.wholesalePrice).toFixed(2)} Mayoreo</span>}
+                             </div>
                          )}
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                      <td className="px-6 py-5 text-center">
+                        <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold ${
                           isLowStock 
-                            ? 'bg-red-50 text-red-700 border border-red-200' 
-                            : 'bg-green-50 text-green-700 border border-green-200'
+                            ? 'bg-rose-50 text-rose-600 border border-rose-100/50' 
+                            : 'bg-emerald-50 text-emerald-600 border border-emerald-100/50'
                         }`}>
-                          {isLowStock && <ShieldAlert className="w-3.5 h-3.5" />}
-                          {product.stock} <span className="text-[9px] uppercase tracking-widest">{product.unitOfMeasure}</span>
+                          {isLowStock && <ShieldAlert className="w-3 px-0" />}
+                          {product.stock} <span className="text-[9px] opacity-60">{product.unitOfMeasure}</span>
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex justify-center gap-2">
-                           <button onClick={() => handlePrintBarcode(product)} title="Imprimir Etiqueta" className="text-slate-500 hover:text-indigo-600 transition-colors p-2 rounded-lg hover:bg-indigo-50">
+                      <td className="px-6 py-5 text-center">
+                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                           <button onClick={() => handlePrintBarcode(product)} title="Etiqueta" className="p-3 bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-2xl transition-all shadow-sm hover:shadow-xl hover:shadow-slate-900/10 active:scale-90">
                              <Printer className="w-4 h-4" />
                            </button>
-                           <button onClick={() => handleEdit(product)} title="Editar Producto" className="text-slate-500 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50">
+                           <button onClick={() => handleEdit(product)} title="Configuración" className="p-3 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-sm hover:shadow-xl hover:shadow-blue-500/10 active:scale-90">
                              <Edit2 className="w-4 h-4" />
                            </button>
                         </div>

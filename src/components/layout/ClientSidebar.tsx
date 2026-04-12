@@ -43,8 +43,8 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
         href={href} 
         className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
           isActive 
-            ? 'bg-blue-600/20 text-blue-400' 
-            : 'text-slate-300 hover:text-white hover:bg-slate-800 shadow-sm'
+            ? 'bg-blue-600/15 text-blue-400 border-r-2 border-blue-500 rounded-r-none' 
+            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
         }`}
         title={isCollapsed ? label : undefined}
       >
@@ -70,7 +70,7 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
       {/* Botón retráctil */}
       <button 
         onClick={toggleSidebar}
-        className="absolute -right-3.5 top-6 w-7 h-7 bg-slate-800 border-2 border-slate-900 text-slate-300 rounded-full flex items-center justify-center hover:text-white hover:bg-blue-600 transition-colors z-50 shadow-md"
+        className="absolute -right-3.5 top-6 w-7 h-7 bg-slate-800 border-2 border-slate-900 text-slate-400 rounded-full flex items-center justify-center hover:text-white hover:bg-blue-600 transition-all z-50 shadow-lg"
       >
         {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>
@@ -86,12 +86,7 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
         </div>
         {!isCollapsed && (
           <>
-            <span className="text-white font-black text-lg tracking-wide ml-3 group-hover:text-blue-400 transition-colors">SIMTECH</span>
-            {isSuperAdmin && (
-              <span className="ml-auto text-[9px] px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded font-black tracking-wider">
-                ADMIN
-              </span>
-            )}
+            <span className="text-white font-bold text-xl tracking-tight ml-3 group-hover:text-blue-400 transition-colors">SIMTECH</span>
           </>
         )}
       </a>
@@ -148,7 +143,7 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
                 <span className="text-sm font-bold text-white truncate w-24">
                   {activeSession?.user?.name || 'Usuario'}
                 </span>
-                <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                   {reliableRole?.replace('_', ' ') || 'CAJERO'}
                 </span>
               </div>

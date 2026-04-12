@@ -23,14 +23,15 @@ export function PrintBarcodeModal({ product, onClose }: PrintBarcodeModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 print:bg-white print:p-0">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col print:shadow-none print:w-full print:max-w-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 print:bg-white print:p-0">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col border border-slate-100 print:shadow-none print:w-full print:max-w-none animate-in fade-in zoom-in duration-300">
         {/* Header no se imprime */}
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-800 text-white rounded-t-2xl print:hidden">
-          <h2 className="font-bold text-lg flex items-center gap-2">
-            <PrinterIcon className="w-5 h-5" /> Generador de Etiquetas
-          </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+        <div className="px-8 pt-8 pb-4 flex justify-between items-start print:hidden">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Etiquetas</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Generador de Códigos de Barras</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -42,7 +43,7 @@ export function PrintBarcodeModal({ product, onClose }: PrintBarcodeModalProps) 
              <div className="w-full flex justify-center scale-75 origin-top mb-1">
                <Barcode value={barcodeValue} width={2} height={40} fontSize={12} margin={0} displayValue={true} />
              </div>
-             <div className="font-black text-lg text-black">Q{Number(product.price).toFixed(2)}</div>
+             <div className="font-bold text-lg text-black">Q{Number(product.price).toFixed(2)}</div>
           </div>
           
           <p className="text-xs text-slate-400 mt-6 print:hidden text-center">
@@ -51,11 +52,18 @@ export function PrintBarcodeModal({ product, onClose }: PrintBarcodeModalProps) 
         </div>
 
         {/* Footer no se imprime */}
-        <div className="px-6 py-4 border-t border-slate-100 flex gap-3 justify-end items-center bg-slate-50 rounded-b-2xl print:hidden">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 text-slate-600 hover:bg-white border border-slate-200 rounded-xl font-medium transition-colors">
+        <div className="px-8 py-6 border-t border-slate-100 flex gap-4 justify-end items-center bg-slate-50/50 rounded-b-[2rem] print:hidden">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="px-6 py-3 text-slate-500 font-bold rounded-2xl hover:bg-slate-100 transition-all text-sm"
+            >
               Cerrar
             </button>
-            <button onClick={handlePrint} className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 text-white rounded-xl font-bold transition-all">
+            <button 
+              onClick={handlePrint} 
+              className="flex items-center gap-2.5 px-10 py-3.5 bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/20 text-white rounded-2xl font-bold transition-all active:scale-95 text-sm"
+            >
               <PrinterIcon className="w-4 h-4" /> 
               Imprimir Ahora
             </button>

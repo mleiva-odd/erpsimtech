@@ -112,52 +112,52 @@ export default function AdminPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mb-10">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <Shield className="w-6 h-6 text-amber-500" />
-            Panel de Plataforma
+            Panel de Control Global
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Gestión centralizada de empresas registradas</p>
+          <p className="text-[13px] text-slate-500 font-medium mt-1">Supervisión y gestión de ecosistemas de empresas</p>
         </div>
         <button
           onClick={() => { setError(''); setIsModalOpen(true); }}
-          className="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm flex items-center gap-2 transition-all active:scale-95"
+          className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-amber-500/20 flex items-center gap-2.5 transition-all active:scale-95"
         >
-          <Plus className="w-5 h-5" /> Nueva Empresa
+          <Plus className="w-4 h-4" /> Registrar Empresa
         </button>
       </div>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-          <p className="text-3xl font-bold text-slate-800">{companies.length}</p>
-          <p className="text-xs text-slate-500 mt-1">Empresas Registradas</p>
+      <div className="grid grid-cols-3 gap-6">
+        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-3 text-center">Empresas</p>
+          <p className="text-3xl font-bold text-slate-900 text-center tracking-tight">{companies.length}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-          <p className="text-3xl font-bold text-green-600">{companies.filter(c => c.active).length}</p>
-          <p className="text-xs text-slate-500 mt-1">Activas</p>
+        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-3 text-center">Activas</p>
+          <p className="text-3xl font-bold text-emerald-600 text-center tracking-tight">{companies.filter(c => c.active).length}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-          <p className="text-3xl font-bold text-slate-800">{companies.reduce((acc, c) => acc + c._count.users, 0)}</p>
-          <p className="text-xs text-slate-500 mt-1">Usuarios Totales</p>
+        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-3 text-center">Usuarios Globales</p>
+          <p className="text-3xl font-bold text-slate-900 text-center tracking-tight">{companies.reduce((acc, c) => acc + c._count.users, 0)}</p>
         </div>
       </div>
 
       {/* Companies Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto custom-scrollbar">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4 font-semibold">Empresa</th>
-                <th className="px-6 py-4 font-semibold">Contacto</th>
-                <th className="px-6 py-4 font-semibold text-center">Sucursales</th>
-                <th className="px-6 py-4 font-semibold text-center">Usuarios</th>
-                <th className="px-6 py-4 font-semibold text-center">Ventas</th>
-                <th className="px-6 py-4 font-semibold text-center">Plan</th>
-                <th className="px-6 py-4 font-semibold text-center">Estado</th>
-                <th className="px-6 py-4 font-semibold text-center">Acciones</th>
+                <th className="px-6 py-5">Identidad Empresa</th>
+                <th className="px-6 py-5">Contacto Principal</th>
+                <th className="px-6 py-5 text-center">Sucs.</th>
+                <th className="px-6 py-5 text-center">Users</th>
+                <th className="px-6 py-5 text-center">Operaciones</th>
+                <th className="px-6 py-5 text-center">Estado Plan</th>
+                <th className="px-6 py-5 text-center">Estatus</th>
+                <th className="px-6 py-5 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -170,15 +170,15 @@ export default function AdminPage() {
                 </tr>
               ) : companies.length > 0 ? (
                 companies.map(company => (
-                  <tr key={company.id} className={`hover:bg-slate-50 transition-colors ${!company.active ? 'opacity-50' : ''}`}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-lg">
+                  <tr key={company.id} className={`hover:bg-slate-50/50 transition-colors group ${!company.active ? 'opacity-40 grayscale' : ''}`}>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 font-bold text-xl shadow-sm">
                           {company.name.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-semibold text-slate-800">{company.name}</p>
-                          <p className="text-xs text-slate-600 font-mono">{company.slug}</p>
+                          <p className="font-bold text-slate-900 tracking-tight">{company.name}</p>
+                          <p className="text-[11px] text-slate-400 font-mono tracking-tighter">{company.slug}</p>
                         </div>
                       </div>
                     </td>
@@ -209,18 +209,20 @@ export default function AdminPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => toggleCompanyStatus(company)}
-                        className={`p-2 rounded-lg transition ${
-                          company.active
-                            ? 'text-red-400 hover:text-red-600 hover:bg-red-50'
-                            : 'text-green-400 hover:text-green-600 hover:bg-green-50'
-                        }`}
-                        title={company.active ? 'Suspender' : 'Reactivar'}
-                      >
-                        {company.active ? <AlertTriangle className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-                      </button>
+                    <td className="px-6 py-5 text-center">
+                      <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                        <button
+                          onClick={() => toggleCompanyStatus(company)}
+                          className={`p-3 rounded-2xl transition-all shadow-sm hover:shadow-xl active:scale-90 ${
+                            company.active
+                              ? 'bg-rose-50 text-rose-400 hover:bg-rose-600 hover:text-white hover:shadow-rose-500/10'
+                              : 'bg-emerald-50 text-emerald-400 hover:bg-emerald-600 hover:text-white hover:shadow-emerald-500/10'
+                          }`}
+                          title={company.active ? 'Suspender Operación' : 'Reactivar Empresa'}
+                        >
+                          {company.active ? <AlertTriangle className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -240,7 +242,7 @@ export default function AdminPage() {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden">
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-300">
-            <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-amber-50/30">
+            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-amber-50/30">
               <h2 className="font-bold text-xl text-slate-800 flex items-center gap-3">
                 <Building2 className="w-6 h-6 text-amber-600" /> Registro de Nueva Empresa
               </h2>
@@ -260,7 +262,7 @@ export default function AdminPage() {
                   <div className="space-y-5">
                     <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
                        <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
-                       <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Información de la Empresa</h3>
+                       <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Información de la Empresa</h3>
                     </div>
                     
                     <div className="space-y-4">
@@ -316,7 +318,7 @@ export default function AdminPage() {
                     <div className="space-y-5">
                       <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
                          <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
-                         <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Usuario Administrador</h3>
+                         <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Usuario Administrador</h3>
                       </div>
                       
                       <div className="space-y-4">
@@ -353,7 +355,7 @@ export default function AdminPage() {
                     <div className="pt-2">
                       <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase ml-1">Plan Corporativo Inicial</label>
                       <select value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}
-                        className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl bg-white font-black text-amber-700 outline-none focus:ring-4 focus:ring-amber-50 text-sm cursor-pointer shadow-sm">
+                        className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl bg-white font-bold text-amber-700 outline-none focus:ring-4 focus:ring-amber-50 text-sm cursor-pointer shadow-sm">
                         <option value="trial">Trial (30 días de prueba)</option>
                         <option value="basic">Plan Básico (POS)</option>
                         <option value="professional">Plan Profesional (ERP)</option>
@@ -378,7 +380,7 @@ export default function AdminPage() {
                   Cancelar
                 </button>
                 <button type="submit" disabled={isSaving}
-                  className="px-10 py-3 bg-slate-900 text-white rounded-2xl hover:bg-black disabled:opacity-50 font-black shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-3 active:scale-95 text-sm">
+                  className="px-10 py-3 bg-slate-900 text-white rounded-2xl hover:bg-black disabled:opacity-50 font-bold shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-3 active:scale-95 text-sm">
                   {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   Finalizar Registro
                 </button>

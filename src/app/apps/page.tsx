@@ -54,13 +54,13 @@ export default function AppLauncher() {
         
         {/* Avatar & Info */}
         <div className="flex items-center gap-3 pl-1 pr-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 shadow-inner flex items-center justify-center text-white font-black text-sm relative overflow-hidden">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 shadow-inner flex items-center justify-center text-white font-bold text-sm relative overflow-hidden">
             <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity"></div>
             {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
           </div>
           <div className="hidden sm:flex flex-col">
-             <span className="text-[13px] font-black text-slate-800 tracking-tight leading-none">{session?.user?.name || 'Usuario'}</span>
-             <span className="text-[9px] font-black text-slate-400 tracking-[0.15em] uppercase mt-1">{role?.replace('_', ' ') || 'CAJERO'}</span>
+             <span className="text-[13px] font-bold text-slate-800 tracking-tight leading-none">{session?.user?.name || 'Usuario'}</span>
+             <span className="text-[9px] font-bold text-slate-400 tracking-[0.15em] uppercase mt-1">{role?.replace('_', ' ') || 'CAJERO'}</span>
           </div>
         </div>
         
@@ -83,7 +83,7 @@ export default function AppLauncher() {
       <div className="w-full max-w-5xl z-10 flex flex-col items-center mt-[-4rem]">
         
         <div className="mb-14 text-center">
-          <h1 className="text-4xl font-black text-slate-800 tracking-tight">SIMTECH</h1>
+          <h1 className="text-4xl font-bold text-slate-800 tracking-tight">SIMTECH</h1>
           <p className="text-slate-500 font-bold text-sm tracking-widest mt-1">SISTEMA EMPRESARIAL</p>
         </div>
         
@@ -98,7 +98,7 @@ export default function AppLauncher() {
                  <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                  {app.icon}
                </div>
-               <span className="text-[14px] font-black text-slate-700 text-center leading-tight group-hover:text-black transition-colors w-full tracking-tight">
+               <span className="text-[14px] font-bold text-slate-700 text-center leading-tight group-hover:text-black transition-colors w-full tracking-tight">
                  {app.name}
                </span>
             </button>

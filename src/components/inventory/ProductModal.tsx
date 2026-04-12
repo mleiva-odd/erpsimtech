@@ -128,21 +128,24 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh]">
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-800 text-white rounded-t-2xl">
-          <h2 className="font-bold text-lg flex items-center gap-2">
-            {product ? 'Editar Matriz de Producto' : 'Crear Producto B2B Extendido'}
-          </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh] border border-slate-100 animate-in fade-in zoom-in duration-300">
+        <div className="px-8 pt-8 pb-4 flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+              {product ? 'Editar Producto' : 'Nuevo Producto'}
+            </h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Gestión de Catálogo y Matriz de Variantes</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-4 space-y-8 custom-scrollbar">
           
           {/* BASE INFO */}
-          <div className="grid grid-cols-2 gap-4 bg-slate-50 p-5 rounded-xl border border-slate-100">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-6">
              <div className="col-span-2">
                <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Información Principal</h3>
              </div>
@@ -238,7 +241,7 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
                     <input required type="number" value={formData.minStock} onChange={e => setFormData({...formData, minStock: Number(e.target.value)})} className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div className="col-span-4">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Precio Especial B2B Mayorista (Opcional)</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Precio Especial de Mayoreo / Distribuidor (Opcional)</label>
                     <input type="number" step="0.01" value={formData.wholesalePrice} onChange={e => setFormData({...formData, wholesalePrice: e.target.value})} className="w-full px-3 py-2 border border-blue-200 bg-blue-50/50 rounded focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
@@ -292,13 +295,21 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
           </div>
         </form>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex gap-3 justify-end items-center bg-white rounded-b-2xl">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-xl font-medium transition-colors">
-              Cerrar Vista
+        <div className="px-8 py-6 border-t border-slate-100 flex gap-4 justify-end items-center bg-slate-50/50">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="px-6 py-3 text-slate-500 hover:text-slate-700 font-bold rounded-2xl transition-all text-sm"
+            >
+              Cancelar
             </button>
-            <button onClick={handleSubmit} disabled={isLoading} className="flex items-center gap-2 px-8 py-2.5 bg-slate-900 hover:bg-black shadow-lg shadow-black/10 text-white rounded-xl font-bold transition-all disabled:opacity-50">
+            <button 
+              onClick={handleSubmit} 
+              disabled={isLoading} 
+              className="flex items-center gap-2.5 px-10 py-3.5 bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/20 text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 text-sm"
+            >
               {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} 
-              Inyectar Catálogo
+              {product ? 'Guardar Cambios' : 'Registrar Producto'}
             </button>
         </div>
       </div>

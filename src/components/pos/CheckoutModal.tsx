@@ -119,12 +119,15 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col border border-slate-100 animate-in fade-in zoom-in duration-300">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-800">Finalizar Venta</h2>
-          <button onClick={onClose} className="text-slate-600 hover:text-slate-600">
+        <div className="flex items-center justify-between px-8 pt-8 pb-3">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Finalizar Venta</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Gestión de Cobro y Medios de Pago</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -138,9 +141,9 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
           )}
 
           {/* Total */}
-          <div className="bg-blue-50 rounded-xl p-4 text-center">
-            <p className="text-sm text-blue-600 font-medium">Total a cobrar</p>
-            <p className="text-4xl font-black text-blue-700 mt-1">Q{total.toFixed(2)}</p>
+          <div className="bg-blue-600 rounded-3xl p-6 text-center shadow-xl shadow-blue-500/20">
+            <p className="text-xs text-blue-100 font-bold uppercase tracking-widest opacity-80">Total a liquidar</p>
+            <p className="text-5xl font-bold text-white mt-2 tracking-tighter">Q{total.toFixed(2)}</p>
           </div>
 
           {/* Payments */}
@@ -205,7 +208,7 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
                         value={payment.amount || ''}
                         onChange={(e) => updatePayment(idx, 'amount', Number(e.target.value))}
                         placeholder="Monto"
-                        className="w-full text-right text-lg font-black text-slate-700 bg-white border border-slate-200 focus:border-blue-500 rounded-xl px-3 py-2.5 outline-none transition"
+                        className="w-full text-right text-lg font-bold text-slate-700 bg-white border border-slate-200 focus:border-blue-500 rounded-xl px-3 py-2.5 outline-none transition"
                       />
                     </div>
 
@@ -278,22 +281,22 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 flex gap-3">
+        <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/50 flex gap-4">
           <button
             onClick={onClose}
-            className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+            className="flex-1 py-3.5 text-slate-500 font-bold rounded-2xl hover:bg-slate-100 transition-all text-sm"
           >
             Cancelar
           </button>
           <button
             onClick={handleCheckout}
             disabled={isLoading || totalPaid < total}
-            className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+            className="flex-[1.5] py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-xl shadow-blue-500/20 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2.5 text-sm"
           >
             {isLoading ? (
               <><Loader2 className="w-5 h-5 animate-spin" /> Procesando...</>
             ) : (
-              <><CheckCircle className="w-5 h-5" /> Cobrar</>
+              <><CheckCircle className="w-5 h-5" /> Confirmar Cobro</>
             )}
           </button>
         </div>

@@ -177,7 +177,7 @@ export function ProductGrid() {
                       {product.name}
                     </span>
                     <div className="flex justify-between items-end mt-1">
-                      <span className="text-blue-700 font-black text-sm">
+                      <span className="text-blue-700 font-bold text-sm">
                         Q{Number(product.price).toFixed(2)}
                       </span>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${outOfStock ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500'}`}>

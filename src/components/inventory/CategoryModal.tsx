@@ -42,14 +42,14 @@ export function CategoryModal({ onClose, onSuccess }: CategoryModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <div className="flex items-center gap-2 text-slate-800">
-            <Tags className="w-5 h-5 text-blue-600" />
-            <h2 className="text-xl font-bold">Nueva Categoría</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md mx-4 overflow-hidden max-h-[90vh] flex flex-col border border-slate-100 animate-in fade-in zoom-in duration-300">
+        <div className="px-8 pt-8 pb-4 flex justify-between items-start">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Nueva Categoría</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Clasificación de Inventario</p>
           </div>
-          <button onClick={onClose} className="text-slate-600 hover:text-slate-600 transition-colors">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -87,11 +87,11 @@ export function CategoryModal({ onClose, onSuccess }: CategoryModalProps) {
           </form>
         </div>
 
-        <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-2xl">
+        <div className="px-8 py-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-4 rounded-b-[2rem]">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 hover:bg-slate-200 bg-slate-100 rounded-lg font-medium transition-colors"
+            className="px-6 py-3 text-slate-500 font-bold rounded-2xl hover:bg-slate-100 transition-all text-sm"
           >
             Cancelar
           </button>
@@ -99,10 +99,10 @@ export function CategoryModal({ onClose, onSuccess }: CategoryModalProps) {
             type="submit"
             form="categoryForm"
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2.5 px-10 py-3.5 bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/20 text-white rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 text-sm"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Guardar
+            Guardar Categoría
           </button>
         </div>
       </div>

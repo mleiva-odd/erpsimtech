@@ -29,25 +29,25 @@ export function VariantSelectionModal({ isOpen, product, onClose, onSelect }: Pr
   if (!isOpen || !product || !product.variants) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] border border-slate-100 animate-in zoom-in-95 duration-300">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50">
+        <div className="px-8 pt-8 pb-4 flex justify-between items-start">
           <div>
-             <h2 className="text-xl font-bold text-slate-800">Seleccionar Variante</h2>
-             <p className="text-sm font-medium text-blue-600 mt-0.5">{product.name}</p>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Variantes Disponibles</h2>
+            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em] mt-1">{product.name}</p>
           </div>
           <button 
             onClick={onClose} 
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Variants List */}
-        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3 custom-scrollbar bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-8 flex flex-col gap-4 custom-scrollbar bg-slate-50/30">
            {product.variants.map((variant) => {
               const stock = variant.stocks?.[0]?.quantity ?? 0;
               const outOfStock = stock <= 0;
@@ -56,28 +56,28 @@ export function VariantSelectionModal({ isOpen, product, onClose, onSelect }: Pr
                 <button
                   key={variant.id}
                   onClick={() => onSelect(product, variant)}
-                  className={`flex items-center justify-between p-4 border rounded-xl transition-all text-left group
+                  className={`flex items-center justify-between p-5 border-2 rounded-[1.5rem] transition-all text-left group
                     ${outOfStock 
-                      ? 'bg-slate-50 border-slate-200 opacity-75 hover:border-slate-300' 
-                      : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-md hover:ring-1 hover:ring-blue-500 cursor-pointer'
+                      ? 'bg-slate-50 border-slate-100 opacity-60 cursor-not-allowed' 
+                      : 'bg-white border-slate-100 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 active:scale-[0.98] cursor-pointer'
                     }`}
                 >
-                  <div>
-                    <div className="font-bold text-slate-800 flex items-center gap-2 text-lg">
-                       <Tag className={`w-4 h-4 ${outOfStock ? 'text-slate-400' : 'text-blue-500'}`} />
+                  <div className="flex-1 pr-4 min-w-0">
+                    <div className="font-bold text-slate-800 flex items-center gap-2.5 text-lg truncate">
+                       <div className={`w-2 h-2 rounded-full ${outOfStock ? 'bg-slate-300' : 'bg-blue-500 animate-pulse'}`}></div>
                        {variant.name}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-mono">
-                      REF: {variant.sku}
+                    <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest font-bold">
+                       SKU: {variant.sku}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className={`font-black text-xl ${outOfStock ? 'text-slate-600' : 'text-blue-600'}`}>
+                  <div className="text-right shrink-0">
+                    <div className={`font-bold text-2xl tracking-tighter ${outOfStock ? 'text-slate-400' : 'text-slate-900'}`}>
                       Q{Number(variant.price).toFixed(2)}
                     </div>
-                    <div className={`text-[11px] font-bold px-2 py-0.5 mt-1.5 rounded inline-block uppercase tracking-wider
-                      ${outOfStock ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                      {stock} UNIDADES
+                    <div className={`text-[9px] font-bold px-2.5 py-1 mt-2 rounded-lg inline-block uppercase tracking-widest border
+                      ${outOfStock ? 'bg-rose-50 text-rose-500 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                      {stock} EN STOCK
                     </div>
                   </div>
                 </button>

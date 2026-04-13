@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SIMTECH POS — Sistema de Punto de Venta",
   description: "Sistema profesional de punto de venta para negocios modernos. Gestión de inventario, ventas y reportes en tiempo real.",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({

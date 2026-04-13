@@ -7,9 +7,9 @@ import {
   Zap, 
   TrendingUp, 
   ArrowRight, 
-  Truck, 
-  ClipboardCheck, 
-  Database 
+  Store,
+  LayoutDashboard,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
@@ -23,13 +23,13 @@ export default function Home() {
         {/* Background Image */}
         <div className="absolute inset-0">
           <Image
-            src="https://images.unsplash.com/photo-1764795849833-6e9d6e399a77?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=2000"
-            alt="Modern business"
+            src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2000"
+            alt="SimTech ERP Background"
             fill
             className="object-cover"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/85 to-slate-900/50"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-900/40"></div>
         </div>
 
         {/* Content */}
@@ -61,16 +61,16 @@ export default function Home() {
               className="text-6xl lg:text-7xl font-bold mb-6 text-white tracking-tight"
             >
               Sistema ERP & POS
-              <span className="block text-blue-400 mt-2">Inteligente</span>
+              <span className="block text-blue-400 mt-2">Para Tu Negocio</span>
             </motion.h1>
 
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6, duration: 0.8 }}
-              className="text-xl text-slate-300 mb-8 max-w-2xl font-medium"
+              className="text-xl text-slate-200 mb-8 max-w-2xl font-medium leading-relaxed"
             >
-              Control total de tu negocio. Desde la integridad del inventario matriz hasta la rentabilidad detallada de cada sucursal.
+              Gestiona inventario, ventas, facturación y reportes en tiempo real. Todo en una plataforma moderna, segura y fácil de usar.
             </motion.p>
 
             <motion.div
@@ -82,9 +82,9 @@ export default function Home() {
               <Link href="/login">
                 <Button
                   size="lg"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-7 text-lg group rounded-2xl w-full sm:w-auto"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-7 text-lg group rounded-2xl w-full sm:w-auto font-bold shadow-lg shadow-blue-600/20"
                 >
-                  Ingresar al Sistema
+                  Iniciar Sesión
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
@@ -127,14 +127,14 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-slate-900 tracking-tight">
-              Diseñado para el Crecimiento Multi-Sucursal
+              Todo lo que necesitas en un solo lugar
             </h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Tecnología de vanguardia para emprendedores que buscan control absoluto y escalabilidad real.
+              Herramientas completas diseñadas para facilitar la gestión de tu empresa.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -145,11 +145,11 @@ export default function Home() {
                 whileHover={{ y: -8 }}
                 className="group"
               >
-                <div className="bg-white p-8 rounded-3xl h-full border border-slate-200 transition-shadow hover:shadow-2xl hover:border-blue-100">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">
+                <div className="bg-white p-8 rounded-3xl h-full border border-slate-200 transition-shadow hover:shadow-2xl">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">
                     <feature.icon className="h-7 w-7 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold mb-3 text-slate-900">{feature.title}</h3>
+                  <h3 className="text-xl font-bold mb-3 text-slate-900">{feature.title}</h3>
                   <p className="text-slate-600 leading-relaxed font-medium">{feature.description}</p>
                 </div>
               </motion.div>
@@ -160,7 +160,6 @@ export default function Home() {
 
       {/* Stats Section */}
       <section className="py-24 bg-slate-900 text-white relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-30"></div>
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-12">
             {stats.map((stat, index) => (
@@ -189,19 +188,19 @@ export default function Home() {
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
           >
-            <h2 className="text-4xl lg:text-6xl font-bold mb-6 tracking-tight">
-              Transforma tu operación hoy mismo
+            <h2 className="text-4xl lg:text-5xl font-bold mb-6 tracking-tight">
+              Transforma tu negocio hoy mismo
             </h2>
             <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto font-medium">
-              Únete a la nueva era de gestión comercial en Guatemala con SimTech.
+              Únete a los negocios que ya confían en SimTech para su operación diaria.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/login">
                 <Button
                   size="lg"
-                  className="bg-white hover:bg-slate-100 text-blue-700 px-10 py-7 text-xl font-bold rounded-2xl shadow-2xl"
+                  className="bg-white hover:bg-slate-100 text-blue-700 px-10 py-7 text-xl font-bold rounded-2xl shadow-2x"
                 >
-                  Probar Ahora
+                   Empezar Ahora
                 </Button>
               </Link>
               <Button
@@ -209,7 +208,7 @@ export default function Home() {
                 variant="outline"
                 className="bg-transparent hover:bg-white/10 text-white border-white/40 px-10 py-7 text-xl font-bold rounded-2xl"
               >
-                Hablar con un Experto
+                Más Información
               </Button>
             </div>
           </motion.div>
@@ -221,11 +220,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
           <div className="mb-8 flex justify-center">
              <div className="relative w-12 h-12 grayscale opacity-50">
-                 <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain" />
+                  <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain" />
               </div>
           </div>
-          <p className="mb-2 font-bold tracking-widest text-xs uppercase">© 2026 SimTech Guatemala. Todos los derechos reservados.</p>
-          <p className="text-sm font-medium">El estándar de oro en ERP & POS para negocios multi-sucursal.</p>
+          <p className="mb-2 font-bold tracking-widest text-xs uppercase">© {new Date().getFullYear()} SimTech Guatemala. Todos los derechos reservados.</p>
+          <p className="text-sm font-medium">El estándar de oro en gestión para negocios modernos.</p>
         </div>
       </footer>
     </div>
@@ -235,38 +234,28 @@ export default function Home() {
 const features = [
   {
     icon: BarChart3,
-    title: "Inteligencia de Negocio",
-    description: "Reportes de utilidad bruta y márgenes históricos. Conoce la rentabilidad real de cada producto vendido.",
+    title: "Ventas en Tiempo Real",
+    description: "Sigue el rendimiento de tu negocio al instante desde cualquier lugar.",
   },
   {
-    icon: Truck,
-    title: "Logística Multi-Sucursal",
-    description: "Traslados con guías de remisión y validación de recepción local. Control total de stock en tránsito.",
-  },
-  {
-    icon: ClipboardCheck,
-    title: "Auditoría de Inventario",
-    description: "Ajustes de stock con bitácora obligatoria. Detecta mermas y asegura la integridad de tus almacenes.",
+    icon: LayoutDashboard,
+    title: "Gestión de Inventario",
+    description: "Control absoluto de productos, existencias y movimientos de almacén.",
   },
   {
     icon: Shield,
-    title: "Seguridad Bancaria",
-    description: "Protección IDOR y cifrado de datos. Acceso restringido por roles y sucursales.",
+    title: "Seguridad Total",
+    description: "Tus datos están protegidos con los más altos estándares empresariales.",
   },
   {
-    icon: Zap,
-    title: "Alto Rendimiento",
-    description: "Optimizado con índices avanzados para procesar miles de ventas sin latencia. Rápido en cualquier sucursal.",
-  },
-  {
-    icon: Database,
+    icon: Users,
     title: "Cartera de Clientes",
-    description: "Gestión completa de cuentas por cobrar, límites de crédito y abonos integrados al arqueo de caja.",
+    description: "Administra créditos, abonos y saldos de forma organizada.",
   },
 ];
 
 const stats = [
-  { value: "500+", label: "Negocios" },
+  { value: "500+", label: "Negocios Activos" },
   { value: "99.9%", label: "Uptime" },
   { value: "24/7", label: "Soporte" },
 ];

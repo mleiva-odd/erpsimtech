@@ -75,7 +75,7 @@ export default function LoginPage() {
                </div>
               <h1 className="text-4xl font-bold mb-3 text-slate-900 tracking-tight">Bienvenido</h1>
               <p className="text-lg text-slate-600 font-medium">
-                Inicia sesión en tu cuenta maestra de SimTech.
+                Inicia sesión en tu cuenta de SimTech ERP.
               </p>
             </div>
 
@@ -190,7 +190,7 @@ export default function LoginPage() {
               Gestiona tu negocio<br/>desde cualquier lugar
             </h2>
             <p className="text-xl text-blue-100 mb-10 max-w-md font-medium leading-relaxed">
-              Acceso seguro a todas tus operaciones, inventarios y reportes financieros en tiempo real.
+              Acceso seguro a tus operaciones, inventario y reportes en tiempo real desde cualquier dispositivo.
             </p>
             <div className="space-y-5">
               {loginFeatures.map((feature, index) => (
@@ -218,8 +218,8 @@ export default function LoginPage() {
 }
 
 const loginFeatures = [
-  "Sincronización Multi-Sucursal",
-  "Auditoría de Inventario Real",
-  "Reportes de Rentabilidad Bruta",
+  "Sincronización en Tiempo Real",
   "Seguridad de Nivel Empresarial",
+  "Acceso desde Cualquier Dispositivo",
+  "Soporte Técnico en Guatemala",
 ];

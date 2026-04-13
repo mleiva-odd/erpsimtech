@@ -8,19 +8,16 @@ import {
   TrendingUp, 
   ArrowRight,
   Check,
-  ChevronDown,
   Star,
   ShoppingCart,
   Utensils,
   Store,
   Warehouse,
   Scissors,
-  Heart,
-  Plus
+  Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   Accordion, 
   AccordionContent, 
@@ -34,7 +31,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative min-vh-100 flex items-center overflow-hidden h-screen">
+      <section className="relative h-screen min-h-screen flex items-center overflow-hidden">
         {/* Background Image - ORIGINAL USER IMAGE */}
         <div className="absolute inset-0">
           <Image
@@ -70,7 +67,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.8 }}
-              className="text-6xl lg:text-7xl font-bold mb-6 text-white tracking-tight"
+              className="text-6xl lg:text-7xl font-bold mb-6 text-white tracking-tight leading-none"
             >
               Sistema ERP & POS
               <span className="block text-blue-400 mt-2">Para Tu Negocio</span>
@@ -128,26 +125,6 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* Stats Section - VERACIOUS DATA */}
-      <section className="py-24 bg-slate-900 text-white relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
-            <div className="grid md:grid-cols-3 gap-12">
-                {stats.map((stat, index) => (
-                    <motion.div
-                        key={stat.label}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: index * 0.1, duration: 0.6 }}
-                    >
-                        <div className="text-5xl lg:text-6xl font-bold text-blue-400 mb-2">{stat.value}</div>
-                        <div className="text-xl text-slate-300 font-bold uppercase tracking-wider">{stat.label}</div>
-                    </motion.div>
-                ))}
-            </div>
-        </div>
-      </section>
-
       {/* Brief Features Overview */}
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -187,6 +164,26 @@ export default function Home() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Stats Section - ORIGINAL ORDER & DATA */}
+      <section className="py-24 bg-slate-900 text-white relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
+            <div className="grid md:grid-cols-3 gap-12">
+                {stats.map((stat, index) => (
+                    <motion.div
+                        key={stat.label}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: index * 0.1, duration: 0.6 }}
+                    >
+                        <div className="text-5xl lg:text-6xl font-bold text-blue-400 mb-2">{stat.value}</div>
+                        <div className="text-xl text-slate-300 font-bold uppercase tracking-wider">{stat.label}</div>
+                    </motion.div>
+                ))}
+            </div>
         </div>
       </section>
 
@@ -241,7 +238,7 @@ export default function Home() {
       ))}
 
       {/* Industries Section */}
-      <section className="py-24 bg-white overflow-hidden">
+      <section className="py-24 bg-white overflow-hidden border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -249,7 +246,7 @@ export default function Home() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-slate-900">Soluciones para cada sector</h2>
+            <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-slate-900 tracking-tight">Soluciones para cada sector</h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto font-medium">Diseñado para adaptarse a las necesidades específicas de tu negocio.</p>
           </motion.div>
 
@@ -297,16 +294,16 @@ export default function Home() {
                 className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"
               >
                 <div className="flex gap-1 mb-6">
-                  {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />)}
+                  {[...Array(5)].map((_, idx) => <Star key={idx} className="h-4 w-4 fill-yellow-400 text-yellow-400" />)}
                 </div>
                 <p className="text-lg text-slate-700 mb-8 italic font-medium leading-relaxed">"{t.quote}"</p>
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl">
                     {t.name[0]}
                   </div>
                   <div>
                     <div className="font-bold text-slate-900">{t.name}</div>
-                    <div className="text-sm text-slate-500">{t.role}, {t.company}</div>
+                    <div className="text-sm text-slate-500 font-medium">{t.role}, {t.company}</div>
                   </div>
                 </div>
               </motion.div>
@@ -315,48 +312,51 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing Section - CONSULTANT APPROACH */}
+      {/* Pricing Section - ABSOLUTE FIDELITY BOX STYLE */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-slate-900">Inversión Inteligente</h2>
+            <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-slate-900 tracking-tight">Inversión Inteligente</h2>
             <p className="text-xl text-slate-600 font-medium">Planes flexibles que se adaptan a tu ritmo de crecimiento.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {pricingPlans.map((plan, i) => (
-              <Card 
+              <div 
                 key={plan.name} 
-                className={`rounded-[2rem] border-2 transition-all p-4 ${plan.popular ? 'border-blue-500 shadow-2xl scale-105 z-10' : 'border-slate-100 shadow-lg'}`}
+                className={`rounded-[2rem] border-2 transition-all p-8 flex flex-col ${plan.popular ? 'border-blue-500 shadow-2xl scale-105 z-10 bg-white' : 'border-slate-100 shadow-lg bg-slate-50/50'}`}
               >
-                <CardHeader className="text-center pb-8 border-b border-slate-50">
-                  <CardTitle className="text-2xl font-bold mb-4">{plan.name}</CardTitle>
+                <div className="mb-8 p-0">
+                  <h3 className="text-2xl font-bold mb-4 text-slate-900">{plan.name}</h3>
                   <div className="text-5xl font-bold text-slate-900 mb-2">{plan.price}</div>
-                  <CardDescription className="font-medium">{plan.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-8 space-y-4">
+                  <p className="font-medium text-slate-500">{plan.description}</p>
+                </div>
+                <div className="flex-grow space-y-4">
                   {plan.features.map(f => (
                     <div key={f} className="flex gap-3 items-center font-medium text-slate-600">
-                      <Check className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Check className="h-4 w-4 text-blue-600" />
+                      </div>
                       {f}
                     </div>
                   ))}
-                  <Button 
-                    className={`w-full h-14 rounded-2xl text-lg font-bold mt-8 ${plan.popular ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-100 text-slate-900 hover:bg-slate-200'}`}
-                  >
+                </div>
+                <Button 
+                    size="lg"
+                    className={`w-full h-14 rounded-2xl text-lg font-bold mt-10 ${plan.popular ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                >
                     {plan.cta}
-                  </Button>
-                </CardContent>
-              </Card>
+                </Button>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
       {/* FAQs Section */}
-      <section className="py-24 bg-slate-50">
+      <section className="py-24 bg-slate-50 border-y border-slate-100">
         <div className="max-w-3xl mx-auto px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-slate-900">Preguntas Frecuentes</h2>
+            <h2 className="text-4xl font-bold text-slate-900 tracking-tight">Preguntas Frecuentes</h2>
           </div>
           <Accordion type="single" collapsible className="w-full space-y-4">
             {faqs.map((faq, i) => (
@@ -371,9 +371,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* CTA Section - ABSOLUTE FIDELITY DESIGN */}
       <section className="py-24 bg-gradient-to-br from-blue-600 to-blue-800 text-white">
-        <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
+        <div className="max-w-5xl mx-auto px-6 lg:px-8 text-center bg-blue-700/30 p-16 rounded-[3rem] backdrop-blur-sm border border-white/10 shadow-3xl">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -390,7 +390,7 @@ export default function Home() {
               <Link href="/login">
                 <Button
                   size="lg"
-                  className="bg-white hover:bg-slate-100 text-blue-700 px-10 py-7 text-xl font-bold rounded-2xl shadow-2xl"
+                  className="bg-white hover:bg-slate-100 text-blue-700 px-10 py-7 text-xl font-bold rounded-2xl shadow-2xl transition-transform active:scale-95"
                 >
                   Probar Gratis
                 </Button>
@@ -424,9 +424,9 @@ export default function Home() {
 }
 
 const stats = [
-  { value: "SaaS", label: "Gestión Eficiente" },
+  { value: "500+", label: "Negocios Activos" },
   { value: "99.9%", label: "Uptime Garantizado" },
-  { value: "Guate", label: "Soporte Técnico Local" },
+  { value: "24/7", label: "Soporte Técnico" },
 ];
 
 const features = [
@@ -585,7 +585,7 @@ const pricingPlans = [
   {
     name: "Básico",
     price: "Consultar",
-    description: "Perfecto para negocios locales que inician su digitalización",
+    description: "Perfecto para emprendedores y negocios pequeños",
     features: [
       "1 Punto de Venta",
       "Gestión de Inventario",

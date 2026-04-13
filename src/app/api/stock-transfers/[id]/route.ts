@@ -6,14 +6,16 @@ import { createAuditLog } from '@/lib/audit';
 /**
  * Gestión individual de Remisiones (Detalle, Recepción y Anulación)
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
+  const { id } = await params;
+
   try {
     const transfer = await prisma.stockTransfer.findFirst({
-      where: { id: params.id, companyId: tenant.companyId },
+      where: { id: id, companyId: tenant.companyId },
       include: {
         fromBranch: { select: { name: true } },
         toBranch: { select: { name: true } },
@@ -39,14 +41,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
  * Confirmar Recepción de Mercadería
  * Solo el supervisor de la sucursal de DESTINO puede confirmar.
  */
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
+  const { id } = await params;
+
   try {
     const transfer = await prisma.stockTransfer.findFirst({
-      where: { id: params.id, companyId: tenant.companyId },
+      where: { id: id, companyId: tenant.companyId },
       include: { items: true }
     });
 
@@ -111,14 +115,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
  * Anular Traslado (Revertir Stock al Origen)
  * Solo el supervisor de ORIGEN o el Gerente pueden anular.
  */
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
+  const { id } = await params;
+
   try {
     const transfer = await prisma.stockTransfer.findFirst({
-      where: { id: params.id, companyId: tenant.companyId },
+      where: { id: id, companyId: tenant.companyId },
       include: { items: true }
     });
 

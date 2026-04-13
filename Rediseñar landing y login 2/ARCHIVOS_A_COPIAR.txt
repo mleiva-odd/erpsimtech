@@ -1,0 +1,40 @@
+═══════════════════════════════════════════════════════════
+  ARCHIVOS NECESARIOS PARA TU PROYECTO app.simtechgt.com
+═══════════════════════════════════════════════════════════
+
+📁 COMPONENTES PRINCIPALES (OBLIGATORIOS)
+──────────────────────────────────────────
+✓ src/app/App.tsx
+✓ src/app/components/LandingPage.tsx
+✓ src/app/components/LoginPage.tsx
+
+📁 UTILIDADES (OBLIGATORIOS)
+──────────────────────────────────────────
+✓ src/lib/utils.ts
+
+📁 COMPONENTES UI BASE (OBLIGATORIOS)
+──────────────────────────────────────────
+✓ src/app/components/ui/button.tsx
+✓ src/app/components/ui/input.tsx
+✓ src/app/components/ui/label.tsx
+
+📦 DEPENDENCIAS A INSTALAR
+──────────────────────────────────────────
+pnpm add motion lucide-react
+pnpm add @radix-ui/react-slot class-variance-authority clsx tailwind-merge
+
+Si no tienes Tailwind CSS v4:
+pnpm add -D tailwindcss@4 @tailwindcss/vite
+
+═══════════════════════════════════════════════════════════
+
+INSTRUCCIONES PASO A PASO:
+
+1. Copia los 7 archivos listados arriba a tu proyecto
+2. Instala las dependencias con pnpm/npm/yarn
+3. En LoginPage.tsx, conecta la función handleSubmit a tu API
+4. Reemplaza las imágenes de Unsplash con las de tu empresa
+5. Personaliza textos, colores y features según tu marca
+6. ¡Listo para producción!
+
+═══════════════════════════════════════════════════════════

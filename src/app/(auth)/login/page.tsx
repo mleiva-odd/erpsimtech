@@ -75,7 +75,7 @@ export default function LoginPage() {
                </div>
               <h1 className="text-4xl font-bold mb-3 text-slate-900 tracking-tight">Bienvenido</h1>
               <p className="text-lg text-slate-600 font-medium">
-                Inicia sesión en tu cuenta de SimTech ERP.
+                Inicia sesión en tu cuenta de SIMTECH ERP.
               </p>
             </div>
 
@@ -169,11 +169,13 @@ export default function LoginPage() {
       <div className="hidden lg:block lg:w-1/2 relative bg-slate-900">
         <div className="absolute inset-0">
           <Image
-            src="https://images.unsplash.com/photo-1750262701487-4ca222c89ef4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200"
-            alt="Business"
+            src="/fondologin.jpeg"
+            alt="Business Background"
             fill
-            className="object-cover opacity-20"
+            className="object-cover opacity-30"
+            priority
           />
+          <div className="absolute inset-0 bg-blue-900/40"></div>
         </div>
         <div className="relative z-10 h-full flex flex-col justify-center px-16 text-white bg-gradient-to-br from-blue-900/40 to-transparent">
           <motion.div

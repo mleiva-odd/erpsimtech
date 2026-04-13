@@ -6,10 +6,7 @@ import {
   Shield, 
   Zap, 
   TrendingUp, 
-  ArrowRight, 
-  Store,
-  LayoutDashboard,
-  Users
+  ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
@@ -20,11 +17,11 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
-        {/* Background Image */}
+        {/* Background Image - NEW LOCAL PREMIUM BG */}
         <div className="absolute inset-0">
           <Image
-            src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2000"
-            alt="SimTech ERP Background"
+            src="/hero-bg.png"
+            alt="SimTech Background"
             fill
             className="object-cover"
             priority
@@ -44,11 +41,8 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.6 }}
-              className="mb-6 flex items-center gap-4"
+              className="mb-8"
             >
-              <div className="relative w-12 h-12 bg-white rounded-xl p-2 shadow-xl">
-                 <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain p-1" />
-              </div>
               <span className="text-blue-400 tracking-wider uppercase text-sm font-bold">
                 SimTech Guatemala
               </span>
@@ -68,21 +62,21 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6, duration: 0.8 }}
-              className="text-xl text-slate-200 mb-8 max-w-2xl font-medium leading-relaxed"
+              className="text-xl text-slate-200 mb-10 max-w-2xl font-medium leading-relaxed"
             >
-              Gestiona inventario, ventas, facturación y reportes en tiempo real. Todo en una plataforma moderna, segura y fácil de usar.
+              Gestiona inventario, ventas, facturación y reportes en tiempo real. Todo en una plataforma moderna y fácil de usar.
             </motion.p>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8, duration: 0.6 }}
-              className="flex flex-col sm:flex-row gap-4"
+              className="flex flex-col sm:flex-row gap-5"
             >
               <Link href="/login">
                 <Button
                   size="lg"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-7 text-lg group rounded-2xl w-full sm:w-auto font-bold shadow-lg shadow-blue-600/20"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-7 text-lg group rounded-2xl w-full sm:w-auto font-bold shadow-xl shadow-blue-600/20"
                 >
                   Iniciar Sesión
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
@@ -91,7 +85,7 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="outline"
-                className="bg-white/10 hover:bg-white/20 text-white border-white/30 px-8 py-7 text-lg backdrop-blur-sm rounded-2xl w-full sm:w-auto"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/30 px-10 py-7 text-lg backdrop-blur-sm rounded-2xl w-full sm:w-auto font-bold"
               >
                 Solicitar Demo
               </Button>
@@ -129,8 +123,8 @@ export default function Home() {
             <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-slate-900 tracking-tight">
               Todo lo que necesitas en un solo lugar
             </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Herramientas completas diseñadas para facilitar la gestión de tu empresa.
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto font-medium">
+              Herramientas completas para gestionar y hacer crecer tu negocio.
             </p>
           </motion.div>
 
@@ -171,8 +165,8 @@ export default function Home() {
                 transition={{ delay: index * 0.1, duration: 0.6 }}
                 className="text-center"
               >
-                <div className="text-5xl lg:text-7xl font-bold text-blue-400 mb-2">{stat.value}</div>
-                <div className="text-xl text-slate-400 font-bold tracking-wider uppercase">{stat.label}</div>
+                <div className="text-5xl lg:text-6xl font-bold text-blue-400 mb-2">{stat.value}</div>
+                <div className="text-xl text-slate-300 font-bold uppercase tracking-wider">{stat.label}</div>
               </motion.div>
             ))}
           </div>
@@ -189,18 +183,18 @@ export default function Home() {
             transition={{ duration: 0.8 }}
           >
             <h2 className="text-4xl lg:text-5xl font-bold mb-6 tracking-tight">
-              Transforma tu negocio hoy mismo
+              Comienza a transformar tu negocio hoy
             </h2>
             <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto font-medium">
-              Únete a los negocios que ya confían en SimTech para su operación diaria.
+              Únete a cientos de negocios que ya confían en nuestro sistema ERP & POS.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/login">
                 <Button
                   size="lg"
-                  className="bg-white hover:bg-slate-100 text-blue-700 px-10 py-7 text-xl font-bold rounded-2xl shadow-2x"
+                  className="bg-white hover:bg-slate-100 text-blue-700 px-10 py-7 text-xl font-bold rounded-2xl shadow-2xl transition-transform active:scale-95"
                 >
-                   Empezar Ahora
+                  Iniciar Sesión
                 </Button>
               </Link>
               <Button
@@ -208,7 +202,7 @@ export default function Home() {
                 variant="outline"
                 className="bg-transparent hover:bg-white/10 text-white border-white/40 px-10 py-7 text-xl font-bold rounded-2xl"
               >
-                Más Información
+                Contactar Ventas
               </Button>
             </div>
           </motion.div>
@@ -219,12 +213,12 @@ export default function Home() {
       <footer className="bg-slate-900 text-slate-500 py-16 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
           <div className="mb-8 flex justify-center">
-             <div className="relative w-12 h-12 grayscale opacity-50">
+             <div className="relative w-12 h-12 grayscale opacity-40">
                   <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain" />
               </div>
           </div>
           <p className="mb-2 font-bold tracking-widest text-xs uppercase">© {new Date().getFullYear()} SimTech Guatemala. Todos los derechos reservados.</p>
-          <p className="text-sm font-medium">El estándar de oro en gestión para negocios modernos.</p>
+          <p className="text-sm font-medium">Sistema ERP & POS para negocios modernos</p>
         </div>
       </footer>
     </div>
@@ -234,28 +228,28 @@ export default function Home() {
 const features = [
   {
     icon: BarChart3,
-    title: "Ventas en Tiempo Real",
-    description: "Sigue el rendimiento de tu negocio al instante desde cualquier lugar.",
-  },
-  {
-    icon: LayoutDashboard,
-    title: "Gestión de Inventario",
-    description: "Control absoluto de productos, existencias y movimientos de almacén.",
+    title: "Reportes en Tiempo Real",
+    description: "Visualiza el desempeño de tu negocio con reportes y gráficas actualizadas al instante.",
   },
   {
     icon: Shield,
-    title: "Seguridad Total",
-    description: "Tus datos están protegidos con los más altos estándares empresariales.",
+    title: "Seguro y Confiable",
+    description: "Protección de datos con cifrado de nivel empresarial y respaldos automáticos.",
   },
   {
-    icon: Users,
-    title: "Cartera de Clientes",
-    description: "Administra créditos, abonos y saldos de forma organizada.",
+    icon: Zap,
+    title: "Rápido y Eficiente",
+    description: "Procesa ventas en segundos. Optimizado para alto rendimiento incluso en horas pico.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Gestión de Inventario",
+    description: "Control total de stock, alertas de reorden y seguimiento de productos.",
   },
 ];
 
 const stats = [
-  { value: "500+", label: "Negocios Activos" },
-  { value: "99.9%", label: "Uptime" },
-  { value: "24/7", label: "Soporte" },
+  { value: "SaaS", label: "Tecnología de Punta" },
+  { value: "99.9%", label: "Uptime Garantizado" },
+  { value: "24/7", label: "Soporte Técnico" },
 ];

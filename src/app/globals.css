@@ -1,9 +1,10 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui;
+  --font-sans: 'Inter', ui-sans-serif, system-ui;
   
-  /* Meridian Design System Tokens */
+  /* Color system matching original preference */
   --color-background: #ffffff;
   --color-foreground: #030213;
   --color-primary: #2563eb;
@@ -20,8 +21,6 @@
   --radius-xl: 12px;
   --radius-2xl: 16px;
   --radius-3xl: 24px;
-  
-  --shadow-premium: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
 :root {
@@ -33,15 +32,14 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), sans-serif;
-  letter-spacing: -0.015em; /* Ajuste óptimo para Geist en SaaS */
+  font-family: 'Inter', sans-serif;
 }
 
-/* Estandarización Global de Formas (Nivel Formal) */
+/* Form Styles */
 input, select, textarea {
   color: #0f172a !important;
   font-weight: 500 !important;
-  border-radius: 12px !important; /* Standard xl */
+  border-radius: 12px !important;
   transition: all 0.2s ease-in-out;
 }
 
@@ -50,7 +48,7 @@ input:focus, select:focus {
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.05) !important;
 }
 
-/* Scrollbars Minimalistas */
+/* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -64,14 +62,4 @@ input:focus, select:focus {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #cbd5e1;
-}
-
-/* Cleanup de efectos */
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.animate-shimmer {
-  display: none; /* Desactivado por preferencia de usuario en global, se puede activar por componente si es necesario */
 }

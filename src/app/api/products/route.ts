@@ -49,8 +49,8 @@ export async function GET(req: NextRequest) {
       include: {
         category: { select: { id: true, name: true } },
         stocks: targetBranchId
-          ? { where: { branchId: targetBranchId, variantId: null } }
-          : { where: { variantId: null } },
+          ? { where: { branchId: targetBranchId, variantId: (null as any) } }
+          : { where: { variantId: (null as any) } },
         variants: {
           include: {
             stocks: targetBranchId

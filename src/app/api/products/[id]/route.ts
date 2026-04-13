@@ -151,7 +151,7 @@ export async function PUT(
                  productId_branchId_variantId: { 
                    productId: resolvedParams.id, 
                    branchId: branchId, 
-                   variantId: null 
+                   variantId: (null as any) 
                  } 
                },
                update: {
@@ -161,7 +161,7 @@ export async function PUT(
                create: {
                  productId: resolvedParams.id,
                  branchId,
-                 variantId: null,
+                 variantId: (null as any),
                  quantity: Number(body.stock ?? 0),
                  minStock: Number(body.minStock ?? 5),
                }

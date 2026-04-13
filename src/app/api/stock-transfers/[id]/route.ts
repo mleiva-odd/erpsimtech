@@ -80,7 +80,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             productId_branchId_variantId: {
               productId: item.productId,
               branchId: transfer.toBranchId,
-              variantId: item.variantId || null
+              variantId: (item.variantId || null) as any
             }
           },
           update: { quantity: { increment: item.quantity } },
@@ -152,7 +152,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
             productId_branchId_variantId: {
               productId: item.productId,
               branchId: transfer.fromBranchId,
-              variantId: item.variantId || null
+              variantId: (item.variantId || null) as any
             }
           },
           data: { quantity: { increment: item.quantity } }

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
                 productId_branchId_variantId: { 
                   productId: exists.id, 
                   branchId, 
-                  variantId: null 
+                  variantId: (null as any) 
                 } 
               },
               update: { 
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
               create: { 
                 productId: exists.id, 
                 branchId, 
-                variantId: null,
+                variantId: (null as any),
                 quantity: Number(firstRow.stock) || 0,
                 minStock: Number(firstRow.minStock) || 5
               }

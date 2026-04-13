@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         where: { id: { in: productIds }, companyId: tenant.companyId, active: true },
         include: {
           bundleItems: true,
-          stocks: { where: { branchId, variantId: null } },
+          stocks: { where: { branchId, variantId: (null as any) } },
           variants: { include: { stocks: { where: { branchId } } } }
         },
       });
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
             // VERIFY COMPONENTS STOCK
              for (const bundleItem of product.bundleItems) {
                const componentStock = await tx.productStock.findFirst({
-                 where: { productId: bundleItem.componentId, branchId, variantId: null }
+                 where: { productId: bundleItem.componentId, branchId, variantId: (null as any) }
                });
                const required = item.quantity * bundleItem.quantity;
                if (!componentStock || componentStock.quantity < required) {
@@ -236,10 +236,10 @@ export async function POST(req: NextRequest) {
            if (product.isBundle) {
              for (const bundleItem of product.bundleItems) {
                 await tx.productStock.updateMany({
-                   where: { productId: bundleItem.componentId, branchId: branchId!, variantId: null },
+                   where: { productId: bundleItem.componentId, branchId: branchId!, variantId: (null as any) },
                    data: { quantity: { decrement: item.quantity * bundleItem.quantity } }
                 });
-                const stk = await tx.productStock.findFirst({ where: { productId: bundleItem.componentId, branchId: branchId!, variantId: null }, include: { product: true } });
+                const stk = await tx.productStock.findFirst({ where: { productId: bundleItem.componentId, branchId: branchId!, variantId: (null as any) }, include: { product: true } });
                 if (stk) updatedStocks.push(stk);
              }
            } else {
@@ -252,10 +252,10 @@ export async function POST(req: NextRequest) {
                 if (stk) updatedStocks.push(stk);
              } else {
                 await tx.productStock.updateMany({
-                   where: { productId: item.productId, branchId: branchId!, variantId: null },
+                   where: { productId: item.productId, branchId: branchId!, variantId: (null as any) },
                    data: { quantity: { decrement: item.quantity } }
                 });
-                const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: null }, include: { product: true } });
+                const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: (null as any) }, include: { product: true } });
                 if (stk) updatedStocks.push(stk);
              }
            }

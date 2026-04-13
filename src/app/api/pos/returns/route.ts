@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
              if (product.isBundle) {
                  for (const bundleItem of product.bundleItems) {
                     await tx.productStock.updateMany({
-                       where: { productId: bundleItem.componentId, branchId: sale.branchId, variantId: null },
+                       where: { productId: bundleItem.componentId, branchId: sale.branchId, variantId: (null as any) },
                        data: { quantity: { increment: item.quantity * bundleItem.quantity } }
                     });
                  }

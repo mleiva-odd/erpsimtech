@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
            });
         } else {
            existingStock = await tx.productStock.findFirst({
-             where: { productId: item.productId, variantId: null, branchId }
+             where: { productId: item.productId, variantId: (null as any), branchId }
            });
         }
 

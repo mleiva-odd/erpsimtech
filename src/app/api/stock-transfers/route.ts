@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       // 1. Validar y Reservar Stock en Origen
       for (const item of items) {
         const originStock = await tx.productStock.findFirst({
-          where: { productId: item.productId, branchId: fromBranchId, variantId: (item.variantId || null) as string },
+          where: { productId: item.productId, branchId: fromBranchId, variantId: (item.variantId || null) as any },
           include: { product: true }
         });
 

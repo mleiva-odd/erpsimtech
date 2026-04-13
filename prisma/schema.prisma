@@ -155,6 +155,7 @@ model Product {
 
   @@unique([companyId, sku])
   @@unique([companyId, barcode])
+  @@index([companyId, active])
 }
 
 model ProductVariant {
@@ -192,6 +193,7 @@ model ProductStock {
   variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@unique([productId, branchId, variantId])
+  @@index([branchId, quantity])
 }
 
 
@@ -296,16 +298,18 @@ model Customer {
 }
 
 model AccountPayment {
-  id         String        @id @default(uuid())
-  customerId String
-  userId     String
-  amount     Decimal       @db.Decimal(10, 2)
-  method     PaymentMethod
-  reference  String?
-  notes      String?
-  createdAt  DateTime      @default(now())
-  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  user       User          @relation(fields: [userId], references: [id])
+  id             String        @id @default(uuid())
+  customerId     String
+  userId         String
+  cashRegisterId String?
+  amount         Decimal       @db.Decimal(10, 2)
+  method         PaymentMethod
+  reference      String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id])
+  cashRegister   CashRegister? @relation(fields: [cashRegisterId], references: [id])
 }
 
 model Sale {
@@ -333,6 +337,8 @@ model Sale {
   returns        SaleReturn[]
 
   @@unique([companyId, invoiceNumber])
+  @@index([companyId, status, createdAt])
+  @@index([branchId, status, createdAt])
 }
 
 model SaleReturn {
@@ -353,6 +359,7 @@ model SaleItem {
   productId String
   quantity  Int
   unitPrice Decimal         @db.Decimal(10, 2)
+  unitCost  Decimal?        @db.Decimal(10, 2)
   discount  Decimal         @default(0) @db.Decimal(10, 2)
   subtotal  Decimal         @db.Decimal(10, 2)
   variantId String?
@@ -385,6 +392,7 @@ model CashRegister {
   user           User                      @relation(fields: [userId], references: [id])
   transactions   CashRegisterTransaction[]
   sales          Sale[]
+  accountPayments AccountPayment[]
 }
 
 model CashRegisterTransaction {

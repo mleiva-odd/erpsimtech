@@ -44,13 +44,15 @@ export async function GET(req: Request) {
         where: { companyId: tenant.companyId, active: true },
       }),
       // Products with low stock (in user's branch or across all branches)
-      prisma.productStock.count({
-        where: {
-          product: { companyId: tenant.companyId, active: true },
-          ...(targetBranchId && { branchId: targetBranchId }),
-          quantity: { lte: 5 }, // Simple threshold; will use minStock comparison later
-        },
-      }),
+      prisma.$queryRaw<{ count: number }[]>`
+        SELECT COUNT(*)::int as count
+        FROM "ProductStock" ps
+        JOIN "Product" p ON ps."productId" = p.id
+        WHERE p."companyId" = ${tenant.companyId}
+          AND p.active = true
+          AND ps.quantity <= ps."minStock"
+          ${targetBranchId ? prisma.$queryRaw`AND ps."branchId" = ${targetBranchId}` : prisma.$queryRaw``}
+      `.then(res => Number(res[0]?.count || 0)),
       // Recent 5 sales
       prisma.sale.findMany({
         where: salesWhere,

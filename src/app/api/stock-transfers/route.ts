@@ -17,36 +17,47 @@ const TransferBatchSchema = z.object({
   notes: z.string().optional(),
 });
 
-// List recent stock transfers (audit log)
+// List stock transfers (with logistical status)
 export async function GET(req: NextRequest) {
   const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
   try {
-    const logs = await prisma.auditLog.findMany({
+    const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+    
+    const transfers = await prisma.stockTransfer.findMany({
       where: {
         companyId: tenant.companyId,
-        action: 'STOCK_TRANSFER',
+        ...(!isAdmin && {
+          OR: [
+            { fromBranchId: tenant.branchId || '' },
+            { toBranchId: tenant.branchId || '' }
+          ]
+        })
+      },
+      include: {
+        fromBranch: { select: { name: true } },
+        toBranch: { select: { name: true } },
+        user: { select: { name: true } },
+        items: {
+          include: {
+            product: { select: { name: true, sku: true } },
+            variant: { select: { name: true } }
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
-      select: {
-        id: true,
-        action: true,
-        changes: true,
-        createdAt: true,
-        user: { select: { name: true } },
-      },
     });
 
-    return NextResponse.json(logs);
+    return NextResponse.json(transfers);
   } catch (error) {
-    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+    return NextResponse.json({ error: 'Error al obtener traslados' }, { status: 500 });
   }
 }
 
-// Transfer stock between branches
+// Transfer stock between branches (Create Remittance)
 export async function POST(req: NextRequest) {
   const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
@@ -60,6 +71,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { fromBranchId, toBranchId, items, notes } = parsed.data;
+
+  // SEGURIDAD: Cada supervisor se hace cargo de su tienda
+  const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+  if (!isAdmin && fromBranchId !== tenant.branchId) {
+    return NextResponse.json({ 
+      error: 'No tienes permiso para enviar mercadería desde una sucursal que no es la tuya.' 
+    }, { status: 403 });
+  }
 
   if (fromBranchId === toBranchId) {
     return NextResponse.json({ error: 'El Origen y Destino no pueden ser la misma sucursal' }, { status: 400 });
@@ -75,79 +94,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sucursales no encontradas o sin acceso' }, { status: 404 });
     }
 
-    // Prepare transaction operations for all items
-    const transactions = [];
-    const auditDetails: any[] = [];
+    const transfer = await prisma.$transaction(async (tx) => {
+      // 1. Validar y Reservar Stock en Origen
+      for (const item of items) {
+        const originStock = await tx.productStock.findFirst({
+          where: { productId: item.productId, branchId: fromBranchId, variantId: item.variantId || null },
+          include: { product: true }
+        });
 
-    for (const item of items) {
-      const product = await prisma.product.findFirst({ 
-        where: { id: item.productId, companyId: tenant.companyId },
-        select: { id: true, name: true }
-      });
-      
-      if (!product) throw new Error(`Producto no encontrado (ID: ${item.productId})`);
+        if (!originStock || originStock.quantity < item.quantity) {
+          throw new Error(`Stock insuficiente para "${originStock?.product.name || 'Producto'}". Disp: ${originStock?.quantity ?? 0}`);
+        }
 
-      const originStock = await prisma.productStock.findFirst({
-        where: { productId: item.productId, branchId: fromBranchId, variantId: item.variantId || null },
-      });
-
-      if (!originStock || originStock.quantity < item.quantity) {
-        throw new Error(`Stock insuficiente para "${product.name}". Disponible en ${fromBranch.name}: ${originStock?.quantity ?? 0}`);
-      }
-
-      // Solo deducimos del origen ("En tránsito")
-      transactions.push(
-        prisma.productStock.update({
+        // Restar del origen (Mercadería sale hacia "Tránsito")
+        await tx.productStock.update({
           where: { id: originStock.id },
           data: { quantity: { decrement: item.quantity } },
-        })
-      );
-
-      auditDetails.push({ product: product.name, qty: item.quantity });
-    }
-
-    // Create the master transfer document as PENDING
-    const transferRecord = prisma.stockTransfer.create({
-      data: {
-        companyId: tenant.companyId,
-        fromBranchId: fromBranchId,
-        toBranchId: toBranchId,
-        userId: tenant.userId,
-        reference: notes,
-        status: 'PENDING', // Mercadería en ruta
-        items: {
-          create: items.map((i: any) => ({
-            productId: i.productId,
-            variantId: i.variantId || null,
-            quantity: i.quantity
-          }))
-        }
+        });
       }
+
+      // 2. Crear documento de Remisión (PENDIENTE)
+      return tx.stockTransfer.create({
+        data: {
+          companyId: tenant.companyId,
+          fromBranchId,
+          toBranchId,
+          userId: tenant.userId,
+          reference: notes,
+          status: 'PENDING',
+          items: {
+            create: items.map((i: any) => ({
+              productId: i.productId,
+              variantId: i.variantId || null,
+              quantity: i.quantity
+            }))
+          }
+        }
+      });
     });
 
-    transactions.push(transferRecord);
-
-    // Execute everything atomically
-    await prisma.$transaction(transactions);
-
-    // Save one master audit log (Optional since we have the transfer doc now, but good for raw trails)
-    await createAuditLog({
+    createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
-      action: 'STOCK_TRANSFER',
+      action: 'STOCK_TRANSFER_SENT',
       entity: 'StockTransfer',
-      entityId: 'BATCH',
-      details: {
-        from: fromBranch.name,
-        to: toBranch.name,
-        itemsTransferred: auditDetails.length,
-        items: auditDetails,
-        notes,
-      },
+      entityId: transfer.id,
+      details: { from: fromBranch.name, to: toBranch.name, items: items.length },
     });
 
     return NextResponse.json({
-      message: `Traslado de ${items.length} productos procesado con éxito de ${fromBranch.name} a ${toBranch.name}.`,
+      message: `Guía de remisión creada. Mercadería en tránsito hacia ${toBranch.name}.`,
+      transferId: transfer.id
     }, { status: 201 });
   } catch (error) {
     console.error('Transfer error:', error);

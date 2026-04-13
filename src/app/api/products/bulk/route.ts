@@ -72,7 +72,32 @@ export async function POST(req: NextRequest) {
           const exists = await tx.product.findFirst({
              where: { companyId: tenant.companyId, sku: String(firstRow.sku).trim() }
           });
-          if (exists) continue;
+
+          if (exists) {
+            // Inteligencia Multi-sucursal: Si existe el producto global, aseguramos el stock para esta sucursal
+            await tx.productStock.upsert({
+              where: { 
+                productId_branchId_variantId: { 
+                  productId: exists.id, 
+                  branchId, 
+                  variantId: null 
+                } 
+              },
+              update: { 
+                quantity: Number(firstRow.stock) || 0,
+                minStock: Number(firstRow.minStock) || 5
+              },
+              create: { 
+                productId: exists.id, 
+                branchId, 
+                variantId: null,
+                quantity: Number(firstRow.stock) || 0,
+                minStock: Number(firstRow.minStock) || 5
+              }
+            });
+            count++;
+            continue;
+          }
 
           await tx.product.create({
             data: {
@@ -95,39 +120,62 @@ export async function POST(req: NextRequest) {
           count++;
         } else {
           // Matrix Multi-Variant Product grouping
-          const parentSku = `MAT-${String(firstRow.sku).trim().substring(0,6)}-${Date.now().toString().slice(-4)}`;
-          const exists = await tx.product.findFirst({ where: { companyId: tenant.companyId, name: parentName } });
-          
-          if (exists) continue; // Skip if parent exact name already injected
-          
-          const p = await tx.product.create({
-            data: {
-              companyId: tenant.companyId,
-              categoryId,
-              name: parentName,
-              sku: parentSku, // Virtual Master SKU for the Folder
-              price: 0,
-              cost: 0,
-              hasVariants: true
-            }
+          const exists = await tx.product.findFirst({ 
+            where: { companyId: tenant.companyId, name: parentName },
+            include: { variants: true }
           });
+          
+          let p;
+          if (exists) {
+            p = exists;
+          } else {
+            const parentSku = `MAT-${String(firstRow.sku).trim().substring(0,6)}-${Date.now().toString().slice(-4)}`;
+            p = await tx.product.create({
+              data: {
+                companyId: tenant.companyId,
+                categoryId,
+                name: parentName,
+                sku: parentSku,
+                price: 0,
+                cost: 0,
+                hasVariants: true
+              }
+            });
+          }
 
           for (const r of rows) {
-             await tx.productVariant.create({
-               data: {
+             // Upsert Variant
+             const v = await tx.productVariant.upsert({
+                where: { productId_sku: { productId: p.id, sku: String(r.sku).trim() } },
+                update: { name: String(r.variantName || r.sku).trim() },
+                create: {
+                  productId: p.id,
+                  name: String(r.variantName || r.sku).trim(),
+                  sku: String(r.sku).trim(),
+                  barcode: r.barcode ? String(r.barcode) : null,
+                  price: Number(r.price) || Number(firstRow.price) || 0,
+                }
+             });
+
+             // Upsert Stock for current Branch
+             await tx.productStock.upsert({
+               where: { 
+                 productId_branchId_variantId: { 
+                   productId: p.id, 
+                   branchId, 
+                   variantId: v.id 
+                 } 
+               },
+               update: { 
+                 quantity: Number(r.stock) || 0,
+                 minStock: Number(r.minStock) || 5
+               },
+               create: {
                  productId: p.id,
-                 name: String(r.variantName || r.sku).trim(),
-                 sku: String(r.sku).trim(),
-                 barcode: r.barcode ? String(r.barcode) : null,
-                 price: Number(r.price) || Number(firstRow.price) || 0,
-                 stocks: {
-                   create: {
-                     productId: p.id,
-                     branchId,
-                     quantity: Number(r.stock) || 0,
-                     minStock: Number(r.minStock) || 5
-                   }
-                 }
+                 branchId,
+                 variantId: v.id,
+                 quantity: Number(r.stock) || 0,
+                 minStock: Number(r.minStock) || 5
                }
              });
           }

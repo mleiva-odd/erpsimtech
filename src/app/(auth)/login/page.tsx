@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Store, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowLeft, Lock, Mail, Loader2, BarChart3 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import Link from "next/link";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -37,117 +43,183 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-white relative overflow-hidden">
-      {/* Left Panel: Branding & Decorative */}
-      <div className="hidden lg:flex w-1/2 bg-[#020617] relative flex-col justify-between p-16 overflow-hidden border-r border-slate-800">
-        {/* Glowing Orbs - Improved Gradient */}
-        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-blue-600/10 blur-[130px]"></div>
-        <div className="absolute bottom-[-5%] right-[-5%] w-[45%] h-[45%] rounded-full bg-cyan-400/10 blur-[110px]"></div>
-        <div className="absolute top-[30%] right-[10%] w-[30%] h-[30%] rounded-full bg-indigo-500/5 blur-[90px]"></div>
-        
-        {/* Header - More breathespace */}
-        <div className="relative z-10 flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-700">
-           <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10">
-             <Store className="w-7 h-7 text-white" />
-           </div>
-           <span className="text-2xl font-bold text-white tracking-[0.2em]">SIMTECH</span>
+    <div className="min-h-screen bg-slate-50 flex">
+      {/* Left Side - Login Form */}
+      <div className="w-full lg:w-1/2 flex flex-col">
+        {/* Header */}
+        <div className="p-6">
+          <Link href="/">
+            <Button
+              variant="ghost"
+              className="text-slate-600 hover:text-slate-900 rounded-xl"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver al inicio
+            </Button>
+          </Link>
         </div>
 
-        {/* Hero Text - Centered better vertically within its space */}
-        <div className="relative z-10 max-w-lg mb-20 mt-auto animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150 fill-mode-both">
-          <h1 className="text-[3.5rem] font-bold text-white leading-[1.05] mb-6 tracking-tight">
-            El corazón de tu<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">
-              operación comercial.
-            </span>
-          </h1>
-          <p className="text-xl text-slate-400 font-medium leading-relaxed max-w-md">
-            Gestiona ventas, controla el inventario matriz y audita tu personal de mostrador desde una única plataforma inteligente.
-          </p>
-        </div>
+        {/* Login Form */}
+        <div className="flex-1 flex items-center justify-center px-6 py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="w-full max-w-md"
+          >
+            <div className="mb-10 text-center lg:text-left">
+               <div className="lg:hidden flex justify-center mb-8">
+                  <div className="relative w-16 h-16">
+                    <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain" />
+                  </div>
+               </div>
+              <h1 className="text-4xl font-bold mb-3 text-slate-900 tracking-tight">Bienvenido</h1>
+              <p className="text-lg text-slate-600 font-medium">
+                Inicia sesión en tu cuenta maestra de SimTech.
+              </p>
+            </div>
 
-        {/* Footer */}
-        <div className="relative z-10 text-slate-500 text-[10px] font-bold tracking-[0.25em] uppercase mt-auto animate-in fade-in duration-1000 delay-300 fill-mode-both">
-          © {new Date().getFullYear()} SIMTECH ERP. TODOS LOS DERECHOS RESERVADOS.
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-slate-700 font-bold ml-1 uppercase text-[11px] tracking-widest">
+                  Correo electrónico
+                </Label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="tu@empresa.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-12 py-7 text-base rounded-2xl border-slate-200 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 transition-all font-medium"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between ml-1">
+                  <Label htmlFor="password" className="text-slate-700 font-bold uppercase text-[11px] tracking-widest">
+                    Contraseña
+                  </Label>
+                  <a
+                    href="#"
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider"
+                  >
+                    ¿Olvidaste tu clave?
+                  </a>
+                </div>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-12 py-7 text-base rounded-2xl border-slate-200 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 transition-all font-medium"
+                    required
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="p-4 bg-red-50 text-red-600 font-bold text-sm rounded-xl border border-red-100 flex items-center gap-3"
+                >
+                  <div className="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
+                  {error}
+                </motion.div>
+              )}
+
+              <Button
+                type="submit"
+                size="lg"
+                disabled={isLoading}
+                className="w-full bg-slate-900 hover:bg-black text-white py-8 text-lg font-bold rounded-2xl shadow-xl shadow-slate-900/10 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-3"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-6 h-6 animate-spin text-white" />
+                    Autenticando...
+                  </>
+                ) : (
+                  "Entrar al Sistema"
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-12 pt-8 border-t border-slate-200">
+              <div className="flex items-center justify-center gap-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                <a href="#" className="hover:text-slate-700">Términos</a>
+                <span>•</span>
+                <a href="#" className="hover:text-slate-700">Privacidad</a>
+                <span>•</span>
+                <a href="#" className="hover:text-slate-700">Soporte</a>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </div>
 
-      {/* Right Panel: Login Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 sm:p-16 lg:p-24 relative bg-slate-50/30">
-        {/* Mobile Header (Hidden on Desktop) */}
-        <div className="lg:hidden flex flex-col items-center mb-12 animate-in fade-in zoom-in-95 duration-500">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/20 mb-5 transform -rotate-3 border border-blue-400/30">
-            <Store className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">SIMTECH</h1>
-          <p className="text-[11px] font-bold tracking-[0.2em] text-slate-400 mt-1 uppercase">Punto de Venta</p>
+      {/* Right Side - Image/Brand */}
+      <div className="hidden lg:block lg:w-1/2 relative bg-slate-900">
+        <div className="absolute inset-0">
+          <Image
+            src="https://images.unsplash.com/photo-1750262701487-4ca222c89ef4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200"
+            alt="Business"
+            fill
+            className="object-cover opacity-20"
+          />
         </div>
-
-        <div className="w-full max-w-sm xl:max-w-md animate-in fade-in slide-in-from-right-8 duration-700 delay-100 fill-mode-both">
-          <div className="mb-12">
-            <h2 className="text-4xl font-bold text-slate-900 tracking-tight mb-3">Bienvenido</h2>
-            <p className="text-slate-500 text-lg font-medium">Ingresa tus credenciales maestras.</p>
+        <div className="relative z-10 h-full flex flex-col justify-center px-16 text-white bg-gradient-to-br from-blue-900/40 to-transparent">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+          >
+            <div className="mb-10">
+              <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-8 p-4 shadow-2xl">
+                 <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain p-3" />
+              </div>
+            </div>
+            <h2 className="text-5xl font-bold mb-6 tracking-tight leading-tight">
+              Gestiona tu negocio<br/>desde cualquier lugar
+            </h2>
+            <p className="text-xl text-blue-100 mb-10 max-w-md font-medium leading-relaxed">
+              Acceso seguro a todas tus operaciones, inventarios y reportes financieros en tiempo real.
+            </p>
+            <div className="space-y-5">
+              {loginFeatures.map((feature, index) => (
+                <motion.div
+                  key={feature}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 + index * 0.1, duration: 0.6 }}
+                  className="flex items-center gap-4"
+                >
+                  <div className="w-2.5 h-2.5 bg-blue-400 rounded-full shadow-lg shadow-blue-400/40"></div>
+                  <span className="text-blue-50 font-bold tracking-wide uppercase text-xs">{feature}</span>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+          
+          <div className="absolute bottom-12 left-16 text-slate-500 font-bold text-[10px] tracking-[0.3em] uppercase">
+            © {new Date().getFullYear()} SIMTECH ERP. Guatemala.
           </div>
-
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-2.5">
-              <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider">Correo Electrónico</label>
-              <div className="relative group">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white border-[3px] border-slate-100 text-slate-900 font-bold rounded-2xl px-6 py-4.5 focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 transition-all placeholder-slate-300"
-                  placeholder="name@company.com"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2.5">
-              <div className="flex justify-between items-center ml-1">
-                <label className="text-[13px] font-bold text-slate-700 uppercase tracking-wider">Contraseña</label>
-                <a href="#" className="text-[13px] font-bold text-blue-600 hover:text-blue-800 transition-colors">¿Olvidaste tu clave?</a>
-              </div>
-              <div className="relative group">
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white border-[3px] border-slate-100 text-slate-900 font-bold rounded-2xl px-6 py-4.5 focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 transition-all placeholder-slate-300"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="p-4 mt-2 bg-red-50 text-red-600 font-bold text-sm rounded-xl border border-red-100 flex items-center gap-3 animate-in shake duration-300">
-                <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse"></div>
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-slate-900 hover:bg-black text-white font-bold text-[18px] rounded-2xl py-5 mt-8 shadow-2xl shadow-slate-900/20 transition-all active:scale-[0.98] disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-3 relative overflow-hidden group tracking-wide"
-            >
-              <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-              
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-6 h-6 animate-spin text-white" />
-                  Conectando...
-                </>
-              ) : (
-                "Ingresar al Sistema"
-              )}
-            </button>
-          </form>
         </div>
       </div>
     </div>
-
   );
 }
+
+const loginFeatures = [
+  "Sincronización Multi-Sucursal",
+  "Auditoría de Inventario Real",
+  "Reportes de Rentabilidad Bruta",
+  "Seguridad de Nivel Empresarial",
+];

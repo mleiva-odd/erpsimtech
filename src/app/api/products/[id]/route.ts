@@ -99,41 +99,69 @@ export async function PUT(
 
       if (branchId) {
          if (body.hasVariants) {
-            // Drop current variants completely and re-insert matrix to avoid un-mapped zombies
-            await tx.productVariant.deleteMany({ where: { productId: resolvedParams.id } });
-            await tx.productStock.deleteMany({ where: { productId: resolvedParams.id } });
-
+            // Manejo inteligente de variantes: No borrar todo si queremos preservar stock en otras sucursales.
+            // Primero, actualizamos o creamos las variantes enviadas.
             if (body.variants && body.variants.length > 0) {
               for (const v of body.variants) {
-                 await tx.productVariant.create({
-                   data: {
+                 const variant = await tx.productVariant.upsert({
+                   where: { productId_sku: { productId: resolvedParams.id, sku: String(v.sku).trim() } },
+                   update: {
+                     name: String(v.name).trim(),
+                     barcode: v.barcode ? String(v.barcode) : null,
+                     price: Number(v.price) || 0,
+                     cost: Number(v.cost) || 0,
+                   },
+                   create: {
                      productId: resolvedParams.id,
                      name: String(v.name).trim(),
                      sku: String(v.sku).trim(),
                      barcode: v.barcode ? String(v.barcode) : null,
                      price: Number(v.price) || 0,
                      cost: Number(v.cost) || 0,
-                     stocks: {
-                       create: {
-                         productId: resolvedParams.id,
-                         branchId: branchId,
-                         quantity: Number(v.stock) || 0,
-                         minStock: Number(body.minStock) || 5
-                       }
-                     }
+                   }
+                 });
+
+                 // Solo actualizar/crear stock para LA SUCURSAL ACTUAL
+                 await tx.productStock.upsert({
+                   where: { 
+                     productId_branchId_variantId: { 
+                       productId: resolvedParams.id, 
+                       branchId: branchId, 
+                       variantId: variant.id 
+                     } 
+                   },
+                   update: {
+                     quantity: Number(v.stock) || 0,
+                     minStock: Number(body.minStock) || 5
+                   },
+                   create: {
+                     productId: resolvedParams.id,
+                     branchId: branchId,
+                     variantId: variant.id,
+                     quantity: Number(v.stock) || 0,
+                     minStock: Number(body.minStock) || 5
                    }
                  });
               }
             }
          } else {
-            // Revert back to Standard Base Catalog item
-            await tx.productVariant.deleteMany({ where: { productId: resolvedParams.id } });
-            await tx.productStock.deleteMany({ where: { productId: resolvedParams.id } });
-
-            await tx.productStock.create({
-               data: {
+            // Producto estándar: Actualizar solo el stock de la sucursal actual
+            await tx.productStock.upsert({
+               where: { 
+                 productId_branchId_variantId: { 
+                   productId: resolvedParams.id, 
+                   branchId: branchId, 
+                   variantId: null 
+                 } 
+               },
+               update: {
+                 quantity: Number(body.stock ?? 0),
+                 minStock: Number(body.minStock ?? 5),
+               },
+               create: {
                  productId: resolvedParams.id,
                  branchId,
+                 variantId: null,
                  quantity: Number(body.stock ?? 0),
                  minStock: Number(body.minStock ?? 5),
                }

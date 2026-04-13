@@ -17,9 +17,18 @@ export async function GET(req: NextRequest) {
 
   const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
 
-  const targetBranchId = (!isAdmin || !requestedBranchId || requestedBranchId === 'null')
-    ? tenant.branchId
-    : requestedBranchId;
+  let targetBranchId = tenant.branchId;
+  if (isAdmin && requestedBranchId && requestedBranchId !== 'null') {
+    // Seguridad: Validar que la sucursal solicitada pertenezca a la empresa del usuario
+    const branch = await prisma.branch.findFirst({
+      where: { id: requestedBranchId, companyId: tenant.companyId },
+      select: { id: true }
+    });
+    if (!branch) {
+      return NextResponse.json({ error: 'Acceso denegado a la sucursal solicitada' }, { status: 403 });
+    }
+    targetBranchId = branch.id;
+  }
 
   const where = {
     companyId: tenant.companyId,

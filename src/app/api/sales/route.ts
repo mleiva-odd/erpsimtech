@@ -187,13 +187,26 @@ export async function POST(req: NextRequest) {
           total,
           status: status as any,
           items: {
-            create: items.map((item) => ({
-              productId: item.productId,
-              variantId: item.variantId || null,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              subtotal: item.unitPrice * item.quantity,
-            })),
+            create: items.map((item) => {
+              const product = products.find((p) => p.id === item.productId);
+              let unitCost = Number(product?.cost || 0);
+
+              if (item.variantId) {
+                const variant = product?.variants.find((v: any) => v.id === item.variantId);
+                if (variant) {
+                  unitCost = Number(variant.cost || 0);
+                }
+              }
+
+              return {
+                productId: item.productId,
+                variantId: item.variantId || null,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                unitCost, // Persistencia de costo histórico
+                subtotal: item.unitPrice * item.quantity,
+              };
+            }),
           },
           ...(status === 'COMPLETED' ? {
             payments: {

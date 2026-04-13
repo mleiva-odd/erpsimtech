@@ -3,10 +3,19 @@
 @theme inline {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui;
   
-  /* Colores Corporativos Estandarizados */
-  --color-brand-primary: #2563eb;
-  --color-brand-dark: #0f172a;
-  --color-brand-surface: #f8fafc;
+  /* Meridian Design System Tokens */
+  --color-background: #ffffff;
+  --color-foreground: #030213;
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f8fafc;
+  --color-secondary-foreground: #030213;
+  --color-muted: #ececf0;
+  --color-muted-foreground: #717182;
+  --color-accent: #e9ebef;
+  --color-accent-foreground: #030213;
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-input-background: #f3f3f5;
   
   --radius-xl: 12px;
   --radius-2xl: 16px;
@@ -16,8 +25,9 @@
 }
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #ffffff;
+  --foreground: #030213;
+  --radius: 0.625rem;
 }
 
 body {

@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
         where: { 
           productId, 
           branchId, 
-          variantId: variantId || null 
+          variantId: (variantId || null) as string 
         }
       });
 
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
           companyId: tenant.companyId,
           branchId,
           productId,
-          variantId: variantId || null,
+          variantId: (variantId || null) as string,
           userId: tenant.userId,
           oldQuantity,
           newQuantity,
@@ -114,14 +114,14 @@ export async function POST(req: NextRequest) {
           productId_branchId_variantId: { 
             productId, 
             branchId, 
-            variantId: variantId || null 
+            variantId: (variantId || null) as string 
           } 
         },
         update: { quantity: newQuantity },
         create: {
           productId,
           branchId,
-          variantId: variantId || null,
+          variantId: (variantId || null) as string,
           quantity: newQuantity,
           minStock: 5 // Default
         }

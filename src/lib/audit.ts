@@ -30,6 +30,7 @@ type AuditAction =
 
 interface AuditLogParams {
   companyId: string;
+  branchId?: string;
   userId: string;
   action: AuditAction;
   entity: string;
@@ -39,6 +40,7 @@ interface AuditLogParams {
 
 export async function createAuditLog({
   companyId,
+  branchId,
   userId,
   action,
   entity,
@@ -49,6 +51,7 @@ export async function createAuditLog({
     await prisma.auditLog.create({
       data: {
         companyId,
+        branchId: branchId || undefined,
         userId,
         action,
         entity,

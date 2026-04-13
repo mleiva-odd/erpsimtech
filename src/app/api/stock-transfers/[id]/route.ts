@@ -87,7 +87,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           create: {
             productId: item.productId,
             branchId: transfer.toBranchId,
-            variantId: item.variantId || null,
+            variantId: (item.variantId || null) as string,
             quantity: item.quantity,
             minStock: 5 // Valor por defecto inicial
           }

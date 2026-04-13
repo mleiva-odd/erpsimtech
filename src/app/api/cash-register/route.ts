@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         sales: {
           select: { total: true, payments: { select: { method: true, amount: true } } },
         },
-        accountPayments: {
+        customerPayments: {
           select: { amount: true, method: true }
         }
       },
@@ -113,7 +113,7 @@ export async function PUT(req: NextRequest) {
           include: { payments: true }
         },
         transactions: true,
-        accountPayments: true
+        customerPayments: true
       }
     });
 
@@ -130,7 +130,7 @@ export async function PUT(req: NextRequest) {
       .filter(p => p.method === 'CASH')
       .reduce((sum, p) => sum + Number(p.amount), 0);
 
-    const cashAbonos = activeRegister.accountPayments
+    const cashAbonos = activeRegister.customerPayments
       .filter(p => p.method === 'CASH')
       .reduce((sum, p) => sum + Number(p.amount), 0);
 

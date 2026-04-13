@@ -182,7 +182,7 @@ export default function LoginPage() {
             transition={{ delay: 0.3, duration: 0.8 }}
           >
             <div className="mb-10">
-              <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-8 p-4 shadow-2xl">
+              <div className="relative w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-8 p-4 shadow-2xl">
                  <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain p-3" />
               </div>
             </div>

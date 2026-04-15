@@ -84,6 +84,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (parsed.data.branchAccess?.length) {
+      const validBranches = await prisma.branch.count({
+        where: {
+          id: { in: parsed.data.branchAccess },
+          companyId: tenant.companyId,
+        },
+      });
+
+      if (validBranches !== parsed.data.branchAccess.length) {
+        return NextResponse.json({ error: 'Hay sucursales fuera de tu empresa en el acceso asignado' }, { status: 400 });
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
 
     const newUser = await prisma.user.create({

@@ -69,7 +69,11 @@ export async function POST(
     let activeRegisterId = null;
     if (method === 'CASH') {
        const activeRegister = await prisma.cashRegister.findFirst({
-         where: { userId: tenant.userId, status: 'OPEN' },
+         where: {
+           userId: tenant.userId,
+           status: 'OPEN',
+           branch: { companyId: tenant.companyId },
+         },
        });
        if (!activeRegister) {
          return NextResponse.json({ error: 'No tienes un turno de caja abierto para recibir pagos en efectivo.' }, { status: 400 });
@@ -85,6 +89,9 @@ export async function POST(
       });
 
       if (!customer) throw new Error('Cliente no encontrado');
+      if (Number(customer.balance) < amount) {
+        throw new Error('El abono supera el saldo deudor del cliente');
+      }
 
       // Crear el registro de abono
       const newPayment = await tx.accountPayment.create({
@@ -100,12 +107,20 @@ export async function POST(
       });
 
       // Actualizar saldo del cliente (disminuye la deuda)
-      await tx.customer.update({
-        where: { id: resolvedParams.id },
+      const balanceUpdate = await tx.customer.updateMany({
+        where: {
+          id: resolvedParams.id,
+          companyId: tenant.companyId,
+          balance: { gte: amount as any },
+        },
         data: {
           balance: { decrement: amount }
         }
       });
+
+      if (balanceUpdate.count !== 1) {
+        throw new Error('El saldo cambió mientras se procesaba el abono. Intenta de nuevo.');
+      }
 
       return newPayment;
     });

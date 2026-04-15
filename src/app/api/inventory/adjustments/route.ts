@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireBranchAccess, requireRole } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { z } from 'zod';
 
@@ -15,13 +15,15 @@ const AdjustmentSchema = z.object({
  * GET: Consultar historial de ajustes de inventario
  */
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
   try {
     const { searchParams } = new URL(req.url);
-    const branchId = searchParams.get('branchId') || tenant.branchId;
+    const branchResult = await requireBranchAccess(tenant, searchParams.get('branchId') || tenant.branchId);
+    if ('error' in branchResult) return branchResult.error;
+    const branchId = branchResult.branchId;
 
     const adjustments = await prisma.inventoryAdjustment.findMany({
       where: {
@@ -48,7 +50,7 @@ export async function GET(req: NextRequest) {
  * POST: Registrar un nuevo ajuste manual de inventario
  */
 export async function POST(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -60,6 +62,21 @@ export async function POST(req: NextRequest) {
     }
 
     const { productId, variantId, newQuantity, reason } = parsed.data;
+
+    if (variantId) {
+      const variant = await prisma.productVariant.findFirst({
+        where: {
+          id: variantId,
+          productId,
+          product: { companyId: tenant.companyId },
+        },
+        select: { id: true },
+      });
+
+      if (!variant) {
+        return NextResponse.json({ error: 'La variante no pertenece al producto o empresa actual' }, { status: 400 });
+      }
+    }
 
     // Identificar sucursal destino
     let branchId = tenant.branchId;

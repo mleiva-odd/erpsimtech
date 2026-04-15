@@ -107,10 +107,16 @@ export async function POST(req: NextRequest) {
         }
 
         // Restar del origen (Mercadería sale hacia "Tránsito")
-        await tx.productStock.update({
-          where: { id: originStock.id },
+        const stockUpdate = await tx.productStock.updateMany({
+          where: {
+            id: originStock.id,
+            quantity: { gte: item.quantity },
+          },
           data: { quantity: { decrement: item.quantity } },
         });
+        if (stockUpdate.count !== 1) {
+          throw new Error(`El stock cambió mientras se procesaba el traslado de "${originStock.product.name}"`);
+        }
       }
 
       // 2. Crear documento de Remisión (PENDIENTE)

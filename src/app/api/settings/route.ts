@@ -29,6 +29,16 @@ const SettingsSchema = z.object({
   currencySymbol: z.string().optional(),
 });
 
+function sanitizeSettings<T extends { felApiUser?: string | null; felApiKey?: string | null; felCertificateUrl?: string | null }>(settings: T) {
+  return {
+    ...settings,
+    felConfigured: Boolean(settings.felApiUser || settings.felApiKey || settings.felCertificateUrl),
+    felApiUser: '',
+    felApiKey: '',
+    felCertificateUrl: '',
+  };
+}
+
 export async function GET(req: NextRequest) {
   const result = await requireTenant();
   if ('error' in result) return result.error;
@@ -56,7 +66,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(settings);
+    return NextResponse.json(sanitizeSettings(settings));
   } catch (error) {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
@@ -75,13 +85,33 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
     }
 
+    const felMetadata = {
+      felEnabled: parsed.data.felEnabled ?? false,
+      felProvider: parsed.data.felProvider ?? 'NONE',
+      felNitEmisor: parsed.data.felNitEmisor || null,
+      felApiUser: null,
+      felApiKey: null,
+      felCertificateUrl: null,
+    };
+
+    const safeData = {
+      ...parsed.data,
+      felApiUser: undefined,
+      felApiKey: undefined,
+      felCertificateUrl: undefined,
+    };
+
     const updated = await prisma.companySettings.upsert({
       where: { companyId: tenant.companyId },
       create: {
         companyId: tenant.companyId,
-        ...parsed.data,
+        ...safeData,
+        ...felMetadata,
       },
-      update: parsed.data,
+      update: {
+        ...safeData,
+        ...felMetadata,
+      },
     });
 
     createAuditLog({
@@ -90,7 +120,7 @@ export async function PUT(req: NextRequest) {
       details: { updatedFields: Object.keys(parsed.data) },
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json(sanitizeSettings(updated));
   } catch (error) {
     return NextResponse.json({ error: 'Error actualizando settings' }, { status: 500 });
   }

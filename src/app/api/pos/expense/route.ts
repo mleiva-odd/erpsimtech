@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
+import { createAuditLog } from '@/lib/audit';
 import { z } from 'zod';
 
 const ExpenseSchema = z.object({
@@ -27,8 +28,9 @@ export async function POST(req: NextRequest) {
     // Obtener caja abierta
     const activeRegister = await prisma.cashRegister.findFirst({
       where: {
-        branchId: tenant.branchId!,
+        userId: tenant.userId,
         status: 'OPEN',
+        branch: { companyId: tenant.companyId },
       },
       orderBy: { openedAt: 'desc' },
     });
@@ -46,6 +48,16 @@ export async function POST(req: NextRequest) {
         amount: amount,
         description: description,
       }
+    });
+
+    createAuditLog({
+      companyId: tenant.companyId,
+      branchId: activeRegister.branchId,
+      userId: tenant.userId,
+      action: 'CASH_TRANSACTION_RECORDED',
+      entity: 'CashRegisterTransaction',
+      entityId: transaction.id,
+      details: { amount, description, type },
     });
 
     return NextResponse.json(transaction, { status: 201 });

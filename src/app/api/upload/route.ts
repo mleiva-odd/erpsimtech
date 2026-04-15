@@ -15,6 +15,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No se recibió ningún archivo' }, { status: 400 });
     }
 
+    const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    if (!allowedTypes.has(file.type)) {
+      return NextResponse.json({ error: 'Formato inválido. Usa JPG, PNG o WebP.' }, { status: 400 });
+    }
+
+    const maxFileSizeBytes = 5 * 1024 * 1024;
+    if (file.size > maxFileSizeBytes) {
+      return NextResponse.json({ error: 'La imagen excede el máximo permitido de 5 MB.' }, { status: 400 });
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -29,7 +39,11 @@ export async function POST(req: NextRequest) {
       .toBuffer();
 
     // 2. Generar nombre de archivo único
-    const filename = `${Date.now()}-${file.name.replace(/\.[^/.]+$/, "").replace(/\s+/g, '-')}.webp`;
+    const safeBaseName = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9-_]/g, '-')
+      .replace(/-+/g, '-');
+    const filename = `${Date.now()}-${safeBaseName || 'image'}.webp`;
     const filepath = `products/${filename}`;
 
     // 3. Subir a Supabase Storage (Bucket: products)

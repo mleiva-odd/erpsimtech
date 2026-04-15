@@ -19,17 +19,13 @@ export async function GET(req: NextRequest) {
   const { tenant } = result;
 
   try {
-    // Determine the branch
-    let branchId = tenant.branchId;
-    if (!branchId) {
-      const mainBranch = await prisma.branch.findFirst({
-        where: { companyId: tenant.companyId, isMain: true },
-      });
-      branchId = mainBranch?.id ?? null;
-    }
-
     const activeRegister = await prisma.cashRegister.findFirst({
-      where: { userId: tenant.userId, branchId: branchId ?? undefined, status: 'OPEN' },
+      where: {
+        userId: tenant.userId,
+        status: 'OPEN',
+        branch: { companyId: tenant.companyId },
+      },
+      orderBy: { openedAt: 'desc' },
       include: {
         branch: { select: { name: true } },
         sales: {
@@ -67,7 +63,11 @@ export async function POST(req: NextRequest) {
     }
 
     const activeRegister = await prisma.cashRegister.findFirst({
-      where: { userId: tenant.userId, status: 'OPEN' },
+      where: {
+        userId: tenant.userId,
+        status: 'OPEN',
+        branch: { companyId: tenant.companyId },
+      },
     });
 
     if (activeRegister) {
@@ -107,7 +107,11 @@ export async function PUT(req: NextRequest) {
 
   try {
     const activeRegister = await prisma.cashRegister.findFirst({
-      where: { userId: tenant.userId, status: 'OPEN' },
+      where: {
+        userId: tenant.userId,
+        status: 'OPEN',
+        branch: { companyId: tenant.companyId },
+      },
       include: {
         sales: {
           include: { payments: true }

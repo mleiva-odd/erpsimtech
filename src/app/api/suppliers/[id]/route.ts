@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireRole } from '@/lib/tenant';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   
   const resolvedParams = await params;
@@ -33,11 +33,17 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const resolvedParams = await params;
 
   try {
+    const existing = await prisma.supplier.findFirst({
+      where: { id: resolvedParams.id, companyId: result.tenant.companyId },
+      select: { id: true },
+    });
+    if (!existing) return NextResponse.json({ error: 'Proveedor no encontrado' }, { status: 404 });
+
     // Soft delete to preserve purchase records
     const supplier = await prisma.supplier.update({
       where: { id: resolvedParams.id },

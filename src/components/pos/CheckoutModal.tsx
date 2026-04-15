@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, CreditCard, Banknote, ArrowLeftRight, Loader2, CheckCircle, UserCircle, Plus, Trash2 } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 
@@ -17,6 +17,13 @@ interface PaymentEntry {
   reference: string;
 }
 
+interface PaymentSettings {
+  acceptsCash: boolean;
+  acceptsCard: boolean;
+  acceptsTransfer: boolean;
+  acceptsCredit: boolean;
+}
+
 const METHODS: { value: PaymentMethodType; label: string; icon: React.ReactNode }[] = [
   { value: 'CASH', label: 'Efectivo', icon: <Banknote className="w-4 h-4" /> },
   { value: 'CARD', label: 'Tarjeta', icon: <CreditCard className="w-4 h-4" /> },
@@ -27,16 +34,72 @@ const METHODS: { value: PaymentMethodType; label: string; icon: React.ReactNode 
 export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
   const {
     items, discount, customerId,
-    totalWithDiscount, clearCart,
+    totalWithDiscount, clearCart, ensureCheckoutRequestId,
   } = useCartStore();
 
   const total = totalWithDiscount();
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
+    acceptsCash: true,
+    acceptsCard: true,
+    acceptsTransfer: true,
+    acceptsCredit: false,
+  });
   const [payments, setPayments] = useState<PaymentEntry[]>([
     { method: 'CASH', amount: total, reference: '' },
   ]);
   const [cashReceived, setCashReceived] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const enabledMethods = METHODS.filter((method) => {
+    if (method.value === 'CASH') return paymentSettings.acceptsCash;
+    if (method.value === 'CARD') return paymentSettings.acceptsCard;
+    if (method.value === 'TRANSFER') return paymentSettings.acceptsTransfer;
+    return paymentSettings.acceptsCredit;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || data.error) return;
+
+        const nextSettings: PaymentSettings = {
+          acceptsCash: data.acceptsCash ?? true,
+          acceptsCard: data.acceptsCard ?? true,
+          acceptsTransfer: data.acceptsTransfer ?? true,
+          acceptsCredit: data.acceptsCredit ?? false,
+        };
+
+        setPaymentSettings(nextSettings);
+        setPayments((prev) => {
+          const allowedMethods = METHODS.filter((method) => {
+            if (method.value === 'CASH') return nextSettings.acceptsCash;
+            if (method.value === 'CARD') return nextSettings.acceptsCard;
+            if (method.value === 'TRANSFER') return nextSettings.acceptsTransfer;
+            return nextSettings.acceptsCredit;
+          }).map((method) => method.value);
+
+          if (allowedMethods.length === 0) {
+            return [];
+          }
+
+          const filtered = prev.filter((payment) => allowedMethods.includes(payment.method));
+          if (filtered.length > 0) {
+            return filtered;
+          }
+
+          return [{ method: allowedMethods[0], amount: total, reference: '' }];
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [total]);
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = Math.max(0, total - totalPaid);
@@ -48,7 +111,12 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
   };
 
   const addPayment = () => {
-    setPayments(prev => [...prev, { method: 'CARD', amount: remaining, reference: '' }]);
+    const fallbackMethod = enabledMethods.find((method) => method.value !== payments[0]?.method) || enabledMethods[0];
+    if (!fallbackMethod) {
+      setError('No hay métodos de pago habilitados en la configuración del negocio.');
+      return;
+    }
+    setPayments(prev => [...prev, { method: fallbackMethod.value, amount: remaining, reference: '' }]);
   };
 
   const removePayment = (index: number) => {
@@ -57,6 +125,11 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
   };
 
   const handleCheckout = async () => {
+    if (enabledMethods.length === 0) {
+      setError('No hay métodos de pago habilitados para esta terminal.');
+      return;
+    }
+
     if (payments.some(p => p.method === 'CREDIT') && !customerId) {
        setError("Para vender al crédito debes seleccionar un Cliente registrado.");
        return;
@@ -82,10 +155,13 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
     setError('');
 
     try {
+      const clientRequestId = ensureCheckoutRequestId();
+
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          clientRequestId,
           items: items.map((i) => ({
             productId: i.product.id,
             variantId: i.product.variantId || null,
@@ -150,7 +226,7 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
           <div>
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-semibold text-slate-700">Pagos</p>
-              {payments.length < 3 && (
+              {payments.length < 3 && enabledMethods.length > 1 && (
                 <button
                   onClick={addPayment}
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
@@ -170,6 +246,7 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
                         <button
                           key={m.value}
                           onClick={() => updatePayment(idx, 'method', m.value)}
+                          disabled={!enabledMethods.some((method) => method.value === m.value)}
                           className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-bold transition-all ${
                             payment.method === m.value
                               ? m.value === 'CARD' 
@@ -180,6 +257,8 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
                                     ? 'bg-amber-600 text-white shadow-md'
                                     : 'bg-green-600 text-white shadow-md'
                               : 'text-slate-500 hover:bg-slate-50'
+                          } ${
+                            enabledMethods.some((method) => method.value === m.value) ? '' : 'opacity-30 cursor-not-allowed'
                           }`}
                         >
                           {m.icon}

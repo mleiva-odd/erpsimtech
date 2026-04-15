@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
@@ -20,12 +21,20 @@ const PaymentSchema = z.object({
 });
 
 const CreateSaleSchema = z.object({
+  clientRequestId: z.string().uuid().optional().nullable(),
   items: z.array(SaleItemSchema).min(1, 'La venta debe tener al menos un ítem'),
   payments: z.array(PaymentSchema).optional(),
   discount: z.number().min(0).max(100).default(0),
   customerId: z.string().uuid().optional().nullable(),
   status: z.enum(['COMPLETED', 'QUOTE']).default('COMPLETED'),
 });
+
+const saleResponseInclude = {
+  items: { include: { product: { select: { id: true, name: true, sku: true } }, variant: { select: { id: true, name: true } } } },
+  payments: true,
+  user: { select: { id: true, name: true } },
+  customer: { select: { id: true, name: true } },
+} as const;
 
 export async function POST(req: NextRequest) {
   console.log('--- SOLICITUD DE VENTA RECIBIDA ---');
@@ -46,10 +55,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { items, payments = [], discount, customerId, status } = parsed.data;
+  const { clientRequestId, items, payments = [], discount, customerId, status } = parsed.data;
+
+  if (clientRequestId) {
+    const existingSale = await prisma.sale.findFirst({
+      where: {
+        companyId: tenant.companyId,
+        clientRequestId,
+      },
+      include: saleResponseInclude,
+    });
+
+    if (existingSale) {
+      return NextResponse.json(existingSale);
+    }
+  }
 
   if (status === 'COMPLETED' && payments.length === 0) {
     return NextResponse.json({ error: 'La venta de contado requiere métodos de pago.' }, { status: 400 });
+  }
+
+  if (status === 'QUOTE' && payments.length > 0) {
+    return NextResponse.json({ error: 'Las cotizaciones no deben registrar pagos.' }, { status: 400 });
+  }
+
+  const cardOrTransferWithoutReference = payments.find(
+    (payment) => (payment.method === 'CARD' || payment.method === 'TRANSFER') && !payment.reference?.trim()
+  );
+  if (cardOrTransferWithoutReference) {
+    return NextResponse.json({
+      error: cardOrTransferWithoutReference.method === 'CARD'
+        ? 'Debes registrar la autorización del pago con tarjeta.'
+        : 'Debes registrar la referencia de la transferencia.',
+    }, { status: 400 });
+  }
+
+  if (payments.filter((payment) => payment.method === 'CREDIT').length > 1) {
+    return NextResponse.json({ error: 'Solo se admite un tramo de crédito por venta.' }, { status: 400 });
   }
 
   // Determine the branch for this sale
@@ -62,6 +104,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No se encontró una sucursal asignada' }, { status: 400 });
     }
     branchId = mainBranch.id;
+  }
+
+  const settings = await prisma.companySettings.findUnique({
+    where: { companyId: tenant.companyId },
+    select: {
+      acceptsCash: true,
+      acceptsCard: true,
+      acceptsTransfer: true,
+      acceptsCredit: true,
+    },
+  });
+
+  const disabledMethod = payments.find((payment) => {
+    if (payment.method === 'CASH') return settings?.acceptsCash === false;
+    if (payment.method === 'CARD') return settings?.acceptsCard === false;
+    if (payment.method === 'TRANSFER') return settings?.acceptsTransfer === false;
+    if (payment.method === 'CREDIT') return settings?.acceptsCredit === false;
+    return false;
+  });
+
+  if (disabledMethod) {
+    return NextResponse.json({ error: `El método ${disabledMethod.method} no está habilitado en la configuración del negocio.` }, { status: 400 });
   }
 
   try {
@@ -138,6 +202,9 @@ export async function POST(req: NextRequest) {
         if (totalPaid < total) {
           throw new Error(`Pago insuficiente. Total: Q${total.toFixed(2)}, Pagado: Q${totalPaid.toFixed(2)}`);
         }
+        if (totalPaid > total + 0.01) {
+          throw new Error(`Pago excedido. Total: Q${total.toFixed(2)}, Registrado: Q${totalPaid.toFixed(2)}`);
+        }
         
         hasCreditPayment = payments.some(p => p.method === 'CREDIT');
         if (hasCreditPayment && !customerId) {
@@ -181,6 +248,7 @@ export async function POST(req: NextRequest) {
           userId: tenant.userId,
           customerId: customerId || null,
           cashRegisterId: activeRegisterId,
+          clientRequestId: clientRequestId || null,
           subtotal,
           discount,
           tax: 0,
@@ -218,12 +286,7 @@ export async function POST(req: NextRequest) {
             }
           } : {})
         },
-        include: {
-          items: { include: { product: { select: { id: true, name: true, sku: true } }, variant: { select: { id: true, name: true } } } },
-          payments: true,
-          user: { select: { id: true, name: true } },
-          customer: { select: { id: true, name: true } },
-        },
+        include: saleResponseInclude,
       });
 
       // 6. Decrement stock in this branch and capture new stock data ONLY IF COMPLETED
@@ -235,26 +298,51 @@ export async function POST(req: NextRequest) {
            
            if (product.isBundle) {
              for (const bundleItem of product.bundleItems) {
-                await tx.productStock.updateMany({
-                   where: { productId: bundleItem.componentId, branchId: branchId!, variantId: (null as any) },
+                const requiredQuantity = item.quantity * bundleItem.quantity;
+                const stockUpdate = await tx.productStock.updateMany({
+                   where: {
+                     productId: bundleItem.componentId,
+                     branchId: branchId!,
+                     variantId: (null as any),
+                     quantity: { gte: requiredQuantity },
+                   },
                    data: { quantity: { decrement: item.quantity * bundleItem.quantity } }
                 });
+                if (stockUpdate.count !== 1) {
+                  throw new Error(`El stock cambió mientras se procesaba la venta para el componente ${bundleItem.componentId}`);
+                }
                 const stk = await tx.productStock.findFirst({ where: { productId: bundleItem.componentId, branchId: branchId!, variantId: (null as any) }, include: { product: true } });
                 if (stk) updatedStocks.push(stk);
              }
            } else {
              if (item.variantId) {
-                await tx.productStock.updateMany({
-                   where: { productId: item.productId, branchId: branchId!, variantId: item.variantId },
+                const stockUpdate = await tx.productStock.updateMany({
+                   where: {
+                     productId: item.productId,
+                     branchId: branchId!,
+                     variantId: item.variantId,
+                     quantity: { gte: item.quantity },
+                   },
                    data: { quantity: { decrement: item.quantity } }
                 });
+                if (stockUpdate.count !== 1) {
+                  throw new Error(`El stock cambió mientras se procesaba la venta para ${product.name}`);
+                }
                 const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: item.variantId }, include: { product: true } });
                 if (stk) updatedStocks.push(stk);
              } else {
-                await tx.productStock.updateMany({
-                   where: { productId: item.productId, branchId: branchId!, variantId: (null as any) },
+                const stockUpdate = await tx.productStock.updateMany({
+                   where: {
+                     productId: item.productId,
+                     branchId: branchId!,
+                     variantId: (null as any),
+                     quantity: { gte: item.quantity },
+                   },
                    data: { quantity: { decrement: item.quantity } }
                 });
+                if (stockUpdate.count !== 1) {
+                  throw new Error(`El stock cambió mientras se procesaba la venta para ${product.name}`);
+                }
                 const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: (null as any) }, include: { product: true } });
                 if (stk) updatedStocks.push(stk);
              }
@@ -293,9 +381,32 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error: unknown) {
+    if (
+      clientRequestId &&
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      const existingSale = await prisma.sale.findFirst({
+        where: {
+          companyId: tenant.companyId,
+          clientRequestId,
+        },
+        include: saleResponseInclude,
+      });
+
+      if (existingSale) {
+        return NextResponse.json(existingSale);
+      }
+    }
+
     console.error('ERROR EN VENTA:', error);
     const message = error instanceof Error ? error.message : 'Error al procesar la venta';
-    const status = message.includes('Stock insuficiente') || message.includes('crédito') || message.includes('insuficiente') ? 409 : 500;
+    const status = message.includes('Stock insuficiente')
+      || message.includes('crédito')
+      || message.includes('insuficiente')
+      || message.includes('Pago excedido')
+      ? 409
+      : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

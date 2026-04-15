@@ -33,6 +33,19 @@ export async function PUT(
       }
     }
 
+    if (body.branchAccess !== undefined && Array.isArray(body.branchAccess) && body.branchAccess.length > 0) {
+      const validBranches = await prisma.branch.count({
+        where: {
+          id: { in: body.branchAccess },
+          companyId: tenant.companyId,
+        },
+      });
+
+      if (validBranches !== body.branchAccess.length) {
+        return NextResponse.json({ error: 'Hay sucursales fuera de tu empresa en el acceso asignado' }, { status: 400 });
+      }
+    }
+
     let dataToUpdate: any = {
       name: body.name,
       email: body.email,

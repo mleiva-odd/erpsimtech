@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireBranchAccess, requireTenant } from '@/lib/tenant';
 
 export async function GET(
   req: NextRequest,
@@ -24,6 +24,12 @@ export async function GET(
             },
           },
           payments: true,
+          returns: {
+            include: {
+              items: true,
+            },
+            orderBy: { createdAt: 'desc' },
+          },
           user: { select: { name: true } },
           customer: { select: { name: true, nit: true, address: true } },
           branch: { select: { name: true } },
@@ -33,6 +39,9 @@ export async function GET(
     ]);
 
     if (!sale) return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
+
+    const branchResult = await requireBranchAccess(tenant, sale.branchId);
+    if ('error' in branchResult) return branchResult.error;
 
     return NextResponse.json({ sale, settings });
   } catch (error) {
@@ -53,10 +62,13 @@ export async function DELETE(
 
   try {
     const sale = await prisma.sale.findFirst({
-      where: { id: resolvedParams.id, companyId: tenant.companyId }
+      where: { id: resolvedParams.id, companyId: tenant.companyId },
+      select: { id: true, status: true, branchId: true },
     });
 
     if (!sale) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+    const branchResult = await requireBranchAccess(tenant, sale.branchId);
+    if ('error' in branchResult) return branchResult.error;
     if (sale.status !== 'QUOTE') return NextResponse.json({ error: 'Solo puedes eliminar Cotizaciones.' }, { status: 400 });
 
     await prisma.sale.delete({ where: { id: sale.id } });

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireRole } from '@/lib/tenant';
 
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   
   // Get recent purchases for the tenant's branch
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const userPayload: any = result.tenant; // Type assertion since Tenant typing may not expose userId directly
 
@@ -38,6 +38,43 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: supplierId, companyId: result.tenant.companyId, active: true },
+      select: { id: true },
+    });
+
+    if (!supplier) {
+      return NextResponse.json({ error: 'Proveedor no encontrado o inactivo' }, { status: 404 });
+    }
+
+    const productIds = [...new Set(items.map((item: any) => String(item.productId)))] as string[];
+    const validProducts = await prisma.product.findMany({
+      where: { id: { in: productIds }, companyId: result.tenant.companyId },
+      select: { id: true },
+    });
+
+    if (validProducts.length !== productIds.length) {
+      return NextResponse.json({ error: 'Uno o más productos no pertenecen a esta empresa' }, { status: 400 });
+    }
+
+    const variantIds = [...new Set(items.map((item: any) => item.variantId).filter(Boolean).map(String))] as string[];
+    if (variantIds.length > 0) {
+      const variants = await prisma.productVariant.findMany({
+        where: {
+          id: { in: variantIds },
+          product: { companyId: result.tenant.companyId },
+        },
+        select: { id: true, productId: true },
+      });
+      const variantMap = new Map(variants.map((variant) => [variant.id, variant.productId]));
+
+      for (const item of items) {
+        if (item.variantId && variantMap.get(item.variantId) !== item.productId) {
+          return NextResponse.json({ error: 'Hay variantes que no coinciden con su producto' }, { status: 400 });
+        }
+      }
+    }
+
     let branchId = result.tenant.branchId;
     if (!branchId) {
       const mainBranch = await prisma.branch.findFirst({

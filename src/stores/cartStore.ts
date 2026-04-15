@@ -1,5 +1,13 @@
 import { create } from 'zustand';
 
+function createCheckoutRequestId() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `sale-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER';
 
 export interface CartProduct {
@@ -23,6 +31,7 @@ interface CartStore {
   discount: number;
   customerId: string | null;
   customerName: string | null;
+  checkoutRequestId: string | null;
 
   // Computed getters
   subtotal: () => number;
@@ -35,6 +44,8 @@ interface CartStore {
   updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
   setDiscount: (discount: number) => void;
   setCustomer: (id: string | null, name: string | null) => void;
+  ensureCheckoutRequestId: () => string;
+  resetCheckoutRequestId: () => void;
   clearCart: () => void;
 }
 
@@ -43,6 +54,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
   discount: 0,
   customerId: null,
   customerName: null,
+  checkoutRequestId: null,
 
   subtotal: () => {
     return get().items.reduce((acc, item) => acc + item.subtotal, 0);
@@ -68,6 +80,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         if (existing.quantity >= product.stock) return state;
 
         return {
+          checkoutRequestId: null,
           items: state.items.map((i) =>
             i.product.id === product.id && i.product.variantId === product.variantId
               ? {
@@ -86,13 +99,14 @@ export const useCartStore = create<CartStore>((set, get) => ({
         unitPrice: product.price,
         subtotal: product.price,
       };
-      return { items: [...state.items, newItem] };
+      return { items: [...state.items, newItem], checkoutRequestId: null };
     });
   },
 
   removeItem: (productId, variantId) => {
     set((state) => ({
       items: state.items.filter((i) => !(i.product.id === productId && i.product.variantId === variantId)),
+      checkoutRequestId: null,
     }));
   },
 
@@ -102,6 +116,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       return;
     }
     set((state) => ({
+      checkoutRequestId: null,
       items: state.items.map((i) =>
         (i.product.id === productId && i.product.variantId === variantId)
           ? {
@@ -114,9 +129,18 @@ export const useCartStore = create<CartStore>((set, get) => ({
     }));
   },
 
-  setDiscount: (discount) => set({ discount: Math.min(100, Math.max(0, discount)) }),
-  setCustomer: (id, name) => set({ customerId: id, customerName: name }),
+  setDiscount: (discount) => set({ discount: Math.min(100, Math.max(0, discount)), checkoutRequestId: null }),
+  setCustomer: (id, name) => set({ customerId: id, customerName: name, checkoutRequestId: null }),
+  ensureCheckoutRequestId: () => {
+    const existing = get().checkoutRequestId;
+    if (existing) return existing;
+
+    const next = createCheckoutRequestId();
+    set({ checkoutRequestId: next });
+    return next;
+  },
+  resetCheckoutRequestId: () => set({ checkoutRequestId: null }),
 
   clearCart: () =>
-    set({ items: [], discount: 0, customerId: null, customerName: null }),
+    set({ items: [], discount: 0, customerId: null, customerName: null, checkoutRequestId: null }),
 }));

@@ -141,6 +141,29 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId: tenant.companyId },
+      select: { id: true },
+    });
+
+    if (!category) {
+      return NextResponse.json({ error: 'La categoría no pertenece a esta empresa' }, { status: 400 });
+    }
+
+    if (isBundle && bundleItems?.length) {
+      const componentIds = [...new Set(bundleItems.map((item) => item.componentId))];
+      const components = await prisma.product.count({
+        where: {
+          id: { in: componentIds },
+          companyId: tenant.companyId,
+        },
+      });
+
+      if (components !== componentIds.length) {
+        return NextResponse.json({ error: 'El combo incluye productos fuera de tu empresa' }, { status: 400 });
+      }
+    }
+
     const targetBranchId = tenant.branchId;
     let branchId = targetBranchId;
 

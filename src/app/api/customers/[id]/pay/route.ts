@@ -38,10 +38,23 @@ export async function POST(
       return NextResponse.json({ error: 'El abono supera el saldo deudor del cliente' }, { status: 400 });
     }
 
+    const activeRegister = await prisma.cashRegister.findFirst({
+      where: { userId: tenant.userId, status: 'OPEN' },
+      select: { id: true },
+    });
+
+    if (!activeRegister) {
+      return NextResponse.json({ error: 'Debes tener una caja abierta para registrar abonos en efectivo' }, { status: 400 });
+    }
+
     const transactionResult = await prisma.$transaction(async (tx) => {
-      // 1. Actualizamos el balance del cliente restando el abono
-      const updatedCustomer = await tx.customer.update({
-        where: { id: resolvedParams.id },
+      // 1. Actualizamos el balance del cliente restando el abono con guardia transaccional
+      const balanceUpdate = await tx.customer.updateMany({
+        where: {
+          id: resolvedParams.id,
+          companyId: tenant.companyId,
+          balance: { gte: amount as any },
+        },
         data: {
           balance: {
             decrement: amount
@@ -49,12 +62,24 @@ export async function POST(
         }
       });
 
+      if (balanceUpdate.count !== 1) {
+        throw new Error('El saldo cambió mientras se procesaba el abono. Intenta de nuevo.');
+      }
+
+      const updatedCustomer = await tx.customer.findUnique({
+        where: { id: resolvedParams.id },
+      });
+      if (!updatedCustomer) {
+        throw new Error('Cliente no encontrado tras aplicar el abono.');
+      }
+
       // 2. Crear el registro legal de Abono (AccountPayment)
       const payment = await (tx as any).accountPayment.create({
         data: {
           amount,
           customerId: customer.id,
           userId: tenant.userId,
+          cashRegisterId: activeRegister.id,
           method: 'CASH', // Valor por defecto
           reference: 'Abono en Caja'
         }

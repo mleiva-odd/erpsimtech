@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createAuditLog } from '@/lib/audit';
+import { requireRole } from '@/lib/tenant';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 
@@ -22,6 +23,9 @@ const OnboardingSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const result = await requireRole('SUPER_ADMIN');
+  if ('error' in result) return result.error;
+
   try {
     const body = await req.json();
     const parsed = OnboardingSchema.safeParse(body);

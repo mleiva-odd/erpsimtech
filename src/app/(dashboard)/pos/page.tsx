@@ -22,7 +22,7 @@ export default function POSPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showQuotesModal, setShowQuotesModal] = useState(false);
   const itemCount = useCartStore((s) => s.itemCount());
-  const { items, discount, customerId, totalWithDiscount, clearCart } = useCartStore();
+  const { items, discount, customerId, totalWithDiscount, clearCart, ensureCheckoutRequestId } = useCartStore();
   const [isQuoting, setIsQuoting] = useState(false);
 
   const handleSuccess = (saleId: string) => {
@@ -35,10 +35,13 @@ export default function POSPage() {
     if (!customerId) return alert("Seleccione un cliente registrado para crear una cotización.");
     setIsQuoting(true);
     try {
+      const clientRequestId = ensureCheckoutRequestId();
+
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          clientRequestId,
           status: 'QUOTE',
           items: items.map((i) => ({
             productId: i.product.id,

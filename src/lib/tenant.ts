@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
 export interface TenantContext {
@@ -70,4 +71,43 @@ export async function requireRole(minRole: 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR
   }
 
   return result;
+}
+
+export function isAdminRole(role: TenantContext['role']) {
+  return role === 'ADMIN' || role === 'SUPER_ADMIN';
+}
+
+/**
+ * Ensures the tenant can operate on the provided branch.
+ * Admins may access any branch within their company. Other roles are limited to their assigned branch.
+ */
+export async function requireBranchAccess(
+  tenant: TenantContext,
+  branchId: string | null | undefined
+): Promise<{ branchId: string | null | undefined } | { error: NextResponse }> {
+  if (!branchId) {
+    return { branchId };
+  }
+
+  if (isAdminRole(tenant.role)) {
+    const branch = await prisma.branch.findFirst({
+      where: {
+        id: branchId,
+        companyId: tenant.companyId,
+      },
+      select: { id: true },
+    });
+
+    if (!branch) {
+      return { error: NextResponse.json({ error: 'Sucursal no encontrada o fuera de tu empresa' }, { status: 403 }) };
+    }
+
+    return { branchId: branch.id };
+  }
+
+  if (tenant.branchId !== branchId) {
+    return { error: NextResponse.json({ error: 'Acceso denegado a la sucursal solicitada' }, { status: 403 }) };
+  }
+
+  return { branchId };
 }

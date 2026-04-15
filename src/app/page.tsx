@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import Link from 'next/link';
 import Image from 'next/image';
+import { getWhatsAppUrl } from "@/lib/utils";
 
 function CheckIcon({ className }: { className?: string }) {
   return <Check className={className} />;
@@ -28,6 +29,7 @@ function CheckIcon({ className }: { className?: string }) {
 function StarIcon({ className }: { className?: string }) {
   return <Star className={className} />;
 }
+
 
 export default function Home() {
   return (
@@ -101,11 +103,18 @@ export default function Home() {
                 </Button>
               </Link>
               <Button
+                asChild
                 size="lg"
                 variant="outline"
                 className="bg-white/10 hover:bg-white/20 text-white border-white/30 px-8 py-6 text-lg backdrop-blur-sm w-full sm:w-auto"
               >
-                Solicitar Demo
+                <a 
+                  href={getWhatsAppUrl("Hola, me gustaría solicitar una demo de SIMTECH POS.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Solicitar Demo
+                </a>
               </Button>
             </motion.div>
           </motion.div>
@@ -201,9 +210,8 @@ export default function Home() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8 }}
-              className={`grid lg:grid-cols-2 gap-12 items-center mb-24 last:mb-0 ${
-                index % 2 === 1 ? "lg:flex-row-reverse" : ""
-              }`}
+              className={`grid lg:grid-cols-2 gap-12 items-center mb-24 last:mb-0 ${index % 2 === 1 ? "lg:flex-row-reverse" : ""
+                }`}
             >
               <div className={index % 2 === 1 ? "lg:order-2" : ""}>
                 <div className="mb-4">
@@ -214,14 +222,16 @@ export default function Home() {
                 <h3 className="text-3xl lg:text-4xl mb-4 text-slate-900">
                   {feature.title}
                 </h3>
-                <p className="text-lg text-slate-600 mb-6">{feature.description}</p>
-                <ul className="space-y-3">
+                <p className="text-lg text-slate-600 mb-6">
+                  {feature.description}
+                </p>
+                <ul className="space-y-4">
                   {feature.points.map((point) => (
                     <li key={point} className="flex items-start gap-3">
                       <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <CheckIcon className="h-4 w-4 text-blue-600" />
                       </div>
-                      <span className="text-slate-700">{point}</span>
+                      <span className="text-slate-700 font-medium">{point}</span>
                     </li>
                   ))}
                 </ul>
@@ -380,11 +390,10 @@ export default function Home() {
                   </div>
                 )}
                 <div
-                  className={`p-8 rounded-2xl h-full flex flex-col ${
-                    plan.popular
-                      ? "bg-blue-600 text-white shadow-2xl scale-105"
-                      : "bg-slate-50 text-slate-900 border border-slate-200"
-                  }`}
+                  className={`p-8 rounded-2xl h-full flex flex-col ${plan.popular
+                    ? "bg-blue-600 text-white shadow-2xl scale-105"
+                    : "bg-slate-50 text-slate-900 border border-slate-200"
+                    }`}
                 >
                   <h3 className="text-2xl mb-2">{plan.name}</h3>
                   <div className="mb-6">
@@ -397,9 +406,8 @@ export default function Home() {
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3">
                         <CheckIcon
-                          className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
-                            plan.popular ? "text-blue-200" : "text-blue-600"
-                          }`}
+                          className={`h-5 w-5 flex-shrink-0 mt-0.5 ${plan.popular ? "text-blue-200" : "text-blue-600"
+                            }`}
                         />
                         <span className={plan.popular ? "text-blue-50" : "text-slate-700"}>
                           {feature}
@@ -408,14 +416,20 @@ export default function Home() {
                     ))}
                   </ul>
                   <Button
+                    asChild
                     size="lg"
-                    className={`w-full mt-4 ${
-                      plan.popular
-                        ? "bg-white hover:bg-blue-50 text-blue-600"
-                        : "bg-blue-600 hover:bg-blue-700 text-white"
-                    }`}
+                    className={`w-full mt-4 ${plan.popular
+                      ? "bg-white hover:bg-blue-50 text-blue-600"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
+                      }`}
                   >
-                    {plan.cta}
+                    <a 
+                      href={getWhatsAppUrl(`Hola, me interesa solicitar una cotización para el Plan ${plan.name} de SIMTECH POS.`)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {plan.cta}
+                    </a>
                   </Button>
                 </div>
               </motion.div>
@@ -477,11 +491,18 @@ export default function Home() {
                 </Button>
               </Link>
               <Button
+                asChild
                 size="lg"
                 variant="outline"
                 className="bg-transparent hover:bg-white/10 text-white border-white/50 px-8 py-6 text-lg w-full sm:w-auto"
               >
-                Contactar Ventas
+                <a 
+                  href={getWhatsAppUrl("Hola, me gustaría contactar con el equipo de ventas de SIMTECH POS.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Contactar Ventas
+                </a>
               </Button>
             </div>
           </motion.div>
@@ -640,11 +661,11 @@ const industries = [
 
 const testimonials = [
   {
-    name: "María González",
-    role: "Administradora",
-    company: "Boutique Elegancia",
+    name: "Diego Macario",
+    role: "Administrador",
+    company: "Grupo Distexma",
     quote:
-      "Con SIMTECH el control de mi inventario es exacto. Ya no pierdo tiempo en conteos manuales cada semana.",
+      "Interfaz muy facil de usar, implementacion y uso del sistema rapido y seguro.",
   },
   {
     name: "Carlos Méndez",

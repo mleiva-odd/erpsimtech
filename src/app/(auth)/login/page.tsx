@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import Image from "next/image";
+import { getWhatsAppUrl } from "@/lib/utils";
 
 function BarChart3Icon({ className }: { className?: string }) {
   return (
@@ -187,7 +188,12 @@ export default function LoginPage() {
             <div className="mt-8 text-center">
               <p className="text-slate-600">
                 ¿No tienes una cuenta?{" "}
-                <a href="#" className="text-blue-600 hover:text-blue-700 hover:underline">
+                <a 
+                  href={getWhatsAppUrl("Hola, me gustaría solicitar acceso al sistema SIMTECH ERP.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700 hover:underline"
+                >
                   Solicita acceso
                 </a>
               </p>
@@ -203,7 +209,12 @@ export default function LoginPage() {
                   Privacidad
                 </a>
                 <span>•</span>
-                <a href="#" className="hover:text-slate-700">
+                <a 
+                  href={getWhatsAppUrl("Hola, necesito soporte con mi cuenta de SIMTECH ERP.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-slate-700"
+                >
                   Soporte
                 </a>
               </div>

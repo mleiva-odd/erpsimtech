@@ -18,6 +18,12 @@ export async function GET(req: NextRequest) {
   if ('error' in result) return result.error;
   const { tenant } = result;
 
+  const noStoreHeaders = {
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0',
+  };
+
   try {
     const activeRegister = await prisma.cashRegister.findFirst({
       where: {
@@ -37,9 +43,14 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(activeRegister || { status: 'CLOSED' });
+    return NextResponse.json(activeRegister || { status: 'CLOSED' }, {
+      headers: noStoreHeaders,
+    });
   } catch (error) {
-    return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
+    return NextResponse.json({ error: 'Error del servidor' }, {
+      status: 500,
+      headers: noStoreHeaders,
+    });
   }
 }
 

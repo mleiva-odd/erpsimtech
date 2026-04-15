@@ -1,24 +1,39 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Lock, Unlock, Loader2, DollarSign } from 'lucide-react';
+import { Lock, Unlock, Loader2, RefreshCw } from 'lucide-react';
 
 export function CashRegisterGuard({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [openingBalance, setOpeningBalance] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState('');
+
+  const fetchRegisterStatus = async () => {
+    setIsLoading(true);
+    setLoadError('');
+
+    try {
+      const res = await fetch('/api/cash-register', {
+        cache: 'no-store',
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'No fue posible leer el estado de la caja.');
+      }
+
+      setIsOpen(data.status === 'OPEN');
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : 'No fue posible leer el estado de la caja.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    fetch('/api/cash-register')
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'OPEN') {
-          setIsOpen(true);
-        }
-        setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
+    fetchRegisterStatus();
   }, []);
 
   const handleOpen = async (e: React.FormEvent) => {
@@ -32,6 +47,7 @@ export function CashRegisterGuard({ children }: { children: React.ReactNode }) {
       });
       if (res.ok) {
         setIsOpen(true);
+        setLoadError('');
       } else {
         const data = await res.json();
         alert(data.error || 'Error al abrir caja');
@@ -47,6 +63,30 @@ export function CashRegisterGuard({ children }: { children: React.ReactNode }) {
       <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50">
         <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-4" />
         <p className="text-slate-500">Verificando estado de la caja...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50 p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-slate-100 text-center">
+          <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <RefreshCw className="w-10 h-10" />
+          </div>
+
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">Estado de Caja No Disponible</h1>
+          <p className="text-slate-500 mb-8">{loadError}</p>
+
+          <button
+            type="button"
+            onClick={fetchRegisterStatus}
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl text-lg transition-colors"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Reintentar
+          </button>
+        </div>
       </div>
     );
   }

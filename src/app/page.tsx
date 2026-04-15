@@ -1,11 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { 
-  BarChart3, 
-  Shield, 
-  Zap, 
-  TrendingUp, 
+import {
+  BarChart3,
+  Shield,
+  Zap,
+  TrendingUp,
   ArrowRight,
   Check,
   Star,
@@ -14,25 +14,27 @@ import {
   Store,
   Warehouse,
   Scissors,
-  Heart
+  Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
-} from "@/components/ui/accordion";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import Link from 'next/link';
 import Image from 'next/image';
+
+function CheckIcon({ className }: { className?: string }) {
+  return <Check className={className} />;
+}
+
+function StarIcon({ className }: { className?: string }) {
+  return <Star className={className} />;
+}
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative h-screen min-h-screen flex items-center overflow-hidden">
-        {/* Background Image - ORIGINAL USER IMAGE */}
+      <section className="relative min-h-screen flex items-center overflow-hidden">
+        {/* Background Image */}
         <div className="absolute inset-0">
           <Image
             src="/fondolanding.jpeg"
@@ -41,7 +43,7 @@ export default function Home() {
             className="object-cover"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-900/40"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/95 via-slate-900/85 to-slate-900/50"></div>
         </div>
 
         {/* Content */}
@@ -56,10 +58,10 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.6 }}
-              className="mb-8"
+              className="mb-6"
             >
-              <span className="text-blue-400 tracking-wider uppercase text-sm font-bold">
-                SimTech Guatemala
+              <span className="text-blue-400 tracking-wider uppercase text-sm">
+                SIMTECH Guatemala
               </span>
             </motion.div>
 
@@ -67,7 +69,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4, duration: 0.8 }}
-              className="text-6xl lg:text-7xl font-bold mb-6 text-white tracking-tight leading-none"
+              className="text-6xl lg:text-7xl mb-6 text-white"
             >
               Sistema ERP & POS
               <span className="block text-blue-400 mt-2">Para Tu Negocio</span>
@@ -77,7 +79,7 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6, duration: 0.8 }}
-              className="text-xl text-slate-200 mb-10 max-w-2xl font-medium leading-relaxed"
+              className="text-xl text-slate-300 mb-8 max-w-2xl"
             >
               Gestiona inventario, ventas, facturación y reportes en tiempo real. Todo en una plataforma moderna y fácil de usar en la nube.
             </motion.p>
@@ -86,12 +88,12 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8, duration: 0.6 }}
-              className="flex flex-col sm:flex-row gap-5"
+              className="flex flex-col sm:flex-row gap-4"
             >
               <Link href="/login">
                 <Button
                   size="lg"
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-7 text-lg group rounded-2xl w-full sm:w-auto font-bold shadow-xl shadow-blue-600/20"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg group w-full sm:w-auto"
                 >
                   Iniciar Sesión
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
@@ -100,7 +102,7 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="outline"
-                className="bg-white/10 hover:bg-white/20 text-white border-white/30 px-10 py-7 text-lg backdrop-blur-sm rounded-2xl w-full sm:w-auto font-bold"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/30 px-8 py-6 text-lg backdrop-blur-sm w-full sm:w-auto"
               >
                 Solicitar Demo
               </Button>
@@ -125,7 +127,7 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* Brief Features Overview */}
+      {/* Features Section */}
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <motion.div
@@ -135,10 +137,10 @@ export default function Home() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-slate-900 tracking-tight">
+            <h2 className="text-4xl lg:text-5xl mb-4 text-slate-900">
               Todo lo que necesitas en un solo lugar
             </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto font-medium">
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
               Herramientas completas para gestionar y hacer crecer tu negocio.
             </p>
           </motion.div>
@@ -154,12 +156,12 @@ export default function Home() {
                 whileHover={{ y: -8 }}
                 className="group"
               >
-                <div className="bg-white p-8 rounded-3xl h-full border border-slate-200 transition-shadow hover:shadow-2xl">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">
+                <div className="bg-white p-8 rounded-2xl h-full border border-slate-200 transition-shadow hover:shadow-xl">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <feature.icon className="h-7 w-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold mb-3 text-slate-900">{feature.title}</h3>
-                  <p className="text-slate-600 leading-relaxed font-medium">{feature.description}</p>
+                  <h3 className="text-xl mb-3 text-slate-900">{feature.title}</h3>
+                  <p className="text-slate-600">{feature.description}</p>
                 </div>
               </motion.div>
             ))}
@@ -167,87 +169,98 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats Section - ORIGINAL ORDER & DATA */}
-      <section className="py-24 bg-slate-900 text-white relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
-            <div className="grid md:grid-cols-3 gap-12">
-                {stats.map((stat, index) => (
-                    <motion.div
-                        key={stat.label}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: index * 0.1, duration: 0.6 }}
-                    >
-                        <div className="text-5xl lg:text-6xl font-bold text-blue-400 mb-2">{stat.value}</div>
-                        <div className="text-xl text-slate-300 font-bold uppercase tracking-wider">{stat.label}</div>
-                    </motion.div>
-                ))}
-            </div>
+      {/* Stats Section */}
+      <section className="py-24 bg-slate-900 text-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="grid md:grid-cols-3 gap-12">
+            {stats.map((stat, index) => (
+              <motion.div
+                key={stat.label}
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1, duration: 0.6 }}
+                className="text-center"
+              >
+                <div className="text-5xl lg:text-6xl text-blue-400 mb-2">{stat.value}</div>
+                <div className="text-xl text-slate-300">{stat.label}</div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Detailed Features with Images */}
-      {detailedFeatures.map((feature, index) => (
-        <section key={feature.title} className={`py-24 ${index % 2 === 1 ? 'bg-slate-50' : 'bg-white'}`}>
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <div className={`flex flex-col ${index % 2 === 1 ? 'lg:flex-row-reverse' : 'lg:flex-row'} items-center gap-16`}>
-              <motion.div 
-                initial={{ opacity: 0, x: index % 2 === 1 ? 50 : -50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                className="flex-1"
-              >
-                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 mb-6 px-4 py-1 text-sm rounded-full">
-                  {feature.badge}
-                </Badge>
-                <h2 className="text-4xl lg:text-5xl font-bold mb-6 text-slate-900 tracking-tight leading-tight">
-                  {feature.title}
-                </h2>
-                <p className="text-xl text-slate-600 mb-8 leading-relaxed font-medium">
-                  {feature.description}
-                </p>
-                <div className="space-y-4">
-                  {feature.points.map((point) => (
-                    <div key={point} className="flex items-start gap-3">
-                      <div className="mt-1 flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                        <Check className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <span className="text-slate-700 font-medium">{point}</span>
-                    </div>
-                  ))}
+      {/* Detailed Features Section */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          {detailedFeatures.map((feature, index) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className={`grid lg:grid-cols-2 gap-12 items-center mb-24 last:mb-0 ${
+                index % 2 === 1 ? "lg:flex-row-reverse" : ""
+              }`}
+            >
+              <div className={index % 2 === 1 ? "lg:order-2" : ""}>
+                <div className="mb-4">
+                  <span className="inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm">
+                    {feature.badge}
+                  </span>
                 </div>
-              </motion.div>
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                className="flex-1 relative w-full aspect-video rounded-3xl overflow-hidden shadow-2xl border border-slate-200"
-              >
-                <Image 
-                    src={feature.image} 
-                    alt={feature.title} 
-                    fill 
-                    className="object-cover" 
-                    priority={index === 0}
-                />
-              </motion.div>
-            </div>
-          </div>
-        </section>
-      ))}
+                <h3 className="text-3xl lg:text-4xl mb-4 text-slate-900">
+                  {feature.title}
+                </h3>
+                <p className="text-lg text-slate-600 mb-6">{feature.description}</p>
+                <ul className="space-y-3">
+                  {feature.points.map((point) => (
+                    <li key={point} className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <CheckIcon className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <span className="text-slate-700">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className={index % 2 === 1 ? "lg:order-1" : ""}>
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ duration: 0.3 }}
+                  className="relative rounded-2xl overflow-hidden shadow-2xl aspect-[4/3] lg:aspect-auto lg:h-[400px]"
+                >
+                  <Image
+                    src={feature.image}
+                    alt={feature.title}
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent"></div>
+                </motion.div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
 
       {/* Industries Section */}
-      <section className="py-24 bg-white overflow-hidden border-t border-slate-100">
+      <section className="py-24 bg-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-slate-900 tracking-tight">Soluciones para cada sector</h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto font-medium">Diseñado para adaptarse a las necesidades específicas de tu negocio.</p>
+            <h2 className="text-4xl lg:text-5xl mb-4">
+              Soluciones para cada sector
+            </h2>
+            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
+              Diseñado para adaptarse a las necesidades específicas de tu negocio.
+            </p>
           </motion.div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -257,21 +270,23 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: index * 0.05 }}
-                className="bg-slate-50 p-8 rounded-3xl border border-slate-200 hover:border-blue-200 hover:bg-blue-50/30 transition-all group"
+                transition={{ delay: index * 0.1, duration: 0.6 }}
+                className="group"
               >
-                <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center mb-6 shadow-sm group-hover:scale-110 transition-transform">
-                  <industry.icon className="h-6 w-6 text-blue-600" />
-                </div>
-                <h3 className="text-2xl font-bold mb-3 text-slate-900">{industry.name}</h3>
-                <p className="text-slate-600 mb-6 font-medium">{industry.description}</p>
-                <div className="space-y-2">
-                  {industry.features.map(f => (
-                    <div key={f} className="flex items-center gap-2 text-sm text-slate-500 font-bold">
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                        {f}
-                    </div>
-                  ))}
+                <div className="bg-slate-800 p-8 rounded-2xl h-full border border-slate-700 hover:border-blue-500 transition-all">
+                  <div className="w-12 h-12 rounded-lg bg-blue-600/20 flex items-center justify-center mb-6 group-hover:bg-blue-600/30 transition-colors">
+                    <industry.icon className="h-6 w-6 text-blue-400" />
+                  </div>
+                  <h3 className="text-xl mb-3">{industry.name}</h3>
+                  <p className="text-slate-400 mb-4">{industry.description}</p>
+                  <ul className="space-y-2">
+                    {industry.features.map((feat) => (
+                      <li key={feat} className="text-sm text-slate-300 flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
+                        {feat}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </motion.div>
             ))}
@@ -282,28 +297,43 @@ export default function Home() {
       {/* Testimonials Section */}
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16 font-bold uppercase tracking-widest text-blue-600 text-sm">Lo que dicen de nosotros</div>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl lg:text-5xl mb-4 text-slate-900">
+              Lo que dicen de nosotros
+            </h2>
+          </motion.div>
+
           <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((t, i) => (
+            {testimonials.map((testimonial, index) => (
               <motion.div
-                key={t.name}
+                key={testimonial.name}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"
+                transition={{ delay: index * 0.1, duration: 0.6 }}
               >
-                <div className="flex gap-1 mb-6">
-                  {[...Array(5)].map((_, idx) => <Star key={idx} className="h-4 w-4 fill-yellow-400 text-yellow-400" />)}
-                </div>
-                <p className="text-lg text-slate-700 mb-8 italic font-medium leading-relaxed">"{t.quote}"</p>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl">
-                    {t.name[0]}
+                <div className="bg-white p-8 rounded-2xl h-full shadow-lg hover:shadow-xl transition-shadow border border-slate-200">
+                  <div className="flex gap-1 mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <StarIcon key={i} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                    ))}
                   </div>
-                  <div>
-                    <div className="font-bold text-slate-900">{t.name}</div>
-                    <div className="text-sm text-slate-500 font-medium">{t.role}, {t.company}</div>
+                  <p className="text-lg text-slate-700 mb-8 italic font-medium leading-relaxed">&quot;{testimonial.quote}&quot;</p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white">
+                      {testimonial.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="text-slate-900">{testimonial.name}</div>
+                      <div className="text-sm text-slate-500">{testimonial.role}</div>
+                      <div className="text-sm text-slate-500">{testimonial.company}</div>
+                    </div>
                   </div>
                 </div>
               </motion.div>
@@ -312,57 +342,106 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Pricing Section - ABSOLUTE FIDELITY BOX STYLE */}
+      {/* Pricing Section */}
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-bold mb-4 text-slate-900 tracking-tight">Inversión Inteligente</h2>
-            <p className="text-xl text-slate-600 font-medium">Planes flexibles que se adaptan a tu ritmo de crecimiento.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-8">
-            {pricingPlans.map((plan, i) => (
-              <div 
-                key={plan.name} 
-                className={`rounded-[2rem] border-2 transition-all p-8 flex flex-col ${plan.popular ? 'border-blue-500 shadow-2xl scale-105 z-10 bg-white' : 'border-slate-100 shadow-lg bg-slate-50/50'}`}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl lg:text-5xl mb-4 text-slate-900">
+              Inversión Inteligente
+            </h2>
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+              Planes flexibles que se adaptan a tu ritmo de crecimiento.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {pricingPlans.map((plan, index) => (
+              <motion.div
+                key={plan.name}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1, duration: 0.6 }}
+                className="relative"
               >
-                <div className="mb-8 p-0">
-                  <h3 className="text-2xl font-bold mb-4 text-slate-900">{plan.name}</h3>
-                  <div className="text-5xl font-bold text-slate-900 mb-2">{plan.price}</div>
-                  <p className="font-medium text-slate-500">{plan.description}</p>
-                </div>
-                <div className="flex-grow space-y-4">
-                  {plan.features.map(f => (
-                    <div key={f} className="flex gap-3 items-center font-medium text-slate-600">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                        <Check className="h-4 w-4 text-blue-600" />
-                      </div>
-                      {f}
-                    </div>
-                  ))}
-                </div>
-                <Button 
-                    size="lg"
-                    className={`w-full h-14 rounded-2xl text-lg font-bold mt-10 ${plan.popular ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
+                {plan.popular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+                    <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm">
+                      Más Popular
+                    </span>
+                  </div>
+                )}
+                <div
+                  className={`p-8 rounded-2xl h-full flex flex-col ${
+                    plan.popular
+                      ? "bg-blue-600 text-white shadow-2xl scale-105"
+                      : "bg-slate-50 text-slate-900 border border-slate-200"
+                  }`}
                 >
+                  <h3 className="text-2xl mb-2">{plan.name}</h3>
+                  <div className="mb-6">
+                    <span className="text-4xl">{plan.price}</span>
+                  </div>
+                  <p className={`mb-6 ${plan.popular ? "text-blue-100" : "text-slate-600"}`}>
+                    {plan.description}
+                  </p>
+                  <ul className="space-y-3 mb-8 flex-grow">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-3">
+                        <CheckIcon
+                          className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
+                            plan.popular ? "text-blue-200" : "text-blue-600"
+                          }`}
+                        />
+                        <span className={plan.popular ? "text-blue-50" : "text-slate-700"}>
+                          {feature}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    size="lg"
+                    className={`w-full mt-4 ${
+                      plan.popular
+                        ? "bg-white hover:bg-blue-50 text-blue-600"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
+                  >
                     {plan.cta}
-                </Button>
-              </div>
+                  </Button>
+                </div>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* FAQs Section */}
-      <section className="py-24 bg-slate-50 border-y border-slate-100">
+      {/* FAQ Section */}
+      <section className="py-24 bg-slate-50">
         <div className="max-w-3xl mx-auto px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-slate-900 tracking-tight">Preguntas Frecuentes</h2>
-          </div>
-          <Accordion type="single" collapsible className="w-full space-y-4">
-            {faqs.map((faq, i) => (
-              <AccordionItem key={i} value={`item-${i}`} className="bg-white px-8 rounded-2xl border border-slate-200">
-                <AccordionTrigger className="text-left py-6 text-lg font-bold hover:no-underline">{faq.question}</AccordionTrigger>
-                <AccordionContent className="pb-6 text-slate-600 leading-relaxed font-medium">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl lg:text-5xl mb-4 text-slate-900">
+              Preguntas Frecuentes
+            </h2>
+          </motion.div>
+
+          <Accordion type="single" collapsible className="w-full">
+            {faqs.map((faq, index) => (
+              <AccordionItem key={index} value={`item-${index}`} className="mb-4 bg-white px-6 rounded-xl border border-slate-200 decoration-transparent">
+                <AccordionTrigger className="text-lg text-slate-900 hover:no-underline">{faq.question}</AccordionTrigger>
+                <AccordionContent className="text-base text-slate-600 pb-6">
                   {faq.answer}
                 </AccordionContent>
               </AccordionItem>
@@ -371,26 +450,26 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section - ABSOLUTE FIDELITY DESIGN */}
-      <section className="py-24 bg-gradient-to-br from-blue-600 to-blue-800 text-white">
-        <div className="max-w-5xl mx-auto px-6 lg:px-8 text-center bg-blue-700/30 p-16 rounded-[3rem] backdrop-blur-sm border border-white/10 shadow-3xl">
+      {/* CTA Section */}
+      <section className="py-24 bg-gradient-to-br from-blue-600 to-blue-700 text-white">
+        <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
           >
-            <h2 className="text-4xl lg:text-5xl font-bold mb-6 tracking-tight">
+            <h2 className="text-4xl lg:text-5xl mb-6">
               Transforma tu operación hoy mismo
             </h2>
-            <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto font-medium leading-relaxed">
-              Únete a cientos de negocios que ya confían en SimTech para su gestión diaria en Guatemala.
+            <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+              Únete a cientos de negocios que ya confían en SIMTECH para su gestión diaria en Guatemala.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/login">
                 <Button
                   size="lg"
-                  className="bg-white hover:bg-slate-100 text-blue-700 px-10 py-7 text-xl font-bold rounded-2xl shadow-2xl transition-transform active:scale-95"
+                  className="bg-white hover:bg-slate-100 text-blue-600 px-8 py-6 text-lg w-full sm:w-auto"
                 >
                   Probar Gratis
                 </Button>
@@ -398,7 +477,7 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="outline"
-                className="bg-transparent hover:bg-white/10 text-white border-white/40 px-10 py-7 text-xl font-bold rounded-2xl"
+                className="bg-transparent hover:bg-white/10 text-white border-white/50 px-8 py-6 text-lg w-full sm:w-auto"
               >
                 Contactar Ventas
               </Button>
@@ -411,12 +490,12 @@ export default function Home() {
       <footer className="bg-slate-900 text-slate-400 py-16 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6 lg:px-8 text-center">
           <div className="mb-8 flex justify-center">
-             <div className="relative w-16 h-16">
-                  <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain" />
-              </div>
+            <div className="relative w-16 h-16">
+              <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain" />
+            </div>
           </div>
-          <p className="mb-2 font-bold tracking-widest text-xs uppercase text-slate-300">© {new Date().getFullYear()} SimTech Guatemala. Todos los derechos reservados.</p>
-          <p className="text-sm font-medium text-slate-500">Sistema ERP & POS para negocios modernos y escalables.</p>
+          <p className="mb-2">© {new Date().getFullYear()} SIMTECH Guatemala. Todos los derechos reservados.</p>
+          <p className="text-sm">Sistema ERP & POS para negocios modernos y escalables.</p>
         </div>
       </footer>
     </div>
@@ -424,7 +503,7 @@ export default function Home() {
 }
 
 const stats = [
-  { value: "500+", label: "Negocios Activos" },
+  { value: "6+", label: "Años de Experiencia" },
   { value: "99.9%", label: "Uptime Garantizado" },
   { value: "24/7", label: "Soporte Técnico" },
 ];
@@ -442,13 +521,13 @@ const features = [
   },
   {
     icon: Zap,
-    title: "Rápido y Offline",
-    description: "Sigue vendiendo incluso si falla el internet. El sistema se sincroniza automáticamente.",
+    title: "Rápido y Eficiente",
+    description: "Procesa ventas en segundos. Optimizado para alto rendimiento incluso si falla el internet.",
   },
   {
     icon: TrendingUp,
     title: "Gestión de Inventario",
-    description: "Control total de stock, alertas de reorden y seguimiento de productos.",
+    description: "Control total de stock, alertas por inventario bajo y seguimiento de productos.",
   },
 ];
 
@@ -563,7 +642,7 @@ const testimonials = [
     role: "Administradora",
     company: "Boutique Elegancia",
     quote:
-      "Con SimTech el control de mi inventario es exacto. Ya no pierdo tiempo en conteos manuales cada semana.",
+      "Con SIMTECH el control de mi inventario es exacto. Ya no pierdo tiempo en conteos manuales cada semana.",
   },
   {
     name: "Carlos Méndez",
@@ -632,7 +711,7 @@ const faqs = [
   {
     question: "¿Necesito instalar algún programa?",
     answer:
-      "No, SimTech funciona directamente desde tu navegador. Solo necesitas internet para la configuración inicial, pero permite seguir vendiendo offline si es necesario.",
+      "No, SIMTECH funciona directamente desde tu navegador. Solo necesitas internet para la configuración inicial, pero permite seguir vendiendo offline si es necesario.",
   },
   {
     question: "¿Cómo funciona la facturación electrónica?",

@@ -1,25 +1,53 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { 
   Home, Store, Settings, Package, Users, BarChart3, 
   Building2, Shield, ArrowRightLeft, Activity, 
-  ChevronLeft, ChevronRight, AppWindow, Truck, Inbox
+  ChevronLeft, ChevronRight, Truck, Inbox
 } from 'lucide-react';
 import { NotificationsMenu } from '@/components/layout/NotificationsMenu';
 import { LogoutButton } from '@/components/layout/LogoutButton';
 import { BranchSelector } from '@/components/layout/BranchSelector';
+import { Session } from 'next-auth';
 
 // Definir la interfaz de props que recibirá
 interface SidebarProps {
-  session: any;
+  session: Session | null;
   role: string;
   isAdmin: boolean;
   isSupervisor: boolean;
   isSuperAdmin: boolean;
 }
+
+const NavItem = ({ href, icon, label, pathname, isCollapsed }: { href: string; icon: React.ReactNode; label: string; pathname: string; isCollapsed: boolean }) => {
+  const isActive = pathname === href;
+  return (
+    <a 
+      href={href} 
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+        isActive 
+          ? 'bg-blue-600/15 text-blue-400 border-r-2 border-blue-500 rounded-r-none' 
+          : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+      }`}
+      title={isCollapsed ? label : undefined}
+    >
+      <div className="shrink-0">{icon}</div>
+      {!isCollapsed && <span className="font-medium text-sm whitespace-nowrap">{label}</span>}
+    </a>
+  );
+};
+
+const SectionTitle = ({ children, isCollapsed }: { children: React.ReactNode; isCollapsed: boolean }) => {
+  if (isCollapsed) return <div className="my-4 border-t border-slate-800" />;
+  return (
+    <div className="mt-6 mb-2 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+      {children}
+    </div>
+  );
+};
 
 export function ClientSidebar({ session: initialSession, role: propRole, isAdmin: propIsAdmin, isSupervisor: propIsSupervisor, isSuperAdmin: propIsSuperAdmin }: SidebarProps) {
   const { data: sessionData } = useSession();
@@ -35,33 +63,6 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
   const isSupervisor = reliableRole === 'SUPERVISOR' || isAdmin || propIsSupervisor;
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
-
-  const NavItem = ({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) => {
-    const isActive = pathname === href;
-    return (
-      <a 
-        href={href} 
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-          isActive 
-            ? 'bg-blue-600/15 text-blue-400 border-r-2 border-blue-500 rounded-r-none' 
-            : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
-        }`}
-        title={isCollapsed ? label : undefined}
-      >
-        <div className="shrink-0">{icon}</div>
-        {!isCollapsed && <span className="font-medium text-sm whitespace-nowrap">{label}</span>}
-      </a>
-    );
-  };
-
-  const SectionTitle = ({ children }: { children: React.ReactNode }) => {
-    if (isCollapsed) return <div className="my-4 border-t border-slate-800" />;
-    return (
-      <div className="mt-6 mb-2 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-        {children}
-      </div>
-    );
-  };
 
   return (
     <aside 
@@ -97,36 +98,36 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
       {/* Navegación */}
       <nav className={`flex-1 flex flex-col gap-1 overflow-y-auto ${isCollapsed ? 'px-3 items-center' : 'px-4'} custom-scrollbar`}>
         {/* Operación Base (Cajeros) */}
-        <NavItem href="/pos" icon={<Store className="w-5 h-5" />} label="Punto de Venta" />
-        <NavItem href="/customers" icon={<Users className="w-5 h-5" />} label="Clientes" />
+        <NavItem href="/pos" icon={<Store className="w-5 h-5" />} label="Punto de Venta" pathname={pathname || ''} isCollapsed={isCollapsed} />
+        <NavItem href="/customers" icon={<Users className="w-5 h-5" />} label="Clientes" pathname={pathname || ''} isCollapsed={isCollapsed} />
         
         {/* Jefatura / Operación Pesada (Supervisores y Admins) */}
         {isSupervisor && (
           <>
-            <SectionTitle>Métricas y Operación</SectionTitle>
-            <NavItem href="/dashboard" icon={<Home className="w-5 h-5" />} label="Métricas" />
-            <NavItem href="/inventory" icon={<Package className="w-5 h-5" />} label="Inventario" />
-            <NavItem href="/purchases" icon={<Inbox className="w-5 h-5" />} label="Ingresos de Bodega" />
-            <NavItem href="/suppliers" icon={<Truck className="w-5 h-5" />} label="Proveedores" />
-            <NavItem href="/reports" icon={<BarChart3 className="w-5 h-5" />} label="Reportes" />
-            <NavItem href="/stock-transfers" icon={<ArrowRightLeft className="w-5 h-5" />} label="Transferencias" />
+            <SectionTitle isCollapsed={isCollapsed}>Métricas y Operación</SectionTitle>
+            <NavItem href="/dashboard" icon={<Home className="w-5 h-5" />} label="Métricas" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/inventory" icon={<Package className="w-5 h-5" />} label="Inventario" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/purchases" icon={<Inbox className="w-5 h-5" />} label="Ingresos de Bodega" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/suppliers" icon={<Truck className="w-5 h-5" />} label="Proveedores" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/reports" icon={<BarChart3 className="w-5 h-5" />} label="Reportes" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/stock-transfers" icon={<ArrowRightLeft className="w-5 h-5" />} label="Transferencias" pathname={pathname || ''} isCollapsed={isCollapsed} />
           </>
         )}
 
         {isAdmin && (
           <>
-            <SectionTitle>Administración</SectionTitle>
-            <NavItem href="/branches" icon={<Building2 className="w-5 h-5" />} label="Sucursales" />
-            <NavItem href="/users" icon={<Users className="w-5 h-5" />} label="Equipo" />
-            <NavItem href="/audit" icon={<Activity className="w-5 h-5" />} label="Auditoría" />
-            <NavItem href="/settings" icon={<Settings className="w-5 h-5" />} label="Configuración" />
+            <SectionTitle isCollapsed={isCollapsed}>Administración</SectionTitle>
+            <NavItem href="/branches" icon={<Building2 className="w-5 h-5" />} label="Sucursales" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/users" icon={<Users className="w-5 h-5" />} label="Equipo" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/audit" icon={<Activity className="w-5 h-5" />} label="Auditoría" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/settings" icon={<Settings className="w-5 h-5" />} label="Configuración" pathname={pathname || ''} isCollapsed={isCollapsed} />
           </>
         )}
 
         {isSuperAdmin && (
           <>
-            <SectionTitle>SaaS Global</SectionTitle>
-            <NavItem href="/admin" icon={<Shield className="w-5 h-5" />} label="Empresas" />
+            <SectionTitle isCollapsed={isCollapsed}>SaaS Global</SectionTitle>
+            <NavItem href="/admin" icon={<Shield className="w-5 h-5" />} label="Empresas" pathname={pathname || ''} isCollapsed={isCollapsed} />
           </>
         )}
       </nav>

@@ -91,7 +91,7 @@ export default function LoginPage() {
             <div className="mb-8">
               <div className="lg:hidden flex justify-center mb-8">
                   <div className="relative w-16 h-16">
-                    <Image src="/logo.png" alt="SimTech Logo" fill className="object-contain" />
+                    <Image src="/logo.png" alt="SimTech Logo" fill sizes="64px" className="object-contain" />
                   </div>
               </div>
               <h1 className="text-4xl mb-3 text-slate-900">Bienvenido</h1>
@@ -219,6 +219,7 @@ export default function LoginPage() {
             src="/fondologin.jpeg"
             alt="Business Background"
             fill
+            sizes="50vw"
             className="object-cover opacity-20"
             priority
           />

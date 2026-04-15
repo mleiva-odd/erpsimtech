@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, CreditCard, Banknote, ArrowLeftRight, Loader2, CheckCircle, UserCircle, Plus, Trash2 } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 
@@ -50,6 +50,7 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
   const [cashReceived, setCashReceived] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const enabledMethods = METHODS.filter((method) => {
     if (method.value === 'CASH') return paymentSettings.acceptsCash;
@@ -100,6 +101,11 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
       cancelled = true;
     };
   }, [total]);
+
+  useEffect(() => {
+    if (!error) return;
+    contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [error]);
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = Math.max(0, total - totalPaid);
@@ -208,13 +214,13 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
-          {/* Error - Moved to top for visibility */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 animate-shake">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="mx-6 mb-1 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div ref={contentRef} className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
 
           {/* Total */}
           <div className="bg-blue-600 rounded-3xl p-6 text-center shadow-xl shadow-blue-500/20">
@@ -239,15 +245,15 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
             <div className="space-y-3">
               {payments.map((payment, idx) => (
                 <div key={idx} className="bg-slate-50 rounded-xl p-3 space-y-2">
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-[1fr_auto] items-start gap-2">
                     {/* Method selector */}
-                    <div className="flex gap-1 flex-1 bg-white p-1 rounded-lg border border-slate-200">
+                    <div className="grid grid-cols-2 gap-1 bg-white p-1 rounded-lg border border-slate-200 sm:grid-cols-4">
                       {METHODS.map((m) => (
                         <button
                           key={m.value}
                           onClick={() => updatePayment(idx, 'method', m.value)}
                           disabled={!enabledMethods.some((method) => method.value === m.value)}
-                          className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-bold transition-all ${
+                          className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-md text-xs font-bold transition-all ${
                             payment.method === m.value
                               ? m.value === 'CARD' 
                                 ? 'bg-slate-800 text-white shadow-md' // Premium look for CARD
@@ -269,7 +275,8 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
                     {payments.length > 1 && (
                       <button
                         onClick={() => removePayment(idx)}
-                        className="p-2 text-slate-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                        className="mt-1 p-2 text-slate-600 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                        aria-label="Eliminar método de pago"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -295,18 +302,30 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
                     {payment.method !== 'CASH' && (
                       <div className="flex-1">
                         <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-widest mb-1 px-1 flex items-center justify-between">
-                          {payment.method === 'CARD' ? 'Autorización' : 'No. Referencia'} 
-                          <span className="text-red-400">*</span>
+                          {payment.method === 'CARD'
+                            ? 'Autorización'
+                            : payment.method === 'TRANSFER'
+                              ? 'No. Referencia'
+                              : 'Referencia interna'}
+                          {payment.method !== 'CREDIT' && <span className="text-red-400">*</span>}
                         </label>
                         <input
                           type="text"
                           value={payment.reference}
                           onChange={(e) => updatePayment(idx, 'reference', e.target.value)}
-                          placeholder={payment.method === 'CARD' ? 'Ej: 123456' : 'Ej: 000987'}
+                          placeholder={
+                            payment.method === 'CARD'
+                              ? 'Ej: 123456'
+                              : payment.method === 'TRANSFER'
+                                ? 'Ej: 000987'
+                                : 'Opcional: crédito a 15 días'
+                          }
                           className={`w-full text-sm font-medium bg-white border focus:ring-2 rounded-xl px-3 py-3 outline-none transition ${
                             payment.method === 'CARD' 
                               ? 'border-slate-300 focus:border-slate-800 focus:ring-slate-200 text-slate-800' 
-                              : 'border-purple-200 focus:border-purple-500 focus:ring-purple-100 text-purple-700'
+                              : payment.method === 'TRANSFER'
+                                ? 'border-purple-200 focus:border-purple-500 focus:ring-purple-100 text-purple-700'
+                                : 'border-amber-200 focus:border-amber-500 focus:ring-amber-100 text-amber-700'
                           }`}
                         />
                       </div>

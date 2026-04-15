@@ -165,6 +165,70 @@ export async function POST(req: NextRequest) {
     });
 
     const transaction = await prisma.$transaction(async (tx) => {
+      const restockProductStock = async ({
+        productId,
+        branchId,
+        variantId,
+        quantity,
+      }: {
+        productId: string;
+        branchId: string;
+        variantId: string | null;
+        quantity: number;
+      }) => {
+        if (variantId) {
+          await tx.productStock.upsert({
+            where: {
+              productId_branchId_variantId: {
+                productId,
+                branchId,
+                variantId,
+              },
+            },
+            update: {
+              quantity: { increment: quantity },
+            },
+            create: {
+              productId,
+              branchId,
+              variantId,
+              quantity,
+              minStock: 5,
+            },
+          });
+          return;
+        }
+
+        const existingStock = await tx.productStock.findFirst({
+          where: {
+            productId,
+            branchId,
+            variantId: null,
+          },
+          select: { id: true },
+        });
+
+        if (existingStock) {
+          await tx.productStock.update({
+            where: { id: existingStock.id },
+            data: {
+              quantity: { increment: quantity },
+            },
+          });
+          return;
+        }
+
+        await tx.productStock.create({
+          data: {
+            productId,
+            branchId,
+            variantId: null,
+            quantity,
+            minStock: 5,
+          },
+        });
+      };
+
       const newReturn = await tx.saleReturn.create({
         data: {
           saleId,
@@ -185,45 +249,19 @@ export async function POST(req: NextRequest) {
         for (const selectedItem of selectedItems) {
           if (selectedItem.saleItem.product.isBundle) {
             for (const bundleItem of selectedItem.saleItem.product.bundleItems) {
-              await tx.productStock.upsert({
-                where: {
-                  productId_branchId_variantId: {
-                    productId: bundleItem.componentId,
-                    branchId: sale.branchId,
-                    variantId: bundleItem.variantId || null,
-                  } as any,
-                },
-                update: {
-                  quantity: { increment: selectedItem.quantity * bundleItem.quantity },
-                },
-                create: {
-                  productId: bundleItem.componentId,
-                  branchId: sale.branchId,
-                  variantId: (bundleItem.variantId || null) as any,
-                  quantity: selectedItem.quantity * bundleItem.quantity,
-                  minStock: 5,
-                },
+              await restockProductStock({
+                productId: bundleItem.componentId,
+                branchId: sale.branchId,
+                variantId: bundleItem.variantId || null,
+                quantity: selectedItem.quantity * bundleItem.quantity,
               });
             }
           } else {
-            await tx.productStock.upsert({
-              where: {
-                productId_branchId_variantId: {
-                  productId: selectedItem.saleItem.productId,
-                  branchId: sale.branchId,
-                  variantId: selectedItem.saleItem.variantId || null,
-                } as any,
-              },
-              update: {
-                quantity: { increment: selectedItem.quantity },
-              },
-              create: {
-                productId: selectedItem.saleItem.productId,
-                branchId: sale.branchId,
-                variantId: (selectedItem.saleItem.variantId || null) as any,
-                quantity: selectedItem.quantity,
-                minStock: 5,
-              },
+            await restockProductStock({
+              productId: selectedItem.saleItem.productId,
+              branchId: sale.branchId,
+              variantId: selectedItem.saleItem.variantId || null,
+              quantity: selectedItem.quantity,
             });
           }
         }

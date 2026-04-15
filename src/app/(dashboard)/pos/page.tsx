@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ProductSearch } from '@/components/pos/ProductSearch';
 import { CustomerSearch } from '@/components/pos/CustomerSearch';
 import { QuotesModal } from '@/components/pos/QuotesModal';
+import { RecentSalesModal } from '@/components/pos/RecentSalesModal';
 import { TicketModal } from '@/components/pos/TicketModal';
 import { CashRegisterGuard } from '@/components/pos/CashRegisterGuard';
 import { Cart } from '@/components/pos/Cart';
@@ -12,27 +13,39 @@ import { ProductGrid } from '@/components/pos/ProductGrid';
 import { CloseRegisterModal } from '@/components/pos/CloseRegisterModal';
 import { ExpenseModal } from '@/components/pos/ExpenseModal';
 import { useCartStore } from '@/stores/cartStore';
-import { ShoppingCart, CheckCircle, Lock, Wallet, FileText } from 'lucide-react';
+import { ShoppingCart, Lock, Wallet, FileText, ReceiptText, X } from 'lucide-react';
+
+interface NoticeState {
+  tone: 'success' | 'error';
+  message: string;
+}
 
 export default function POSPage() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showRecentSalesModal, setShowRecentSalesModal] = useState(false);
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showQuotesModal, setShowQuotesModal] = useState(false);
+  const [notice, setNotice] = useState<NoticeState | null>(null);
   const itemCount = useCartStore((s) => s.itemCount());
   const { items, discount, customerId, totalWithDiscount, clearCart, ensureCheckoutRequestId } = useCartStore();
   const [isQuoting, setIsQuoting] = useState(false);
 
   const handleSuccess = (saleId: string) => {
+    window.dispatchEvent(new Event('pos:inventory-changed'));
     setLastSaleId(saleId);
     setShowCheckout(false);
     setShowSuccess(true);
   };
 
   const handleCreateQuote = async () => {
-    if (!customerId) return alert("Seleccione un cliente registrado para crear una cotización.");
+    if (!customerId) {
+      setNotice({ tone: 'error', message: 'Selecciona un cliente registrado para crear una cotización.' });
+      return;
+    }
+
     setIsQuoting(true);
     try {
       const clientRequestId = ensureCheckoutRequestId();
@@ -59,9 +72,12 @@ export default function POSPage() {
       if (!res.ok) throw new Error(data.error);
 
       clearCart();
-      alert("✅ Cotización guardada exitosamente. \nID: " + data.id.split('-')[0].toUpperCase());
+      setNotice({
+        tone: 'success',
+        message: `Cotización guardada correctamente. ID: ${data.id.split('-')[0].toUpperCase()}`,
+      });
     } catch (e: any) {
-      alert(e.message || "Error al crear cotización");
+      setNotice({ tone: 'error', message: e.message || 'Error al crear cotización.' });
     } finally {
       setIsQuoting(false);
     }
@@ -103,6 +119,14 @@ export default function POSPage() {
               </div>
               <div className="flex items-center gap-3">
                 <button
+                  onClick={() => setShowRecentSalesModal(true)}
+                  className="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm active:scale-95"
+                  title="Ver ventas recientes y reimprimir tickets"
+                >
+                  <ReceiptText className="w-4 h-4" />
+                  Ventas
+                </button>
+                <button
                   onClick={() => setShowQuotesModal(true)}
                   className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm active:scale-95"
                   title="Ver cotizaciones pendientes"
@@ -131,6 +155,22 @@ export default function POSPage() {
                 </div>
               </div>
             </div>
+
+          {notice && (
+            <div className={`flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${
+              notice.tone === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-rose-200 bg-rose-50 text-rose-800'
+            }`}>
+              <span className="font-medium">{notice.message}</span>
+              <button
+                onClick={() => setNotice(null)}
+                className="rounded-full p-1 opacity-70 transition hover:bg-white/60 hover:opacity-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-4 z-10">
             {/* Buscador de cliente (izq) y productos (der) */}
@@ -207,13 +247,27 @@ export default function POSPage() {
         <QuotesModal onClose={() => setShowQuotesModal(false)} />
       )}
 
+      {showRecentSalesModal && (
+        <RecentSalesModal
+          onClose={() => setShowRecentSalesModal(false)}
+          onSelectSale={(saleId) => {
+            setShowRecentSalesModal(false);
+            setLastSaleId(saleId);
+            setShowSuccess(true);
+          }}
+        />
+      )}
+
       {/* Modal Egresos */}
       {showExpenseModal && (
         <ExpenseModal 
           onClose={() => setShowExpenseModal(false)}
           onSuccess={() => {
             setShowExpenseModal(false);
-            alert("Egreso registrado correctamente y descontado de tu cierre.");
+            setNotice({
+              tone: 'success',
+              message: 'Egreso registrado correctamente y descontado de tu cierre.',
+            });
           }}
         />
       )}

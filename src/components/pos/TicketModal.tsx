@@ -186,6 +186,7 @@ export function TicketModal({ saleId, onClose }: TicketModalProps) {
         return;
       }
 
+      window.dispatchEvent(new Event('pos:inventory-changed'));
       setShowReturnForm(false);
       await fetchSale();
     } catch (err) {

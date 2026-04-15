@@ -20,6 +20,8 @@ interface QuotesModalProps {
 export function QuotesModal({ onClose }: QuotesModalProps) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
   const { addItem, setCustomer, clearCart } = useCartStore();
 
   const fetchQuotes = async () => {
@@ -61,12 +63,16 @@ export function QuotesModal({ onClose }: QuotesModalProps) {
   };
 
   const deleteQuote = async (id: string) => {
-    if (!confirm('¿Seguro de descartar esta cotización?')) return;
     try {
-      await fetch(`/api/sales/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/sales/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'No fue posible descartar la cotización.');
+      }
+      setQuoteToDelete(null);
       fetchQuotes();
     } catch (e) {
-      alert('Error eliminando cotización');
+      setError(e instanceof Error ? e.message : 'Error eliminando cotización');
     }
   };
 
@@ -84,6 +90,11 @@ export function QuotesModal({ onClose }: QuotesModalProps) {
         </div>
 
         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+           {error && (
+             <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+               {error}
+             </div>
+           )}
            {loading ? (
              <div className="flex justify-center items-center h-40 text-indigo-600">
                <Loader2 className="w-8 h-8 animate-spin" />
@@ -127,7 +138,7 @@ export function QuotesModal({ onClose }: QuotesModalProps) {
                             REANUDAR
                          </button>
                          <button 
-                           onClick={() => deleteQuote(q.id)} 
+                           onClick={() => setQuoteToDelete(q)} 
                            className="flex items-center justify-center gap-2 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 font-bold py-2.5 px-5 rounded-xl text-xs transition-all w-36 border border-transparent hover:border-rose-100 uppercase"
                          >
                             <Trash2 className="w-3.5 h-3.5"/>
@@ -141,6 +152,31 @@ export function QuotesModal({ onClose }: QuotesModalProps) {
            )}
         </div>
       </div>
+
+      {quoteToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-sm rounded-[1.75rem] bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900">Descartar cotización</h3>
+            <p className="mt-2 text-sm text-slate-500">
+              Esta acción eliminará la cotización #{quoteToDelete.id.split('-')[0].toUpperCase()}.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setQuoteToDelete(null)}
+                className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => deleteQuote(quoteToDelete.id)}
+                className="flex-1 rounded-xl bg-rose-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-700"
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

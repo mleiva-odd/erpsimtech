@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Package, Search, Tag, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Package, Tag, Image as ImageIcon } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 import { VariantSelectionModal } from '@/components/pos/VariantSelectionModal';
+import { useBranchStore } from '@/stores/branchStore';
 
 interface Category {
   id: string;
@@ -31,6 +32,7 @@ export function ProductGrid() {
   const [variantModal, setVariantModal] = useState<{isOpen: boolean, product: Product | null}>({ isOpen: false, product: null });
 
   const addItem = useCartStore((s) => s.addItem);
+  const selectedBranchId = useBranchStore((s) => s.selectedBranchId);
 
   // Cargar Categorías
   useEffect(() => {
@@ -42,21 +44,35 @@ export function ProductGrid() {
       .catch(err => console.error("Error cargando categorías:", err));
   }, []);
 
-  // Cargar Productos (Filtro por Categoría)
   useEffect(() => {
-    setLoading(true);
-    let url = '/api/products?limit=100'; // Obtener un buen bloque de productos
-    fetch(url)
-      .then(res => res.json())
-      .then(data => {
-        setProducts(data.products || []);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error cargando productos:", err);
-        setLoading(false);
-      });
-  }, []);
+    const loadProducts = () => {
+      setLoading(true);
+      const params = new URLSearchParams({ limit: '100' });
+      if (selectedBranchId) {
+        params.set('branchId', selectedBranchId);
+      }
+
+      fetch(`/api/products?${params.toString()}`)
+        .then(res => res.json())
+        .then(data => {
+          setProducts(data.products || []);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("Error cargando productos:", err);
+          setLoading(false);
+        });
+    };
+
+    const handleInventoryChanged = () => loadProducts();
+
+    loadProducts();
+    window.addEventListener('pos:inventory-changed', handleInventoryChanged);
+
+    return () => {
+      window.removeEventListener('pos:inventory-changed', handleInventoryChanged);
+    };
+  }, [selectedBranchId]);
 
   const filteredProducts = useMemo(() => {
     if (activeCategory === 'all') return products;

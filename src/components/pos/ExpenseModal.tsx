@@ -15,12 +15,17 @@ export function ExpenseModal({ onClose, onSuccess }: ExpenseModalProps) {
     type: 'EXPENSE',
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (Number(formData.amount) <= 0) return alert('El monto no puede ser cero');
+    if (Number(formData.amount) <= 0) {
+      setError('El monto no puede ser cero.');
+      return;
+    }
 
     setIsLoading(true);
+    setError('');
     try {
       const res = await fetch('/api/pos/expense', {
         method: 'POST',
@@ -36,10 +41,10 @@ export function ExpenseModal({ onClose, onSuccess }: ExpenseModalProps) {
         onSuccess();
       } else {
         const error = await res.json();
-        alert(error.error || 'Error al guardar el egreso');
+        setError(error.error || 'Error al guardar el egreso');
       }
     } catch {
-      alert('Error de red al intentar registrar el egreso');
+      setError('Error de red al intentar registrar el egreso');
     } finally {
       setIsLoading(false);
     }
@@ -60,6 +65,11 @@ export function ExpenseModal({ onClose, onSuccess }: ExpenseModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {error && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+              {error}
+            </div>
+          )}
            
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-2">Clasificación del Retiro *</label>

@@ -90,8 +90,8 @@ export default function LoginPage() {
           >
             <div className="mb-8">
               <div className="lg:hidden flex justify-center mb-8">
-                  <div className="relative w-16 h-16">
-                    <Image src="/logo.png" alt="SimTech Logo" fill sizes="64px" className="object-contain" />
+                  <div className="flex justify-center">
+                    <Image src="/logo.png" alt="SimTech Logo" width={64} height={64} className="object-contain" />
                   </div>
               </div>
               <h1 className="text-4xl mb-3 text-slate-900">Bienvenido</h1>

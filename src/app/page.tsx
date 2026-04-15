@@ -40,6 +40,7 @@ export default function Home() {
             src="/fondolanding.jpeg"
             alt="SimTech Background"
             fill
+            sizes="100vw"
             className="object-cover"
             priority
           />
@@ -544,7 +545,7 @@ const detailedFeatures = [
       "Gráficas interactivas y exportación de datos",
       "Alertas automáticas de stock bajo y tendencias",
     ],
-    image: "/analysis.png",
+    image: "/analysis.jpg",
   },
   {
     badge: "Gestión de Inventario",
@@ -557,7 +558,7 @@ const detailedFeatures = [
       "Traslados entre sucursales y bodegas",
       "Ajustes de stock con bitácora de auditoría",
     ],
-    image: "/inventory.png",
+    image: "/inventory.jpg",
   },
   {
     badge: "Experiencia del Cliente",
@@ -570,7 +571,7 @@ const detailedFeatures = [
       "Facturación Electrónica Integrada",
       "Cotizaciones y seguimiento de clientes",
     ],
-    image: "/pos.png",
+    image: "/pos.jpg",
   },
 ];
 

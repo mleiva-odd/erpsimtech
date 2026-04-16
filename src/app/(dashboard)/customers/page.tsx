@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Search, Plus, CreditCard, UserCircle, Edit2, ShieldAlert, Users } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useToast } from '@/components/ui/toast';
 
 interface Customer {
   id: string;
@@ -34,13 +35,11 @@ export default function CustomersPage() {
   const [paymentCustomer, setPaymentCustomer] = useState<Customer | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [isPaying, setIsPaying] = useState(false);
-  const [paymentError, setPaymentError] = useState('');
-  const [pageNotice, setPageNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const { toast } = useToast();
 
   const handlePay = (c: Customer) => {
     setPaymentCustomer(c);
     setPaymentAmount('');
-    setPaymentError('');
     setIsPaymentModalOpen(true);
   };
 
@@ -48,7 +47,6 @@ export default function CustomersPage() {
     e.preventDefault();
     if (!paymentCustomer) return;
     setIsPaying(true);
-    setPaymentError('');
     try {
       const res = await fetch(`/api/customers/${paymentCustomer.id}/pay`, {
         method: 'POST',
@@ -57,17 +55,14 @@ export default function CustomersPage() {
       });
       if (res.ok) {
         setIsPaymentModalOpen(false);
-        setPageNotice({
-          tone: 'success',
-          message: `Abono registrado correctamente para ${paymentCustomer.name}.`,
-        });
+        toast({ tone: 'success', message: `Abono registrado correctamente para ${paymentCustomer.name}.` });
         fetchCustomers(debouncedSearch);
       } else {
         const error = await res.json();
-        setPaymentError(error.error || 'Error al procesar el abono');
+        toast({ tone: 'error', message: error.error || 'Error al procesar el abono' });
       }
     } catch (e) {
-      setPaymentError('Error de conexión al procesar abono');
+      toast({ tone: 'error', message: 'Error de conexión al procesar abono' });
     } finally {
       setIsPaying(false);
     }
@@ -123,17 +118,17 @@ export default function CustomersPage() {
 
       if (res.ok) {
         setIsModalOpen(false);
-        setPageNotice({
+        toast({
           tone: 'success',
           message: selectedId ? 'Cliente actualizado correctamente.' : 'Cliente creado correctamente.',
         });
         fetchCustomers();
       } else {
-        setPageNotice({ tone: 'error', message: 'Error al guardar cliente.' });
+        toast({ tone: 'error', message: 'Error al guardar cliente.' });
       }
     } catch (error) {
       console.error(error);
-      setPageNotice({ tone: 'error', message: 'Error de conexión al guardar cliente.' });
+      toast({ tone: 'error', message: 'Error de conexión al guardar cliente.' });
     }
   };
 
@@ -169,22 +164,6 @@ export default function CustomersPage() {
           />
         </div>
       </div>
-
-      {pageNotice && (
-        <div className={`mb-6 flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${
-          pageNotice.tone === 'success'
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-            : 'border-rose-200 bg-rose-50 text-rose-800'
-        }`}>
-          <span className="font-medium">{pageNotice.message}</span>
-          <button
-            onClick={() => setPageNotice(null)}
-            className="rounded-full px-2 py-1 text-xs font-bold transition hover:bg-white/70"
-          >
-            Cerrar
-          </button>
-        </div>
-      )}
 
       {/* Tabla Premium */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col">
@@ -285,11 +264,6 @@ export default function CustomersPage() {
                <p className="text-sm text-slate-500 mb-6">Deuda actual de {paymentCustomer.name}: <strong className="text-rose-600">Q{Number(paymentCustomer.balance).toFixed(2)}</strong></p>
 
                <form onSubmit={submitPayment} className="space-y-4">
-                  {paymentError && (
-                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-left text-sm font-medium text-rose-700">
-                      {paymentError}
-                    </div>
-                  )}
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-bold">Q</span>
                     <input 

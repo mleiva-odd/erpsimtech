@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X, Wallet, Loader2, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface ExpenseModalProps {
   onClose: () => void;
@@ -15,17 +16,16 @@ export function ExpenseModal({ onClose, onSuccess }: ExpenseModalProps) {
     type: 'EXPENSE',
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (Number(formData.amount) <= 0) {
-      setError('El monto no puede ser cero.');
+      toast({ tone: 'error', message: 'El monto no puede ser cero.' });
       return;
     }
 
     setIsLoading(true);
-    setError('');
     try {
       const res = await fetch('/api/pos/expense', {
         method: 'POST',
@@ -41,10 +41,10 @@ export function ExpenseModal({ onClose, onSuccess }: ExpenseModalProps) {
         onSuccess();
       } else {
         const error = await res.json();
-        setError(error.error || 'Error al guardar el egreso');
+        toast({ tone: 'error', message: error.error || 'Error al guardar el egreso' });
       }
     } catch {
-      setError('Error de red al intentar registrar el egreso');
+      toast({ tone: 'error', message: 'Error de red al intentar registrar el egreso' });
     } finally {
       setIsLoading(false);
     }
@@ -65,11 +65,6 @@ export function ExpenseModal({ onClose, onSuccess }: ExpenseModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {error && (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-              {error}
-            </div>
-          )}
            
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-2">Clasificación del Retiro *</label>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Lock, Unlock, Loader2, RefreshCw } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 export function CashRegisterGuard({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,6 +10,7 @@ export function CashRegisterGuard({ children }: { children: React.ReactNode }) {
   const [openingBalance, setOpeningBalance] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const { toast } = useToast();
 
   const fetchRegisterStatus = async () => {
     setIsLoading(true);
@@ -50,9 +52,10 @@ export function CashRegisterGuard({ children }: { children: React.ReactNode }) {
         setLoadError('');
       } else {
         const data = await res.json();
-        alert(data.error || 'Error al abrir caja');
+        toast({ tone: 'error', message: data.error || 'Error al abrir caja' });
       }
     } catch (error) {
+      toast({ tone: 'error', message: 'Error de conexión al abrir caja' });
     } finally {
       setIsSubmitting(false);
     }

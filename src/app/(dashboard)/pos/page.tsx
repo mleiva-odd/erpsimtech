@@ -13,12 +13,8 @@ import { ProductGrid } from '@/components/pos/ProductGrid';
 import { CloseRegisterModal } from '@/components/pos/CloseRegisterModal';
 import { ExpenseModal } from '@/components/pos/ExpenseModal';
 import { useCartStore } from '@/stores/cartStore';
-import { ShoppingCart, Lock, Wallet, FileText, ReceiptText, X } from 'lucide-react';
-
-interface NoticeState {
-  tone: 'success' | 'error';
-  message: string;
-}
+import { ShoppingCart, Lock, Wallet, FileText, ReceiptText } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 export default function POSPage() {
   const [showCheckout, setShowCheckout] = useState(false);
@@ -28,10 +24,10 @@ export default function POSPage() {
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showQuotesModal, setShowQuotesModal] = useState(false);
-  const [notice, setNotice] = useState<NoticeState | null>(null);
   const itemCount = useCartStore((s) => s.itemCount());
   const { items, discount, customerId, totalWithDiscount, clearCart, ensureCheckoutRequestId } = useCartStore();
   const [isQuoting, setIsQuoting] = useState(false);
+  const { toast } = useToast();
 
   const handleSuccess = (saleId: string) => {
     window.dispatchEvent(new Event('pos:inventory-changed'));
@@ -42,7 +38,7 @@ export default function POSPage() {
 
   const handleCreateQuote = async () => {
     if (!customerId) {
-      setNotice({ tone: 'error', message: 'Selecciona un cliente registrado para crear una cotización.' });
+      toast({ tone: 'error', message: 'Selecciona un cliente registrado para crear una cotización.' });
       return;
     }
 
@@ -72,12 +68,12 @@ export default function POSPage() {
       if (!res.ok) throw new Error(data.error);
 
       clearCart();
-      setNotice({
+      toast({
         tone: 'success',
         message: `Cotización guardada correctamente. ID: ${data.id.split('-')[0].toUpperCase()}`,
       });
     } catch (e: any) {
-      setNotice({ tone: 'error', message: e.message || 'Error al crear cotización.' });
+      toast({ tone: 'error', message: e.message || 'Error al crear cotización.' });
     } finally {
       setIsQuoting(false);
     }
@@ -155,22 +151,6 @@ export default function POSPage() {
                 </div>
               </div>
             </div>
-
-          {notice && (
-            <div className={`flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${
-              notice.tone === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : 'border-rose-200 bg-rose-50 text-rose-800'
-            }`}>
-              <span className="font-medium">{notice.message}</span>
-              <button
-                onClick={() => setNotice(null)}
-                className="rounded-full p-1 opacity-70 transition hover:bg-white/60 hover:opacity-100"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
 
           <div className="flex flex-col sm:flex-row gap-4 z-10">
             {/* Buscador de cliente (izq) y productos (der) */}
@@ -264,7 +244,7 @@ export default function POSPage() {
           onClose={() => setShowExpenseModal(false)}
           onSuccess={() => {
             setShowExpenseModal(false);
-            setNotice({
+            toast({
               tone: 'success',
               message: 'Egreso registrado correctamente y descontado de tu cierre.',
             });

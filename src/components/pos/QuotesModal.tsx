@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, FileText, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
+import { useToast } from '@/components/ui/toast';
 
 interface Quote {
   id: string;
@@ -20,9 +21,9 @@ interface QuotesModalProps {
 export function QuotesModal({ onClose }: QuotesModalProps) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [quoteToDelete, setQuoteToDelete] = useState<Quote | null>(null);
   const { addItem, setCustomer, clearCart } = useCartStore();
+  const { toast } = useToast();
 
   const fetchQuotes = async () => {
     setLoading(true);
@@ -70,9 +71,10 @@ export function QuotesModal({ onClose }: QuotesModalProps) {
         throw new Error(data.error || 'No fue posible descartar la cotización.');
       }
       setQuoteToDelete(null);
+      toast({ tone: 'success', message: 'Cotización descartada correctamente.' });
       fetchQuotes();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error eliminando cotización');
+      toast({ tone: 'error', message: e instanceof Error ? e.message : 'Error eliminando cotización' });
     }
   };
 
@@ -90,11 +92,6 @@ export function QuotesModal({ onClose }: QuotesModalProps) {
         </div>
 
         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-           {error && (
-             <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-               {error}
-             </div>
-           )}
            {loading ? (
              <div className="flex justify-center items-center h-40 text-indigo-600">
                <Loader2 className="w-8 h-8 animate-spin" />

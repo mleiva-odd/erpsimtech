@@ -94,6 +94,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sucursales no encontradas o sin acceso' }, { status: 404 });
     }
 
+    const productIds = [...new Set(items.map((item) => item.productId))];
+    const validProducts = await prisma.product.findMany({
+      where: {
+        id: { in: productIds },
+        companyId: tenant.companyId,
+      },
+      select: { id: true },
+    });
+
+    if (validProducts.length !== productIds.length) {
+      return NextResponse.json({ error: 'Uno o más productos no pertenecen a esta empresa' }, { status: 400 });
+    }
+
+    const variantIds = [...new Set(items.map((item) => item.variantId).filter(Boolean))] as string[];
+    if (variantIds.length > 0) {
+      const variants = await prisma.productVariant.findMany({
+        where: {
+          id: { in: variantIds },
+          product: { companyId: tenant.companyId },
+        },
+        select: { id: true, productId: true },
+      });
+
+      if (variants.length !== variantIds.length) {
+        return NextResponse.json({ error: 'Hay variantes fuera de esta empresa' }, { status: 400 });
+      }
+
+      const variantMap = new Map(variants.map((variant) => [variant.id, variant.productId]));
+      for (const item of items) {
+        if (item.variantId && variantMap.get(item.variantId) !== item.productId) {
+          return NextResponse.json({ error: 'Hay variantes que no coinciden con su producto' }, { status: 400 });
+        }
+      }
+    }
+
     const transfer = await prisma.$transaction(async (tx) => {
       // 1. Validar y Reservar Stock en Origen
       for (const item of items) {

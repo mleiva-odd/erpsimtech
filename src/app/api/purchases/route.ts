@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
 
+function isPositiveNumber(value: unknown) {
+  return Number.isFinite(Number(value)) && Number(value) > 0;
+}
+
 export async function GET(req: NextRequest) {
   const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
@@ -37,6 +41,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Faltan datos logísticos (proveedor o items).' }, { status: 400 });
   }
 
+  for (const item of items) {
+    if (!item?.productId || !isPositiveNumber(item.quantity) || !isPositiveNumber(item.cost)) {
+      return NextResponse.json({ error: 'Cada línea de compra debe tener producto, cantidad y costo válidos.' }, { status: 400 });
+    }
+  }
+
   try {
     const supplier = await prisma.supplier.findFirst({
       where: { id: supplierId, companyId: result.tenant.companyId, active: true },
@@ -67,6 +77,10 @@ export async function POST(req: NextRequest) {
         select: { id: true, productId: true },
       });
       const variantMap = new Map(variants.map((variant) => [variant.id, variant.productId]));
+
+      if (variants.length !== variantIds.length) {
+        return NextResponse.json({ error: 'Hay variantes que no pertenecen a esta empresa' }, { status: 400 });
+      }
 
       for (const item of items) {
         if (item.variantId && variantMap.get(item.variantId) !== item.productId) {
@@ -146,11 +160,18 @@ export async function POST(req: NextRequest) {
            });
         }
 
-        // Si el precio del proveedor cambia, nosotros ajustamos el Costo base
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { cost: item.unitCost }
-        });
+        // Persist the latest acquisition cost on the concrete SKU that was received.
+        if (item.variantId) {
+          await tx.productVariant.update({
+            where: { id: item.variantId },
+            data: { cost: item.unitCost }
+          });
+        } else {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { cost: item.unitCost }
+          });
+        }
       }
 
       return po;

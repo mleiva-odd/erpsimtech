@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { requireBranchAccess, requireRole } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { z } from 'zod';
@@ -10,6 +11,64 @@ const AdjustmentSchema = z.object({
   newQuantity: z.number().int().min(0, 'La cantidad no puede ser negativa'),
   reason: z.string().min(2, 'El motivo es obligatorio'),
 });
+
+async function setProductStockQuantity(tx: Prisma.TransactionClient, input: {
+  productId: string;
+  branchId: string;
+  variantId: string | null;
+  quantity: number;
+  minStock?: number;
+}) {
+  const minStock = input.minStock ?? 5;
+
+  if (input.variantId) {
+    await tx.productStock.upsert({
+      where: {
+        productId_branchId_variantId: {
+          productId: input.productId,
+          branchId: input.branchId,
+          variantId: input.variantId,
+        }
+      },
+      update: { quantity: input.quantity, minStock },
+      create: {
+        productId: input.productId,
+        branchId: input.branchId,
+        variantId: input.variantId,
+        quantity: input.quantity,
+        minStock,
+      }
+    });
+    return;
+  }
+
+  const existing = await tx.productStock.findFirst({
+    where: {
+      productId: input.productId,
+      branchId: input.branchId,
+      variantId: null,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await tx.productStock.update({
+      where: { id: existing.id },
+      data: { quantity: input.quantity, minStock },
+    });
+    return;
+  }
+
+  await tx.productStock.create({
+    data: {
+      productId: input.productId,
+      branchId: input.branchId,
+      variantId: null,
+      quantity: input.quantity,
+      minStock,
+    }
+  });
+}
 
 /**
  * GET: Consultar historial de ajustes de inventario
@@ -101,7 +160,7 @@ export async function POST(req: NextRequest) {
         where: { 
           productId, 
           branchId, 
-          variantId: (variantId || null) as string 
+          variantId: variantId || null,
         }
       });
 
@@ -116,7 +175,7 @@ export async function POST(req: NextRequest) {
           companyId: tenant.companyId,
           branchId,
           productId,
-          variantId: (variantId || null) as string,
+          variantId: variantId || null,
           userId: tenant.userId,
           oldQuantity,
           newQuantity,
@@ -126,22 +185,12 @@ export async function POST(req: NextRequest) {
       });
 
       // 4. Actualizar el stock físico
-      await tx.productStock.upsert({
-        where: { 
-          productId_branchId_variantId: { 
-            productId, 
-            branchId, 
-            variantId: (variantId || null) as string 
-          } 
-        },
-        update: { quantity: newQuantity },
-        create: {
-          productId,
-          branchId,
-          variantId: (variantId || null) as string,
-          quantity: newQuantity,
-          minStock: 5 // Default
-        }
+      await setProductStockQuantity(tx, {
+        productId,
+        branchId,
+        variantId: variantId || null,
+        quantity: newQuantity,
+        minStock: 5,
       });
 
       return newAdjustment;

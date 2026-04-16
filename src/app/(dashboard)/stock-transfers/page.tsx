@@ -23,6 +23,10 @@ interface TransferHistory {
   items: { quantity: number; product: { name: string; sku: string; } }[];
 }
 
+function cartItemKey(productId: string, variantId?: string) {
+  return `${productId}:${variantId || 'base'}`;
+}
+
 export default function StockTransfersPage() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<'NEW' | 'HISTORY'>('NEW');
@@ -83,20 +87,39 @@ export default function StockTransfersPage() {
     }
 
     setCart(prev => {
-      const exists = prev.find(item => item.product.id === product.id && item.variantId === product.variantId);
+      const key = cartItemKey(product.id, product.variantId);
+      const exists = prev.find(item => cartItemKey(item.product.id, item.variantId) === key);
       if (exists) {
         if (exists.quantity >= originStock) return prev;
-        return prev.map(item => (item.product.id === product.id && item.variantId === product.variantId) ? { ...item, quantity: item.quantity + 1 } : item);
+        return prev.map(item => (cartItemKey(item.product.id, item.variantId) === key) ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { product, quantity: 1, variantId: product.variantId }];
     });
   };
 
-  const updateCartQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) return setCart(prev => prev.filter(item => item.product.id !== productId));
-    const stockMax = products.find(p => p.id === productId)?.stocks?.find(s => s.branchId === fromBranchId)?.quantity ?? 0;
+  const updateCartQuantity = (productId: string, variantId: string | undefined, quantity: number) => {
+    if (quantity <= 0) {
+      return setCart(prev => prev.filter(item => cartItemKey(item.product.id, item.variantId) !== cartItemKey(productId, variantId)));
+    }
+    const stockMax = products
+      .flatMap((product: any) => {
+        if (product.hasVariants && product.variants?.length > 0) {
+          return product.variants.map((variant: any) => ({
+            id: product.id,
+            variantId: variant.id,
+            stocks: variant.stocks || [],
+          }));
+        }
+        return [{ id: product.id, variantId: undefined, stocks: product.stocks || [] }];
+      })
+      .find((product) => cartItemKey(product.id, product.variantId) === cartItemKey(productId, variantId))
+      ?.stocks?.find((stock: any) => stock.branchId === fromBranchId)?.quantity ?? 0;
     const finalQty = Math.min(quantity, stockMax);
-    setCart(prev => prev.map(item => item.product.id === productId ? { ...item, quantity: finalQty } : item));
+    setCart(prev => prev.map(item => (
+      cartItemKey(item.product.id, item.variantId) === cartItemKey(productId, variantId)
+        ? { ...item, quantity: finalQty }
+        : item
+    )));
   };
 
   const handleTransfer = async (e: React.FormEvent) => {
@@ -312,10 +335,10 @@ export default function StockTransfersPage() {
                         <tr><td colSpan={3} className="px-6 py-8 text-center text-slate-500">Agregue productos utilizando el buscador de arriba.</td></tr>
                       ) : (
                         cart.map(item => (
-                          <tr key={item.product.id} className="hover:bg-slate-50">
+                          <tr key={cartItemKey(item.product.id, item.variantId)} className="hover:bg-slate-50">
                             <td className="px-6 py-3"><p className="font-bold text-slate-800">{item.product.name}</p><p className="text-xs text-slate-500">{item.product.sku}</p></td>
-                            <td className="px-6 py-3 text-center"><input type="number" min="1" value={item.quantity} onChange={(e) => updateCartQuantity(item.product.id, parseInt(e.target.value) || 0)} className="w-20 text-center border border-slate-300 rounded px-2 py-1 text-slate-800 font-medium focus:outline-none focus:border-blue-500" /></td>
-                            <td className="px-6 py-3 text-center"><button type="button" onClick={() => updateCartQuantity(item.product.id, 0)} className="p-1.5 text-slate-600 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>
+                            <td className="px-6 py-3 text-center"><input type="number" min="1" value={item.quantity} onChange={(e) => updateCartQuantity(item.product.id, item.variantId, parseInt(e.target.value) || 0)} className="w-20 text-center border border-slate-300 rounded px-2 py-1 text-slate-800 font-medium focus:outline-none focus:border-blue-500" /></td>
+                            <td className="px-6 py-3 text-center"><button type="button" onClick={() => updateCartQuantity(item.product.id, item.variantId, 0)} className="p-1.5 text-slate-600 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>
                           </tr>
                         ))
                       )}

@@ -1,6 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole, requireTenant } from '@/lib/tenant';
+
+async function upsertBaseStock(tx: Prisma.TransactionClient, input: {
+  productId: string;
+  branchId: string;
+  quantity: number;
+  minStock: number;
+}) {
+  const existing = await tx.productStock.findFirst({
+    where: {
+      productId: input.productId,
+      branchId: input.branchId,
+      variantId: null,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await tx.productStock.update({
+      where: { id: existing.id },
+      data: {
+        quantity: input.quantity,
+        minStock: input.minStock,
+      }
+    });
+    return;
+  }
+
+  await tx.productStock.create({
+    data: {
+      productId: input.productId,
+      branchId: input.branchId,
+      variantId: null,
+      quantity: input.quantity,
+      minStock: input.minStock,
+    }
+  });
+}
 
 export async function GET(
   req: NextRequest,
@@ -146,25 +184,11 @@ export async function PUT(
             }
          } else {
             // Producto estándar: Actualizar solo el stock de la sucursal actual
-            await tx.productStock.upsert({
-               where: { 
-                 productId_branchId_variantId: { 
-                   productId: resolvedParams.id, 
-                   branchId: branchId, 
-                   variantId: (null as any) 
-                 } 
-               },
-               update: {
-                 quantity: Number(body.stock ?? 0),
-                 minStock: Number(body.minStock ?? 5),
-               },
-               create: {
-                 productId: resolvedParams.id,
-                 branchId,
-                 variantId: (null as any),
-                 quantity: Number(body.stock ?? 0),
-                 minStock: Number(body.minStock ?? 5),
-               }
+            await upsertBaseStock(tx, {
+              productId: resolvedParams.id,
+              branchId,
+              quantity: Number(body.stock ?? 0),
+              minStock: Number(body.minStock ?? 5),
             });
          }
       }

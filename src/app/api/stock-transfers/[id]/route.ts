@@ -1,7 +1,108 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
+import type { TenantContext } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
+
+async function incrementProductStock(tx: Prisma.TransactionClient, input: {
+  productId: string;
+  branchId: string;
+  variantId: string | null;
+  quantity: number;
+}) {
+  if (input.variantId) {
+    await tx.productStock.upsert({
+      where: {
+        productId_branchId_variantId: {
+          productId: input.productId,
+          branchId: input.branchId,
+          variantId: input.variantId,
+        }
+      },
+      update: { quantity: { increment: input.quantity } },
+      create: {
+        productId: input.productId,
+        branchId: input.branchId,
+        variantId: input.variantId,
+        quantity: input.quantity,
+        minStock: 5,
+      }
+    });
+    return;
+  }
+
+  const existing = await tx.productStock.findFirst({
+    where: {
+      productId: input.productId,
+      branchId: input.branchId,
+      variantId: null,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await tx.productStock.update({
+      where: { id: existing.id },
+      data: { quantity: { increment: input.quantity } },
+    });
+    return;
+  }
+
+  await tx.productStock.create({
+    data: {
+      productId: input.productId,
+      branchId: input.branchId,
+      variantId: null,
+      quantity: input.quantity,
+      minStock: 5,
+    }
+  });
+}
+
+async function receiveTransfer(transferId: string, tenant: TenantContext) {
+  const transfer = await prisma.stockTransfer.findFirst({
+    where: { id: transferId, companyId: tenant.companyId },
+    include: { items: true }
+  });
+
+  if (!transfer) return NextResponse.json({ error: 'Traslado no encontrado' }, { status: 404 });
+  if (transfer.status !== 'PENDING') return NextResponse.json({ error: 'Este traslado ya no se puede modificar' }, { status: 400 });
+
+  const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+  if (!isAdmin && transfer.toBranchId !== tenant.branchId) {
+    return NextResponse.json({
+      error: 'No tienes permiso para recibir mercadería en una sucursal que no es la tuya.'
+    }, { status: 403 });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.stockTransfer.update({
+      where: { id: transfer.id },
+      data: { status: 'COMPLETED' }
+    });
+
+    for (const item of transfer.items) {
+      await incrementProductStock(tx, {
+        productId: item.productId,
+        branchId: transfer.toBranchId,
+        variantId: item.variantId || null,
+        quantity: item.quantity,
+      });
+    }
+  });
+
+  createAuditLog({
+    companyId: tenant.companyId,
+    userId: tenant.userId,
+    action: 'STOCK_TRANSFER_RECEIVED',
+    entity: 'StockTransfer',
+    entityId: transfer.id,
+    details: { from: transfer.fromBranchId, to: transfer.toBranchId }
+  });
+
+  return NextResponse.json({ message: 'Mercadería recibida y cargada al inventario local exitosamente.' });
+}
 
 /**
  * Gestión individual de Remisiones (Detalle, Recepción y Anulación)
@@ -49,66 +150,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   try {
-    const transfer = await prisma.stockTransfer.findFirst({
-      where: { id: id, companyId: tenant.companyId },
-      include: { items: true }
-    });
-
-    if (!transfer) return NextResponse.json({ error: 'Traslado no encontrado' }, { status: 404 });
-    if (transfer.status !== 'PENDING') return NextResponse.json({ error: 'Este traslado ya no se puede modificar' }, { status: 400 });
-
-    // SEGURIDAD: Cada supervisor se hace cargo de su propia tienda (Recepción)
-    const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
-    if (!isAdmin && transfer.toBranchId !== tenant.branchId) {
-      return NextResponse.json({ 
-        error: 'No tienes permiso para recibir mercadería en una sucursal que no es la tuya.' 
-      }, { status: 403 });
-    }
-
-    await prisma.$transaction(async (tx) => {
-      // 1. Marcar como completado
-      await tx.stockTransfer.update({
-        where: { id: transfer.id },
-        data: { status: 'COMPLETED' }
-      });
-
-      // 2. Incrementar stock en destino para cada item
-      for (const item of transfer.items) {
-        // Usamos upsert por si el producto aún no tiene registro en la sucursal de destino
-        await tx.productStock.upsert({
-          where: {
-            productId_branchId_variantId: {
-              productId: item.productId,
-              branchId: transfer.toBranchId,
-              variantId: (item.variantId || null) as any
-            }
-          },
-          update: { quantity: { increment: item.quantity } },
-          create: {
-            productId: item.productId,
-            branchId: transfer.toBranchId,
-            variantId: (item.variantId || null) as string,
-            quantity: item.quantity,
-            minStock: 5 // Valor por defecto inicial
-          }
-        });
-      }
-    });
-
-    createAuditLog({
-      companyId: tenant.companyId,
-      userId: tenant.userId,
-      action: 'STOCK_TRANSFER_RECEIVED',
-      entity: 'StockTransfer',
-      entityId: transfer.id,
-      details: { from: transfer.fromBranchId, to: transfer.toBranchId }
-    });
-
-    return NextResponse.json({ message: 'Mercadería recibida y cargada al inventario local exitosamente.' });
+    return await receiveTransfer(id, tenant);
   } catch (error) {
     console.error('Reception error:', error);
     return NextResponse.json({ error: 'Error al procesar la recepción' }, { status: 500 });
   }
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  return PUT(req, { params });
 }
 
 /**
@@ -147,14 +197,21 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
       // 2. Regresar stock al origen
       for (const item of transfer.items) {
-        await tx.productStock.update({
+        const originStock = await tx.productStock.findFirst({
           where: {
-            productId_branchId_variantId: {
-              productId: item.productId,
-              branchId: transfer.fromBranchId,
-              variantId: (item.variantId || null) as any
-            }
+            productId: item.productId,
+            branchId: transfer.fromBranchId,
+            variantId: item.variantId || null,
           },
+          select: { id: true },
+        });
+
+        if (!originStock) {
+          throw new Error('No se encontró el stock de origen para revertir el traslado.');
+        }
+
+        await tx.productStock.update({
+          where: { id: originStock.id },
           data: { quantity: { increment: item.quantity } }
         });
       }

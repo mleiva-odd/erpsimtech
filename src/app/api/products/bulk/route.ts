@@ -1,6 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
+
+async function upsertBaseStock(tx: Prisma.TransactionClient, input: {
+  productId: string;
+  branchId: string;
+  quantity: number;
+  minStock: number;
+}) {
+  const existing = await tx.productStock.findFirst({
+    where: {
+      productId: input.productId,
+      branchId: input.branchId,
+      variantId: null,
+    },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await tx.productStock.update({
+      where: { id: existing.id },
+      data: {
+        quantity: input.quantity,
+        minStock: input.minStock,
+      }
+    });
+    return;
+  }
+
+  await tx.productStock.create({
+    data: {
+      productId: input.productId,
+      branchId: input.branchId,
+      variantId: null,
+      quantity: input.quantity,
+      minStock: input.minStock,
+    }
+  });
+}
 
 export async function POST(req: NextRequest) {
   const result = await requireRole('ADMIN');
@@ -75,25 +113,11 @@ export async function POST(req: NextRequest) {
 
           if (exists) {
             // Inteligencia Multi-sucursal: Si existe el producto global, aseguramos el stock para esta sucursal
-            await tx.productStock.upsert({
-              where: { 
-                productId_branchId_variantId: { 
-                  productId: exists.id, 
-                  branchId, 
-                  variantId: (null as any) 
-                } 
-              },
-              update: { 
-                quantity: Number(firstRow.stock) || 0,
-                minStock: Number(firstRow.minStock) || 5
-              },
-              create: { 
-                productId: exists.id, 
-                branchId, 
-                variantId: (null as any),
-                quantity: Number(firstRow.stock) || 0,
-                minStock: Number(firstRow.minStock) || 5
-              }
+            await upsertBaseStock(tx, {
+              productId: exists.id,
+              branchId,
+              quantity: Number(firstRow.stock) || 0,
+              minStock: Number(firstRow.minStock) || 5,
             });
             count++;
             continue;

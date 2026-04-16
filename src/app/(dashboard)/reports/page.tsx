@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale';
 import { Printer, RefreshCw, BarChart3, TrendingUp, AlertCircle, Download, FileText, Lock } from 'lucide-react';
 import { TicketModal } from '@/components/pos/TicketModal';
 import { useBranchStore } from '@/stores/branchStore';
+import { useToast } from '@/components/ui/toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -39,6 +40,7 @@ export default function ReportsPage() {
   const [isSubmittingClose, setIsSubmittingClose] = useState(false);
 
   const { selectedBranchId } = useBranchStore();
+  const { toast } = useToast();
 
   const fetchSalesAndRegister = async () => {
     setIsLoading(true);
@@ -84,10 +86,14 @@ export default function ReportsPage() {
       if (res.ok) {
         setIsClosingModalOpen(false);
         fetchSalesAndRegister();
+        toast({ tone: 'success', message: 'Caja cerrada correctamente.' });
       } else {
-         alert('Hubo un error al cerrar la caja.');
+         toast({ tone: 'error', message: 'Hubo un error al cerrar la caja.' });
       }
-    } catch(e) { console.error(e) } finally {
+    } catch(e) {
+      console.error(e);
+      toast({ tone: 'error', message: 'Error de red al cerrar la caja.' });
+    } finally {
       setIsSubmittingClose(false);
     }
   };

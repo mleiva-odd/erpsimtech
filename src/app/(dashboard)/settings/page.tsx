@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Save, Building2, Receipt, CreditCard, DollarSign } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -20,8 +21,8 @@ export default function SettingsPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'general' | 'fel' | 'payments'>('general');
+  const { toast } = useToast();
 
   useEffect(() => {
     fetch('/api/settings')
@@ -56,7 +57,6 @@ export default function SettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    setSuccessMsg('');
 
     try {
       const res = await fetch('/api/settings', {
@@ -65,13 +65,13 @@ export default function SettingsPage() {
         body: JSON.stringify(formData),
       });
       if (res.ok) {
-        setSuccessMsg('Configuración guardada exitosamente.');
-        setTimeout(() => setSuccessMsg(''), 3000);
+        toast({ tone: 'success', message: 'Configuración guardada exitosamente.' });
       } else {
-        alert('Error al guardar.');
+        toast({ tone: 'error', message: 'Error al guardar.' });
       }
     } catch (error) {
       console.error(error);
+      toast({ tone: 'error', message: 'Error de conexión al guardar.' });
     } finally {
       setIsSaving(false);
     }
@@ -100,12 +100,6 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-slate-800">Configuración del Negocio</h1>
         <p className="text-sm text-slate-500">Datos fiscales, facturación electrónica y métodos de pago</p>
       </div>
-
-      {successMsg && (
-        <div className="bg-green-50 text-green-700 p-4 rounded-xl border border-green-200">
-          {successMsg}
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">

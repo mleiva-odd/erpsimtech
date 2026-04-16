@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import { ArrowRightLeft, Loader2, Search, Trash2, CheckCircle2, History, Printer, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 interface Branch { id: string; name: string; code: string; }
 interface Product { id: string; name: string; sku: string; stocks: { branchId: string; quantity: number }[]; variantId?: string; }
@@ -38,6 +40,8 @@ export default function StockTransfersPage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   // History State
   const [history, setHistory] = useState<TransferHistory[]>([]);
@@ -68,9 +72,15 @@ export default function StockTransfersPage() {
   }, [activeTab]);
 
   const handleAddToCart = (product: Product) => {
-    if (!fromBranchId) return alert("Seleccione una sucursal de origen primero.");
+    if (!fromBranchId) {
+      toast({ tone: 'error', message: 'Seleccione una sucursal de origen primero.' });
+      return;
+    }
     const originStock = product.stocks?.find(s => s.branchId === fromBranchId)?.quantity ?? 0;
-    if (originStock <= 0) return alert("Sin existencias en el origen seleccionado.");
+    if (originStock <= 0) {
+      toast({ tone: 'error', message: 'Sin existencias en el origen seleccionado.' });
+      return;
+    }
 
     setCart(prev => {
       const exists = prev.find(item => item.product.id === product.id && item.variantId === product.variantId);
@@ -111,13 +121,16 @@ export default function StockTransfersPage() {
       if (res.ok) {
         setResult({ type: 'success', message: data.message });
         setCart([]); setNotes('');
+        toast({ tone: 'success', message: data.message || 'Transferencia procesada correctamente.' });
         const [productData] = await Promise.all([ fetch('/api/products?limit=500').then(r => r.json()) ]);
         if (productData.products) setProducts(productData.products);
       } else {
         setResult({ type: 'error', message: data.error || 'Error procesando' });
+        toast({ tone: 'error', message: data.error || 'Error procesando' });
       }
     } catch (e) {
       setResult({ type: 'error', message: 'Error de red' });
+      toast({ tone: 'error', message: 'Error de red' });
     } finally {
       setIsSubmitting(false);
     }
@@ -129,7 +142,14 @@ export default function StockTransfersPage() {
   };
 
   const handleReceive = async (transferId: string) => {
-    if (!confirm('¿Confirma que ha recibido esta mercadería físicamente?')) return;
+    const accepted = await confirm({
+      title: 'Confirmar recepción',
+      message: '¿Confirma que ha recibido esta mercadería físicamente?',
+      confirmText: 'Sí, recibir',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!accepted) return;
     setIsLoadingHistory(true);
     try {
       const res = await fetch(`/api/stock-transfers/${transferId}`, {
@@ -139,15 +159,15 @@ export default function StockTransfersPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message);
+        toast({ tone: 'success', message: data.message || 'Mercadería recibida correctamente.' });
         const histRes = await fetch('/api/stock-transfers/history');
         const histData = await histRes.json();
         if (Array.isArray(histData)) setHistory(histData);
       } else {
-        alert(data.error);
+        toast({ tone: 'error', message: data.error || 'Error procesando recepción' });
       }
     } catch (e) {
-      alert('Error procesando recepción');
+      toast({ tone: 'error', message: 'Error procesando recepción' });
     } finally {
       setIsLoadingHistory(false);
     }

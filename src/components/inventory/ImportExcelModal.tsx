@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, UploadCloud, Download, FileSpreadsheet, AlertCircle, Loader2 } from 'lucide-react';
 import Papa from 'papaparse';
+import { useToast } from '@/components/ui/toast';
 
 interface ImportExcelModalProps {
   onClose: () => void;
@@ -13,6 +14,7 @@ export function ImportExcelModal({ onClose, onSuccess }: ImportExcelModalProps) 
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleDownloadTemplate = () => {
     const headers = "name,variantName,sku,barcode,categoryName,price,wholesalePrice,cost,stock,minStock,unitOfMeasure,isTaxExempt\n" + 
@@ -60,7 +62,7 @@ export function ImportExcelModal({ onClose, onSuccess }: ImportExcelModalProps) 
 
           const data = await res.json();
           if (res.ok) {
-            alert(`¡Éxito! Migración completada. ${data.inserted} productos procesados.`);
+            toast({ tone: 'success', message: `Migración completada. ${data.inserted} productos procesados.` });
             onSuccess();
           } else {
             setError(data.error || 'Error subiendo los productos.');

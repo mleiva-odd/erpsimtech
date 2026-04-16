@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, Trash2, Loader2, Plus, GripVertical, ImagePlus } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface Category {
   id: string;
@@ -44,6 +45,7 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
   });
 
   const [isUploading, setIsUploading] = useState(false);
+  const { toast } = useToast();
   
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,9 +59,9 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
       const res = await fetch('/api/upload', { method: 'POST', body: form });
       const data = await res.json();
       if (res.ok) setFormData({ ...formData, imageUrl: data.url });
-      else alert(data.error || 'Error subiendo la foto');
+      else toast({ tone: 'error', message: data.error || 'Error subiendo la foto' });
     } catch {
-      alert('Error de conexión de red');
+      toast({ tone: 'error', message: 'Error de conexión de red' });
     } finally {
       setIsUploading(false);
     }
@@ -93,7 +95,8 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (hasVariants && variants.length === 0) {
-      return alert("Si activas las variantes, debes agregar al menos una (Ej: Talla M).");
+      toast({ tone: 'error', message: 'Si activas las variantes, debes agregar al menos una (Ej: Talla M).' });
+      return;
     }
 
     setIsLoading(true);
@@ -118,10 +121,10 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
         onSuccess();
       } else {
         const data = await res.json();
-        alert(data.error || 'Error al guardar el formato estructural del producto.');
+        toast({ tone: 'error', message: data.error || 'Error al guardar el formato estructural del producto.' });
       }
     } catch (error) {
-      alert('Error de conexión estelar');
+      toast({ tone: 'error', message: 'Error de conexión estelar' });
     } finally {
       setIsLoading(false);
     }

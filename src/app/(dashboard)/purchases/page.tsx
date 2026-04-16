@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Inbox, Plus, Search, Trash2, ArrowLeft, Save, Loader2, PackageOpen } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { VariantSelectionModal } from '@/components/pos/VariantSelectionModal';
+import { useToast } from '@/components/ui/toast';
 
 interface Supplier { id: string; name: string; }
 interface Product { id: string; name: string; sku: string; cost: string; unitOfMeasure: string; hasVariants?: boolean; variants?: any[]; }
@@ -24,6 +25,7 @@ export default function PurchasesPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [variantModalProduct, setVariantModalProduct] = useState<Product | null>(null);
+  const { toast } = useToast();
 
   const debouncedSearch = useDebounce(searchQuery, 400);
 
@@ -82,8 +84,14 @@ export default function PurchasesPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedSupplier) return alert('Debes seleccionar un proveedor.');
-    if (cart.length === 0) return alert('Debes agregar al menos un producto a la recepción.');
+    if (!selectedSupplier) {
+      toast({ tone: 'error', message: 'Debes seleccionar un proveedor.' });
+      return;
+    }
+    if (cart.length === 0) {
+      toast({ tone: 'error', message: 'Debes agregar al menos un producto a la recepción.' });
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -102,11 +110,12 @@ export default function PurchasesPage() {
         setCart([]);
         setReference('');
         setSelectedSupplier('');
+        toast({ tone: 'success', message: 'Ingreso logístico procesado correctamente.' });
       } else {
         const errorData = await res.json();
-        alert(errorData.error || 'Error al procesar ingreso logístico.');
+        toast({ tone: 'error', message: errorData.error || 'Error al procesar ingreso logístico.' });
       }
-    } catch { alert('Corte de red crítico.'); } finally { setIsSubmitting(false); }
+    } catch { toast({ tone: 'error', message: 'Corte de red crítico.' }); } finally { setIsSubmitting(false); }
   };
 
   if (view === 'new') {

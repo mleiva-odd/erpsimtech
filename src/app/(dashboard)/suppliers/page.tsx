@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Truck, Plus, Edit2, Search, Trash2, Loader2, X, Save } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 interface Supplier {
   id: string;
@@ -22,6 +24,8 @@ export default function SuppliersPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -91,24 +95,38 @@ export default function SuppliersPage() {
         fetchSuppliers();
       } else {
         const data = await res.json();
-        alert(data.error || 'Error al guardar');
+        toast({ tone: 'error', message: data.error || 'Error al guardar' });
       }
     } catch {
-      alert('Error de red');
+      toast({ tone: 'error', message: 'Error de red' });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!selectedSupplier || !confirm('¿Estás seguro de desactivar (borrar) este proveedor? Sus registros de compra históricos se mantendrán.')) return;
+    if (!selectedSupplier) return;
+    const accepted = await confirm({
+      title: 'Desactivar proveedor',
+      message: '¿Estás seguro de desactivar este proveedor? Sus registros de compra históricos se mantendrán.',
+      confirmText: 'Desactivar',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     setIsSaving(true);
     try {
       const res = await fetch(`/api/suppliers/${selectedSupplier.id}`, { method: 'DELETE' });
       if (res.ok) {
         setIsModalOpen(false);
         fetchSuppliers();
+        toast({ tone: 'success', message: 'Proveedor desactivado correctamente.' });
+      } else {
+        const data = await res.json();
+        toast({ tone: 'error', message: data.error || 'Error al desactivar proveedor.' });
       }
+    } catch {
+      toast({ tone: 'error', message: 'Error de red' });
     } finally {
       setIsSaving(false);
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Trash2, Loader2, Search, Package, Plus } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useToast } from '@/components/ui/toast';
 
 interface BundleModalProps {
   product?: any;
@@ -17,6 +18,7 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
   const debouncedQuery = useDebounce(searchQuery, 300);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedParent, setSelectedParent] = useState<any>(null);
+  const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -90,7 +92,10 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (bundleItems.length < 2) return alert('Un combo debe tener al menos 2 productos.');
+    if (bundleItems.length < 2) {
+      toast({ tone: 'error', message: 'Un combo debe tener al menos 2 productos.' });
+      return;
+    }
 
     setIsLoading(true);
     const payload = {
@@ -112,9 +117,12 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
       });
 
       if (res.ok) onSuccess();
-      else alert((await res.json()).error || 'Error guardando combo');
+      else {
+        const data = await res.json();
+        toast({ tone: 'error', message: data.error || 'Error guardando combo' });
+      }
     } catch {
-      alert('Error de conexión');
+      toast({ tone: 'error', message: 'Error de conexión' });
     } finally {
       setIsLoading(false);
     }

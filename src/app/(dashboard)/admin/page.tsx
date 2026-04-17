@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Shield, Building2, Plus, Loader2, Check, X, AlertTriangle } from 'lucide-react';
+import { Shield, Building2, Plus, Loader2, Check, X, AlertTriangle, Edit2 } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 interface CompanyData {
   id: string;
@@ -18,20 +19,54 @@ interface CompanyData {
     plan: string;
     status: string;
     currentPeriodEnd: string | null;
+    maxBranches: number;
+    maxUsersPerBranch: number;
+    price: string | number;
   } | null;
 }
+
+type CompanyFormData = {
+  name: string;
+  slug: string;
+  email: string;
+  phone: string;
+  nit: string;
+  plan: string;
+  subscriptionStatus: string;
+  maxBranches: number;
+  maxUsersPerBranch: number;
+  price: number;
+  adminName: string;
+  adminEmail: string;
+  adminPassword: string;
+};
+
+const emptyFormData: CompanyFormData = {
+  name: '',
+  slug: '',
+  email: '',
+  phone: '',
+  nit: '',
+  plan: 'basic',
+  subscriptionStatus: 'TRIAL',
+  maxBranches: 3,
+  maxUsersPerBranch: 5,
+  price: 0,
+  adminName: '',
+  adminEmail: '',
+  adminPassword: '',
+};
 
 export default function AdminPage() {
   const { data: session } = useSession();
   const [companies, setCompanies] = useState<CompanyData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '', slug: '', email: '', phone: '', nit: '', plan: 'basic',
-    adminName: '', adminEmail: '', adminPassword: '',
-  });
+  const [selectedCompany, setSelectedCompany] = useState<CompanyData | null>(null);
+  const [formData, setFormData] = useState<CompanyFormData>(emptyFormData);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+  const { toast } = useToast();
 
   const fetchCompanies = async () => {
     setIsLoading(true);
@@ -56,10 +91,29 @@ export default function AdminPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/admin/companies', {
-        method: 'POST',
+      const isEditing = Boolean(selectedCompany);
+      const res = await fetch(isEditing ? `/api/admin/companies/${selectedCompany!.id}` : '/api/admin/companies', {
+        method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(
+          isEditing
+            ? {
+                name: formData.name,
+                slug: formData.slug,
+                email: formData.email,
+                phone: formData.phone,
+                nit: formData.nit,
+                active: selectedCompany?.active ?? true,
+                subscription: {
+                  plan: formData.plan,
+                  status: formData.subscriptionStatus,
+                  maxBranches: formData.maxBranches,
+                  maxUsersPerBranch: formData.maxUsersPerBranch,
+                  price: formData.price,
+                },
+              }
+            : formData
+        ),
       });
       const data = await res.json();
 
@@ -69,11 +123,10 @@ export default function AdminPage() {
       }
 
       setIsModalOpen(false);
-      setFormData({ 
-        name: '', slug: '', email: '', phone: '', nit: '', plan: 'basic',
-        adminName: '', adminEmail: '', adminPassword: '',
-      });
-      fetchCompanies();
+      setSelectedCompany(null);
+      setFormData(emptyFormData);
+      toast({ tone: 'success', message: isEditing ? 'Empresa actualizada correctamente.' : 'Empresa registrada correctamente.' });
+      void fetchCompanies();
     } catch (e) {
       setError('Error de conexión con el servidor');
     } finally {
@@ -86,12 +139,49 @@ export default function AdminPage() {
       await fetch(`/api/admin/companies/${company.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...company, active: !company.active }),
+        body: JSON.stringify({
+          name: company.name,
+          slug: company.slug,
+          email: company.email,
+          phone: company.phone,
+          nit: company.nit,
+          active: !company.active,
+          subscription: company.subscription,
+        }),
       });
-      fetchCompanies();
+      toast({ tone: 'success', message: company.active ? 'Empresa suspendida.' : 'Empresa reactivada.' });
+      void fetchCompanies();
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const openCreateModal = () => {
+    setSelectedCompany(null);
+    setError('');
+    setFormData(emptyFormData);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (company: CompanyData) => {
+    setSelectedCompany(company);
+    setError('');
+    setFormData({
+      name: company.name,
+      slug: company.slug,
+      email: company.email,
+      phone: company.phone || '',
+      nit: company.nit || '',
+      plan: company.subscription?.plan || 'basic',
+      subscriptionStatus: company.subscription?.status || 'ACTIVE',
+      maxBranches: company.subscription?.maxBranches || 1,
+      maxUsersPerBranch: company.subscription?.maxUsersPerBranch || 3,
+      price: Number(company.subscription?.price || 0),
+      adminName: '',
+      adminEmail: '',
+      adminPassword: '',
+    });
+    setIsModalOpen(true);
   };
 
   const generateSlug = (name: string) => {
@@ -119,7 +209,7 @@ export default function AdminPage() {
           <p className="text-[13px] text-slate-500 font-medium mt-1">Supervisión y gestión de ecosistemas de empresas</p>
         </div>
         <button
-          onClick={() => { setError(''); setIsModalOpen(true); }}
+          onClick={openCreateModal}
           className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-amber-500/20 flex items-center gap-2.5 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4" /> Registrar Empresa
@@ -210,6 +300,13 @@ export default function AdminPage() {
                     <td className="px-6 py-5 text-center">
                       <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
                         <button
+                          onClick={() => openEditModal(company)}
+                          className="mr-2 p-3 rounded-2xl bg-sky-50 text-sky-500 transition-all shadow-sm hover:bg-sky-600 hover:text-white hover:shadow-sky-500/10 active:scale-90"
+                          title="Editar empresa y suscripción"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => toggleCompanyStatus(company)}
                           className={`p-3 rounded-2xl transition-all shadow-sm hover:shadow-xl active:scale-90 ${
                             company.active
@@ -242,7 +339,7 @@ export default function AdminPage() {
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-300">
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-amber-50/30">
               <h2 className="font-bold text-xl text-slate-800 flex items-center gap-3">
-                <Building2 className="w-6 h-6 text-amber-600" /> Registro de Nueva Empresa
+                <Building2 className="w-6 h-6 text-amber-600" /> {selectedCompany ? 'Editar Empresa' : 'Registro de Nueva Empresa'}
               </h2>
               <button 
                  onClick={() => setIsModalOpen(false)} 
@@ -313,6 +410,7 @@ export default function AdminPage() {
                   {/* Columna 2: Usuario e Inversión */}
                   <div className="space-y-8">
                     {/* Usuario */}
+                    {!selectedCompany && (
                     <div className="space-y-5">
                       <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
                          <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
@@ -348,6 +446,7 @@ export default function AdminPage() {
                         </div>
                       </div>
                     </div>
+                    )}
 
                     {/* Plan */}
                     <div className="pt-2">
@@ -360,6 +459,37 @@ export default function AdminPage() {
                         <option value="enterprise">Plan Enterprise (Corporativo)</option>
                       </select>
                     </div>
+
+                    {selectedCompany && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                          <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase ml-1">Estado de Suscripción</label>
+                          <select
+                            value={formData.subscriptionStatus}
+                            onChange={e => setFormData({ ...formData, subscriptionStatus: e.target.value })}
+                            className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl bg-white font-bold text-slate-700 outline-none focus:ring-4 focus:ring-amber-50 text-sm"
+                          >
+                            <option value="TRIAL">TRIAL</option>
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="PAST_DUE">PAST_DUE</option>
+                            <option value="SUSPENDED">SUSPENDED</option>
+                            <option value="CANCELLED">CANCELLED</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Sucursales Máx.</label>
+                          <input type="number" min={1} value={formData.maxBranches} onChange={e => setFormData({ ...formData, maxBranches: Number(e.target.value) })} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Usuarios por Sucursal</label>
+                          <input type="number" min={1} value={formData.maxUsersPerBranch} onChange={e => setFormData({ ...formData, maxUsersPerBranch: Number(e.target.value) })} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold" />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Precio del Plan</label>
+                          <input type="number" step="0.01" min={0} value={formData.price} onChange={e => setFormData({ ...formData, price: Number(e.target.value) })} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold" />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -380,7 +510,7 @@ export default function AdminPage() {
                 <button type="submit" disabled={isSaving}
                   className="px-10 py-3 bg-slate-900 text-white rounded-2xl hover:bg-black disabled:opacity-50 font-bold shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-3 active:scale-95 text-sm">
                   {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  Finalizar Registro
+                  {selectedCompany ? 'Guardar Cambios' : 'Finalizar Registro'}
                 </button>
               </div>
             </form>

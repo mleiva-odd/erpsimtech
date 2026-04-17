@@ -3,6 +3,20 @@ import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
 import bcrypt from 'bcryptjs';
 
+function getPlanDefaults(plan: string) {
+  switch (plan) {
+    case 'basic':
+      return { status: 'ACTIVE' as const, maxBranches: 1, maxUsersPerBranch: 3, price: 0 };
+    case 'professional':
+      return { status: 'ACTIVE' as const, maxBranches: 3, maxUsersPerBranch: 5, price: 0 };
+    case 'enterprise':
+      return { status: 'ACTIVE' as const, maxBranches: 10, maxUsersPerBranch: 15, price: 0 };
+    case 'trial':
+    default:
+      return { status: 'TRIAL' as const, maxBranches: 2, maxUsersPerBranch: 3, price: 0 };
+  }
+}
+
 // Super Admin: List all companies
 export async function GET(req: NextRequest) {
   const result = await requireRole('SUPER_ADMIN');
@@ -13,7 +27,7 @@ export async function GET(req: NextRequest) {
       include: {
         _count: { select: { branches: true, users: true, sales: true } },
         subscription: {
-          select: { plan: true, status: true, currentPeriodEnd: true },
+          select: { plan: true, status: true, currentPeriodEnd: true, maxBranches: true, maxUsersPerBranch: true, price: true },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -32,6 +46,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { name, slug, email, phone, nit, plan, adminName, adminEmail, adminPassword } = body;
+    const selectedPlan = plan || 'trial';
+    const planDefaults = getPlanDefaults(selectedPlan);
 
     // Validación estricta de campos obligatorios
     if (!name || !slug || !email || !adminName || !adminEmail || !adminPassword) {
@@ -71,13 +87,14 @@ export async function POST(req: NextRequest) {
           },
           subscription: {
             create: {
-              plan: plan || 'trial',
-              status: 'TRIAL',
-              maxBranches: 3,
-              maxUsersPerBranch: 5,
+              plan: selectedPlan,
+              status: planDefaults.status,
+              maxBranches: planDefaults.maxBranches,
+              maxUsersPerBranch: planDefaults.maxUsersPerBranch,
+              price: planDefaults.price,
               currentPeriodStart: new Date(),
               currentPeriodEnd: trialEnd,
-              trialEndsAt: trialEnd,
+              trialEndsAt: selectedPlan === 'trial' ? trialEnd : null,
             },
           },
         },

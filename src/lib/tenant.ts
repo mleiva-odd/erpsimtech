@@ -53,6 +53,28 @@ export async function requireTenant(): Promise<
 }
 
 /**
+ * Requires authentication and an attached company context.
+ * Super admins without a company should use global SaaS routes instead.
+ */
+export async function requireCompanyTenant(): Promise<
+  { tenant: TenantContext } | { error: NextResponse }
+> {
+  const result = await requireTenant();
+  if ('error' in result) return result;
+
+  if (!result.tenant.companyId) {
+    return {
+      error: NextResponse.json(
+        { error: 'Este recurso requiere una empresa activa en contexto' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return result;
+}
+
+/**
  * Requires a specific role or higher.
  * Role hierarchy: SUPER_ADMIN > ADMIN > SUPERVISOR > CASHIER
  */

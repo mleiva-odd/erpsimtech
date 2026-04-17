@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant, requireRole } from '@/lib/tenant';
+import { requireCompanyTenant, requireRole } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { z } from 'zod';
 
@@ -40,7 +40,7 @@ function sanitizeSettings<T extends { felApiUser?: string | null; felApiKey?: st
 }
 
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireCompanyTenant();
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -76,6 +76,10 @@ export async function PUT(req: NextRequest) {
   const result = await requireRole('ADMIN');
   if ('error' in result) return result.error;
   const { tenant } = result;
+
+  if (!tenant.companyId) {
+    return NextResponse.json({ error: 'Este recurso requiere una empresa activa en contexto' }, { status: 403 });
+  }
 
   try {
     const body = await req.json();

@@ -441,7 +441,7 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       user: { select: { name: true } },
-      customer: { select: { name: true } },
+      customer: { select: { id: true, name: true } },
       branch: { select: { name: true } },
       items: { include: { product: { select: { name: true } } } },
       payments: true,

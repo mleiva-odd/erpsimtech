@@ -32,6 +32,7 @@ interface ProductData {
 export default function InventoryPage() {
   const [products, setProducts] = useState<ProductData[]>([]);
   const [query, setQuery] = useState('');
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,9 +51,10 @@ export default function InventoryPage() {
     async function loadProducts() {
       setLoading(true);
       const branchQuery = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
+      const lowStockQuery = showLowStockOnly ? '&lowStock=true' : '';
 
       try {
-        const res = await fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=50${branchQuery}`);
+        const res = await fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=50${branchQuery}${lowStockQuery}`);
         const data = await res.json();
 
         if (active) {
@@ -70,13 +72,14 @@ export default function InventoryPage() {
     return () => {
       active = false;
     };
-  }, [debouncedQuery, selectedBranchId]);
+  }, [debouncedQuery, selectedBranchId, showLowStockOnly]);
 
   const refreshProducts = async () => {
     setLoading(true);
     try {
       const branchQuery = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
-      const res = await fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=50${branchQuery}`);
+      const lowStockQuery = showLowStockOnly ? '&lowStock=true' : '';
+      const res = await fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=50${branchQuery}${lowStockQuery}`);
       const data = await res.json();
       setProducts(data.products || []);
     } finally {
@@ -157,6 +160,12 @@ export default function InventoryPage() {
             className="w-full pl-11 pr-4 py-3 border-2 border-slate-50 bg-slate-50/50 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 focus:bg-white transition-all text-sm font-semibold"
           />
         </div>
+        <button
+          onClick={() => setShowLowStockOnly((current) => !current)}
+          className={`shrink-0 rounded-2xl px-4 py-3 text-sm font-bold transition ${showLowStockOnly ? 'bg-rose-600 text-white shadow-lg shadow-rose-500/20' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+        >
+          {showLowStockOnly ? 'Mostrando Bajo Stock' : 'Solo Bajo Stock'}
+        </button>
       </div>
 
       {/* Tabla */}

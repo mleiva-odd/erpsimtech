@@ -6,6 +6,9 @@ import { requireBranchAccess, requireRole } from '@/lib/tenant';
 export async function GET(req: Request) {
   const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
+  if (!result.tenant.companyId) {
+    return NextResponse.json({ error: 'Este recurso requiere una empresa activa en contexto' }, { status: 403 });
+  }
   const { tenant } = result;
 
   try {

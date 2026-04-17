@@ -33,7 +33,8 @@ export default function AppLauncher() {
   }
 
   const role = session?.user?.role;
-  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const hasCompanyContext = Boolean(session?.user?.companyId);
+  const isAdmin = role === 'ADMIN';
   const isSupervisor = role === 'SUPERVISOR' || isAdmin;
   const isSuperAdmin = role === 'SUPER_ADMIN';
 
@@ -95,9 +96,18 @@ export default function AppLauncher() {
             {/* Right Actions */}
             <div className="flex items-center gap-3">
               {/* Notifications */}
-              <button className="relative p-2 hover:bg-slate-100 rounded-lg transition-colors">
+              <button
+                onClick={() => {
+                  if (hasCompanyContext) {
+                    router.push('/notifications');
+                  }
+                }}
+                className={`relative p-2 rounded-lg transition-colors ${hasCompanyContext ? 'hover:bg-slate-100' : 'cursor-not-allowed opacity-40'}`}
+                disabled={!hasCompanyContext}
+                title={hasCompanyContext ? 'Ver notificaciones' : 'Las notificaciones requieren una empresa activa'}
+              >
                 <Bell className="h-5 w-5 text-slate-600" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                {hasCompanyContext && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>}
               </button>
 
               {/* User Menu */}

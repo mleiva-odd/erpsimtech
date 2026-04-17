@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireTenant, requireRole } from '@/lib/tenant';
 import { z } from 'zod';
@@ -23,6 +24,7 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') ?? '1');
   const limit = parseInt(searchParams.get('limit') ?? '24');
   const requestedBranchId = searchParams.get('branchId');
+  const lowStockOnly = searchParams.get('lowStock') === 'true';
 
   const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
 
@@ -52,9 +54,30 @@ export async function GET(req: NextRequest) {
     ...(categoryId && { categoryId }),
   };
 
+  let lowStockProductIds: string[] | null = null;
+  if (lowStockOnly) {
+    const lowStockRows = await prisma.$queryRaw<Array<{ productId: string }>>`
+      SELECT DISTINCT ps."productId"
+      FROM "ProductStock" ps
+      JOIN "Product" p ON p.id = ps."productId"
+      WHERE p."companyId" = ${tenant.companyId}
+        AND p.active = true
+        AND ps.quantity <= ps."minStock"
+        ${targetBranchId ? Prisma.sql`AND ps."branchId" = ${targetBranchId}` : Prisma.empty}
+    `;
+
+    lowStockProductIds = lowStockRows.map((row) => row.productId);
+    if (lowStockProductIds.length === 0) {
+      return NextResponse.json({ products: [], total: 0, page, limit });
+    }
+  }
+
   const [products, total] = await Promise.all([
     prisma.product.findMany({
-      where,
+      where: {
+        ...where,
+        ...(lowStockProductIds ? { id: { in: lowStockProductIds } } : {}),
+      },
       include: {
         category: { select: { id: true, name: true } },
         stocks: targetBranchId
@@ -72,7 +95,12 @@ export async function GET(req: NextRequest) {
       skip: (page - 1) * limit,
       orderBy: { name: 'asc' },
     }),
-    prisma.product.count({ where }),
+    prisma.product.count({
+      where: {
+        ...where,
+        ...(lowStockProductIds ? { id: { in: lowStockProductIds } } : {}),
+      },
+    }),
   ]);
 
   // Map stock data for backward compatibility with frontend, inject matrix computations

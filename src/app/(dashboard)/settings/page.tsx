@@ -36,7 +36,7 @@ const PAYMENT_METHOD_OPTIONS: Array<{ key: PaymentMethodSettingKey; label: strin
 ];
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [formData, setFormData] = useState<SettingsFormData>({
     storeName: '', address: '', phone: '', nit: '', receiptMsg: '',
     // FEL
@@ -53,8 +53,20 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'fel' | 'payments'>('general');
   const { toast } = useToast();
+  const hasCompanyContext = Boolean(session?.user?.companyId);
+  const canAccess = session?.user?.role === 'ADMIN' && hasCompanyContext;
 
   useEffect(() => {
+    if (status === 'loading') {
+      return;
+    }
+
+    if (!canAccess) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
     fetch('/api/settings')
       .then(r => r.json())
       .then(data => {
@@ -82,7 +94,11 @@ export default function SettingsPage() {
         }
         setIsLoading(false);
       });
-  }, []);
+  }, [canAccess, status]);
+
+  if (status === 'loading') {
+    return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,11 +125,11 @@ export default function SettingsPage() {
 
   if (isLoading) return <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>;
 
-  if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') {
+  if (!canAccess) {
     return (
       <div className="flex flex-col items-center justify-center p-10 bg-red-50 text-red-600 rounded-2xl m-8">
         <h2 className="font-bold text-xl mb-2">Acceso Denegado</h2>
-        <p>Solo el Administrador puede editar la configuración.</p>
+        <p>La configuración del negocio solo puede editarse dentro de una empresa activa.</p>
       </div>
     );
   }

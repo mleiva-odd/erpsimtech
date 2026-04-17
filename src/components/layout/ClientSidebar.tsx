@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { 
   Home, Store, Settings, Package, Users, BarChart3, 
-  Building2, Shield, ArrowRightLeft, Activity, 
+  Building2, Shield, ArrowRightLeft, Activity, Bell,
   ChevronLeft, ChevronRight, Truck, Inbox
 } from 'lucide-react';
 import { NotificationsMenu } from '@/components/layout/NotificationsMenu';
@@ -57,10 +57,11 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
   // RSC and CSR sync resolution to avoid ghost-flashes on soft navigation
   const activeSession = sessionData || initialSession;
   const reliableRole = activeSession?.user?.role || propRole;
+  const hasCompanyContext = Boolean(activeSession?.user?.companyId);
   
   const isSuperAdmin = reliableRole === 'SUPER_ADMIN' || propIsSuperAdmin;
-  const isAdmin = reliableRole === 'ADMIN' || isSuperAdmin || propIsAdmin;
-  const isSupervisor = reliableRole === 'SUPERVISOR' || isAdmin || propIsSupervisor;
+  const isAdmin = reliableRole === 'ADMIN' || (!isSuperAdmin && propIsAdmin);
+  const isSupervisor = reliableRole === 'SUPERVISOR' || isAdmin || (!isSuperAdmin && propIsSupervisor);
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
@@ -100,6 +101,9 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
         {/* Operación Base (Cajeros) */}
         <NavItem href="/pos" icon={<Store className="w-5 h-5" />} label="Punto de Venta" pathname={pathname || ''} isCollapsed={isCollapsed} />
         <NavItem href="/customers" icon={<Users className="w-5 h-5" />} label="Clientes" pathname={pathname || ''} isCollapsed={isCollapsed} />
+        {hasCompanyContext && (
+          <NavItem href="/notifications" icon={<Bell className="w-5 h-5" />} label="Notificaciones" pathname={pathname || ''} isCollapsed={isCollapsed} />
+        )}
         
         {/* Jefatura / Operación Pesada (Supervisores y Admins) */}
         {isSupervisor && (
@@ -150,9 +154,11 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
               </div>
             )}
           </div>
-          <div className={isCollapsed ? '' : ''}>
-             <NotificationsMenu />
-          </div>
+          {hasCompanyContext && (
+            <div className={isCollapsed ? '' : ''}>
+              <NotificationsMenu />
+            </div>
+          )}
         </div>
         
         {!isCollapsed && <LogoutButton />}

@@ -51,7 +51,21 @@ export function NotificationsMenu() {
     } catch (e) { console.error(e) }
   };
 
-  const getIcon = (type: string) => {
+  const markOneAsRead = async (id: string) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      setNotifications(prev => prev.map(n => (n.id === id ? { ...n, isRead: true } : n)));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const getIcon = (type: Notification['type']) => {
     switch (type) {
       case 'ERROR': return <AlertCircle className="w-5 h-5 text-red-500" />;
       case 'WARNING': return <AlertTriangle className="w-5 h-5 text-amber-500" />;
@@ -104,6 +118,11 @@ export function NotificationsMenu() {
                     <div 
                       key={notif.id} 
                       className={`p-4 flex gap-3 hover:bg-slate-50 transition ${notif.isRead ? 'opacity-60' : 'bg-blue-50/30'}`}
+                      onClick={() => {
+                        if (!notif.isRead) {
+                          void markOneAsRead(notif.id);
+                        }
+                      }}
                     >
                       <div className="shrink-0 mt-0.5">
                         {getIcon(notif.type)}
@@ -126,6 +145,15 @@ export function NotificationsMenu() {
                   ))}
                 </div>
               )}
+            </div>
+            <div className="border-t border-slate-100 bg-slate-50 p-3">
+              <a
+                href="/notifications"
+                onClick={() => setIsOpen(false)}
+                className="block rounded-lg px-3 py-2 text-center text-sm font-medium text-blue-600 transition hover:bg-white"
+              >
+                Ver historial completo
+              </a>
             </div>
           </div>
         </>

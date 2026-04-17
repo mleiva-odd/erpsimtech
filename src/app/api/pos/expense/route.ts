@@ -33,10 +33,35 @@ export async function POST(req: NextRequest) {
         branch: { companyId: tenant.companyId },
       },
       orderBy: { openedAt: 'desc' },
+      include: {
+        sales: {
+          include: { payments: true }
+        },
+        transactions: true,
+        customerPayments: true,
+      },
     });
 
     if (!activeRegister) {
       return NextResponse.json({ error: 'No hay turno de caja abierto para registrar egresos' }, { status: 400 });
+    }
+
+    const cashPayments = activeRegister.sales
+      .flatMap((sale) => sale.payments)
+      .filter((payment) => payment.method === 'CASH')
+      .reduce((sum, payment) => sum + Number(payment.amount), 0);
+
+    const cashAbonos = activeRegister.customerPayments
+      .filter((payment) => payment.method === 'CASH')
+      .reduce((sum, payment) => sum + Number(payment.amount), 0);
+
+    const totalExpenses = activeRegister.transactions.reduce((sum, transaction) => sum + Number(transaction.amount), 0);
+    const availableCash = Number(activeRegister.openingBalance) + cashPayments + cashAbonos - totalExpenses;
+
+    if (amount > availableCash + 0.05) {
+      return NextResponse.json({
+        error: `Fondos insuficientes en caja. Disponible: Q${availableCash.toFixed(2)}, solicitado: Q${amount.toFixed(2)}.`,
+      }, { status: 400 });
     }
 
     // Registrar egreso de caja

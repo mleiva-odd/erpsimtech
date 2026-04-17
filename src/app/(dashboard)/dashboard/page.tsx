@@ -42,7 +42,8 @@ export default function DashboardPage() {
   
   const { selectedBranchId } = useBranchStore();
   const role = session?.user?.role;
-  const canAccess = role === 'SUPERVISOR' || role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const hasCompanyContext = Boolean(session?.user?.companyId);
+  const canAccess = hasCompanyContext && (role === 'SUPERVISOR' || role === 'ADMIN');
 
   useEffect(() => {
     if (status === 'loading') {
@@ -105,7 +106,7 @@ export default function DashboardPage() {
       <div className="flex min-h-[50vh] items-center justify-center p-8">
         <div className="rounded-3xl border border-rose-100 bg-rose-50 px-8 py-10 text-center">
           <h2 className="text-xl font-bold text-rose-700">Acceso denegado</h2>
-          <p className="mt-2 text-sm text-rose-600">No tienes permisos para ver métricas del negocio.</p>
+          <p className="mt-2 text-sm text-rose-600">Las métricas operativas solo están disponibles dentro de una empresa activa.</p>
         </div>
       </div>
     );

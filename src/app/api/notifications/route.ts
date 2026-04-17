@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireCompanyTenant } from '@/lib/tenant';
 
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireCompanyTenant();
   if ('error' in result) return result.error;
   const { tenant } = result;
 
   try {
+    const { searchParams } = new URL(req.url);
+    const take = Math.min(Number(searchParams.get('take') || '20'), 200);
+    const unreadOnly = searchParams.get('unreadOnly') === 'true';
+
     const notifications = await prisma.notification.findMany({
-      where: { companyId: tenant.companyId },
+      where: {
+        companyId: tenant.companyId,
+        ...(unreadOnly ? { isRead: false } : {}),
+      },
       orderBy: { createdAt: 'desc' },
-      take: 20, // Fetch the last 20 notifications
+      take,
     });
 
     return NextResponse.json(notifications);
@@ -21,7 +28,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireCompanyTenant();
   if ('error' in result) return result.error;
   const { tenant } = result;
 

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { requireEnv } from '@/lib/env';
 
 const PUBLIC_PATHS = ['/login', '/api/auth', '/_next', '/favicon.ico', '/logo.png'];
+const nextAuthSecret = requireEnv('NEXTAUTH_SECRET');
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -19,7 +21,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = await getToken({ req: request });
+  const token = await getToken({ req: request, secret: nextAuthSecret });
 
   if (!token) {
     const loginUrl = new URL('/login', request.url);

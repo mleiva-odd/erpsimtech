@@ -1,7 +1,10 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { requireEnv } from "@/lib/env";
+
+const nextAuthSecret = requireEnv("NEXTAUTH_SECRET");
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -75,5 +78,5 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  secret: process.env.NEXTAUTH_SECRET || "simtech_pos_secret_dev_key_change_in_prod",
+  secret: nextAuthSecret,
 };

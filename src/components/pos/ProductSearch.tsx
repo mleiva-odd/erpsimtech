@@ -15,7 +15,15 @@ interface Product {
   stock: number;
   category: { id: string; name: string };
   hasVariants?: boolean;
-  variants?: any[];
+  variants?: Variant[];
+}
+
+interface Variant {
+  id: string;
+  name: string;
+  sku: string;
+  price: string | number;
+  stocks?: Array<{ quantity: number }>;
 }
 
 export function ProductSearch() {
@@ -31,17 +39,34 @@ export function ProductSearch() {
   // Escáner de barras: si el input llega rápidamente (< 50ms entre chars), probablemente es un escáner
   useEffect(() => {
     if (!debouncedQuery) {
-      setResults([]);
+      setShowResults(false);
       return;
     }
-    setIsLoading(true);
-    fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=8`)
-      .then((r) => r.json())
-      .then((data) => {
+
+    let active = true;
+
+    async function loadProducts() {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=8`);
+        const data = await res.json();
+
+        if (!active) return;
+
         setResults(data.products ?? []);
         setShowResults(true);
-      })
-      .finally(() => setIsLoading(false));
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadProducts();
+
+    return () => {
+      active = false;
+    };
   }, [debouncedQuery]);
 
   const handleSelect = (product: Product) => {
@@ -63,7 +88,7 @@ export function ProductSearch() {
     inputRef.current?.focus();
   };
 
-  const handleVariantSelect = (product: Product, variant: any) => {
+  const handleVariantSelect = (product: { id: string; name: string }, variant: Variant) => {
     addItem({
       id: product.id,
       variantId: variant.id,
@@ -130,12 +155,12 @@ export function ProductSearch() {
       {/* Pop-up selector de Variantes */}
       <VariantSelectionModal 
         isOpen={variantModal.isOpen} 
-        product={variantModal.product as any} 
+        product={variantModal.product} 
         onClose={() => {
           setVariantModal({ isOpen: false, product: null });
           inputRef.current?.focus();
         }} 
-        onSelect={handleVariantSelect as any} 
+        onSelect={handleVariantSelect} 
       />
     </div>
   );

@@ -46,7 +46,7 @@ export async function PUT(
       }
     }
 
-    let dataToUpdate: any = {
+    const dataToUpdate: any = {
       name: body.name,
       email: body.email,
       role: body.role,

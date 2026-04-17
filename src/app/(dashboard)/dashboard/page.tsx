@@ -29,6 +29,11 @@ const PAYMENT_LABELS: Record<string, string> = {
   CASH: 'Efectivo', CARD: 'Tarjeta', TRANSFER: 'Transferencia',
 };
 
+function formatTooltipCurrency(value: string | number | readonly (string | number)[] | undefined) {
+  const normalized = Array.isArray(value) ? value[0] : value;
+  return `Q${Number(normalized ?? 0).toFixed(2)}`;
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -40,28 +45,51 @@ export default function DashboardPage() {
   const canAccess = role === 'SUPERVISOR' || role === 'ADMIN' || role === 'SUPER_ADMIN';
 
   useEffect(() => {
-    if (status === 'loading' || !canAccess) {
+    if (status === 'loading') {
+      return;
+    }
+
+    if (!canAccess) {
+      setStats(null);
+      setCharts(null);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-    const branchQuery = selectedBranchId ? `?branchId=${selectedBranchId}` : '';
-    
-    Promise.all([
-      fetch(`/api/dashboard${branchQuery}`).then(r => r.json()),
-      fetch(`/api/dashboard/charts${branchQuery}`).then(r => r.json()),
-    ]).then(([statsData, chartsData]) => {
-      setStats({
-        revenueToday: statsData.revenueToday ?? 0,
-        salesCountToday: statsData.salesCountToday ?? 0,
-        totalProducts: statsData.totalProducts ?? 0,
-        lowStockProducts: statsData.lowStockProducts ?? 0,
-        recentSales: statsData.recentSales ?? [],
-      });
-      setCharts(chartsData.error ? null : chartsData);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    let active = true;
+
+    async function loadDashboard() {
+      setLoading(true);
+      const branchQuery = selectedBranchId ? `?branchId=${selectedBranchId}` : '';
+
+      try {
+        const [statsData, chartsData] = await Promise.all([
+          fetch(`/api/dashboard${branchQuery}`).then((r) => r.json()),
+          fetch(`/api/dashboard/charts${branchQuery}`).then((r) => r.json()),
+        ]);
+
+        if (!active) return;
+
+        setStats({
+          revenueToday: statsData.revenueToday ?? 0,
+          salesCountToday: statsData.salesCountToday ?? 0,
+          totalProducts: statsData.totalProducts ?? 0,
+          lowStockProducts: statsData.lowStockProducts ?? 0,
+          recentSales: statsData.recentSales ?? [],
+        });
+        setCharts(chartsData.error ? null : chartsData);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadDashboard();
+
+    return () => {
+      active = false;
+    };
   }, [selectedBranchId, status, canAccess]);
 
   if (status === 'loading') {
@@ -149,7 +177,7 @@ export default function DashboardPage() {
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#94a3b8" />
                   <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" tickFormatter={v => `Q${v}`} />
                   <Tooltip
-                    formatter={(value: any) => [`Q${Number(value).toFixed(2)}`, 'Total']}
+                    formatter={(value) => [formatTooltipCurrency(value), 'Total']}
                     contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13px' }}
                   />
                   <Bar dataKey="total" fill="#3b82f6" radius={[6, 6, 0, 0]} />
@@ -183,7 +211,7 @@ export default function DashboardPage() {
                       <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: any) => [`Q${Number(value).toFixed(2)}`]} />
+                  <Tooltip formatter={(value) => [formatTooltipCurrency(value)]} />
                   <Legend
                     iconType="circle"
                     wrapperStyle={{ fontSize: '12px' }}

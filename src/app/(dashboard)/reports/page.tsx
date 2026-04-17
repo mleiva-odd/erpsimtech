@@ -27,7 +27,14 @@ interface Sale {
   customer: { name: string } | null;
   branch?: { name: string } | null;
   payments: Payment[];
-  items: any[];
+  items: Array<{ id: string }>;
+}
+
+interface CashRegisterSummary {
+  status?: string;
+  openingBalance?: number;
+  currentBalance?: number;
+  expectedBalance?: number;
 }
 
 export default function ReportsPage() {
@@ -35,7 +42,7 @@ export default function ReportsPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
-  const [register, setRegister] = useState<any>(null);
+  const [register, setRegister] = useState<CashRegisterSummary | null>(null);
   
   const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
   const [closingBalanceInput, setClosingBalanceInput] = useState('');
@@ -46,32 +53,50 @@ export default function ReportsPage() {
   const role = session?.user?.role;
   const canAccess = role === 'SUPERVISOR' || role === 'ADMIN' || role === 'SUPER_ADMIN';
 
-  const fetchSalesAndRegister = async () => {
-    setIsLoading(true);
-    try {
-      const branchQuery = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
-      const [resSales, resReg] = await Promise.all([
-        fetch(`/api/sales?limit=50${branchQuery}`),
-        fetch('/api/cash-register')
-      ]);
-      const dataSales = await resSales.json();
-      const dataReg = await resReg.json();
-      setSales(Array.isArray(dataSales) ? dataSales : []);
-      if (dataReg.status === 'OPEN') setRegister(dataReg);
-      else setRegister(null);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (status === 'loading' || !canAccess) {
+    if (status === 'loading') {
+      return;
+    }
+
+    if (!canAccess) {
+      setSales([]);
+      setRegister(null);
       setIsLoading(false);
       return;
     }
-    fetchSalesAndRegister();
+
+    let active = true;
+
+    async function loadSalesAndRegister() {
+      setIsLoading(true);
+      try {
+        const branchQuery = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
+        const [resSales, resReg] = await Promise.all([
+          fetch(`/api/sales?limit=50${branchQuery}`),
+          fetch('/api/cash-register')
+        ]);
+        const dataSales = await resSales.json();
+        const dataReg = await resReg.json();
+
+        if (!active) return;
+
+        setSales(Array.isArray(dataSales) ? dataSales : []);
+        if (dataReg.status === 'OPEN') setRegister(dataReg);
+        else setRegister(null);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadSalesAndRegister();
+
+    return () => {
+      active = false;
+    };
   }, [selectedBranchId, status, canAccess]);
 
   if (status === 'loading') {
@@ -112,7 +137,7 @@ export default function ReportsPage() {
       });
       if (res.ok) {
         setIsClosingModalOpen(false);
-        fetchSalesAndRegister();
+        window.location.reload();
         toast({ tone: 'success', message: 'Caja cerrada correctamente.' });
       } else {
          toast({ tone: 'error', message: 'Hubo un error al cerrar la caja.' });
@@ -164,7 +189,7 @@ export default function ReportsPage() {
     doc.text(`Generado: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 21);
 
     const tableColumn = ["Ticket", "Fecha", "Cliente", "Método", "Total (Q)"];
-    const tableRows: any[] = [];
+    const tableRows: string[][] = [];
 
     sales.forEach(sale => {
       const ticket = sale.id.split('-')[0].toUpperCase();
@@ -228,7 +253,7 @@ export default function ReportsPage() {
             <Download className="w-4 h-4" /> Exportar CSV
           </button>
           <button
-            onClick={fetchSalesAndRegister}
+            onClick={() => window.location.reload()}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition font-medium text-sm shadow-sm"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Actualizar

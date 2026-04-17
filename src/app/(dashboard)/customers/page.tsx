@@ -331,7 +331,7 @@ export default function CustomersPage() {
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2">
                   <label className="block text-sm font-bold text-slate-800 mb-1">Límite de Crédito (Q)</label>
                   <p className="text-[11px] text-slate-500 font-medium mb-2 leading-relaxed">
-                    Monto máximo de fiado permitido. Si se establece en "0", el cliente solo podrá realizar compras de contado.
+                    Monto máximo de fiado permitido. Si se establece en &quot;0&quot;, el cliente solo podrá realizar compras de contado.
                   </p>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 font-medium">Q</span>

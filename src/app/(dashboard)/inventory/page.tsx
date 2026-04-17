@@ -25,6 +25,8 @@ interface ProductData {
   category: { name: string };
   unitOfMeasure: string;
   isTaxExempt: boolean;
+  isBundle?: boolean;
+  hasVariants?: boolean;
 }
 
 export default function InventoryPage() {
@@ -42,25 +44,49 @@ export default function InventoryPage() {
   const debouncedQuery = useDebounce(query, 500);
   const { selectedBranchId } = useBranchStore();
 
-  const fetchProducts = () => {
-    setLoading(true);
-    const branchQuery = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
-    fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=50${branchQuery}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setProducts(data.products || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  };
-
   useEffect(() => {
-    fetchProducts();
+    let active = true;
+
+    async function loadProducts() {
+      setLoading(true);
+      const branchQuery = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
+
+      try {
+        const res = await fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=50${branchQuery}`);
+        const data = await res.json();
+
+        if (active) {
+          setProducts(data.products || []);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadProducts();
+
+    return () => {
+      active = false;
+    };
   }, [debouncedQuery, selectedBranchId]);
+
+  const refreshProducts = async () => {
+    setLoading(true);
+    try {
+      const branchQuery = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
+      const res = await fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=50${branchQuery}`);
+      const data = await res.json();
+      setProducts(data.products || []);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEdit = (product: ProductData) => {
     setSelectedProduct(product);
-    if ((product as any).isBundle) {
+    if (product.isBundle) {
        setIsBundleModalOpen(true);
     } else {
        setIsModalOpen(true);
@@ -79,7 +105,7 @@ export default function InventoryPage() {
 
   const handleModalSuccess = () => {
     setIsModalOpen(false);
-    fetchProducts();
+    void refreshProducts();
   };
 
   return (
@@ -165,12 +191,12 @@ export default function InventoryPage() {
                         <div className="flex items-center gap-2">
                            <span className="font-bold text-slate-800">{product.name}</span>
                            {product.isTaxExempt && <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[9px] rounded-md uppercase font-bold tracking-widest border border-amber-100">Exento</span>}
-                           {(product as any).hasVariants && <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] rounded-md uppercase font-bold tracking-widest border border-blue-100">Varientable</span>}
+                           {product.hasVariants && <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[9px] rounded-md uppercase font-bold tracking-widest border border-blue-100">Varientable</span>}
                         </div>
                       </td>
                       <td className="px-6 py-5 text-slate-600 font-medium">{product.category.name}</td>
                       <td className="px-6 py-5 text-right">
-                         {(product as any).hasVariants ? (
+                         {product.hasVariants ? (
                              <div className="font-bold text-blue-600 text-[10px] uppercase tracking-widest bg-blue-50 inline-block px-2.5 py-1 rounded-lg border border-blue-100">Variantes</div>
                          ) : (
                              <div className="flex flex-col items-end">
@@ -230,7 +256,7 @@ export default function InventoryPage() {
           onClose={() => setIsBundleModalOpen(false)}
           onSuccess={() => {
             setIsBundleModalOpen(false);
-            fetchProducts();
+            void refreshProducts();
           }}
         />
       )}
@@ -249,7 +275,7 @@ export default function InventoryPage() {
           onClose={() => setIsImportModalOpen(false)}
           onSuccess={() => {
             setIsImportModalOpen(false);
-            fetchProducts();
+            void refreshProducts();
           }}
         />
       )}

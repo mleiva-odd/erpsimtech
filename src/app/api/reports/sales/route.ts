@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     // Calcular Métricas
     let totalRevenue = 0;
     let totalCost = 0;
-    let totalTransactions = sales.length;
+    const totalTransactions = sales.length;
 
     const detailedData = sales.flatMap(sale => 
       sale.items.map(item => {

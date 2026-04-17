@@ -24,17 +24,34 @@ export function CustomerSearch() {
 
   useEffect(() => {
     if (!debouncedQuery) {
-      setResults([]);
+      setShowResults(false);
       return;
     }
-    setIsLoading(true);
-    fetch(`/api/customers?q=${encodeURIComponent(debouncedQuery)}`)
-      .then((r) => r.json())
-      .then((data) => {
+
+    let active = true;
+
+    async function loadCustomers() {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/customers?q=${encodeURIComponent(debouncedQuery)}`);
+        const data = await res.json();
+
+        if (!active) return;
+
         setResults(data.customers ?? []);
         setShowResults(true);
-      })
-      .finally(() => setIsLoading(false));
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadCustomers();
+
+    return () => {
+      active = false;
+    };
   }, [debouncedQuery]);
 
   const handleSelect = (customer: Customer) => {

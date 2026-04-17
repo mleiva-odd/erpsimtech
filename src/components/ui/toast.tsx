@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 
 type ToastTone = 'success' | 'error' | 'info';
@@ -44,21 +44,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const timers = useRef<Record<string, number>>({});
 
   useEffect(() => {
+    const activeTimers = timers.current;
     return () => {
-      Object.values(timers.current).forEach((timer) => window.clearTimeout(timer));
+      Object.values(activeTimers).forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
 
-  const removeToast = (id: string) => {
+  const removeToast = useCallback((id: string) => {
     const timer = timers.current[id];
     if (timer) {
       window.clearTimeout(timer);
       delete timers.current[id];
     }
     setToasts((current) => current.filter((toast) => toast.id !== id));
-  };
+  }, []);
 
-  const toast = (input: ToastInput) => {
+  const toast = useCallback((input: ToastInput) => {
     const id = crypto.randomUUID();
     const nextToast: ToastItem = {
       id,
@@ -70,9 +71,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
     setToasts((current) => [nextToast, ...current].slice(0, 4));
     timers.current[id] = window.setTimeout(() => removeToast(id), nextToast.durationMs);
-  };
+  }, [removeToast]);
 
-  const contextValue = useMemo(() => ({ toast }), []);
+  const contextValue = useMemo(() => ({ toast }), [toast]);
 
   return (
     <ToastContext.Provider value={contextValue}>

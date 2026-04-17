@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { Bell, Check, Info, AlertTriangle, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -19,7 +19,7 @@ export function NotificationsMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useEffectEvent(async () => {
     try {
       const res = await fetch('/api/notifications');
       const data = await res.json();
@@ -28,12 +28,13 @@ export function NotificationsMenu() {
         setUnreadCount(data.filter(n => !n.isRead).length);
       }
     } catch (e) { console.error(e) }
-  };
+  });
 
   useEffect(() => {
-    fetchNotifications();
-    // Poll every 60 seconds
-    const interval = setInterval(fetchNotifications, 60000);
+    void fetchNotifications();
+    const interval = setInterval(() => {
+      void fetchNotifications();
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 

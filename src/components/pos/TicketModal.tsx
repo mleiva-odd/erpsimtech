@@ -96,7 +96,32 @@ export function TicketModal({ saleId, onClose }: TicketModalProps) {
   };
 
   useEffect(() => {
-    fetchSale();
+    let active = true;
+
+    async function loadSale() {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/sales/${saleId}`);
+        const data = await res.json();
+
+        if (!active) return;
+
+        setSale(data.sale);
+        setSettings(data.settings);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadSale();
+
+    return () => {
+      active = false;
+    };
   }, [saleId]);
 
   const returnedQuantities = useMemo(() => {

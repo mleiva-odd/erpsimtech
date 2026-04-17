@@ -10,7 +10,7 @@ interface AuditLog {
   action: string;
   entity: string;
   entityId: string;
-  changes: any;
+  changes: unknown;
   createdAt: string;
   user?: { name: string, email: string } | null;
   branch?: { name: string } | null;
@@ -36,24 +36,37 @@ export default function AuditPage() {
   ];
 
   useEffect(() => {
-    setIsLoading(true);
     let query = `/api/audit?page=${page}&limit=50`;
     if (actionFilter) query += `&action=${actionFilter}`;
     if (entityFilter) query += `&entity=${entityFilter}`;
+    let active = true;
 
-    fetch(query)
-      .then(res => res.json())
-      .then(data => {
+    async function loadLogs() {
+      setIsLoading(true);
+      try {
+        const res = await fetch(query);
+        const data = await res.json();
+        if (!active) return;
+
         if (data.logs) {
           setLogs(data.logs);
           setTotal(data.total);
         }
-        setIsLoading(false);
-      })
-      .catch(() => setIsLoading(false));
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadLogs();
+
+    return () => {
+      active = false;
+    };
   }, [page, actionFilter, entityFilter]);
 
-  const renderChanges = (changes: any) => {
+  const renderChanges = (changes: unknown) => {
     if (!changes) return '-';
     let parsed = changes;
     if (typeof changes === 'string') {

@@ -78,7 +78,7 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
       setSearchResults([]);
       setSelectedParent(null);
     }
-  }, [debouncedQuery]);
+  }, [debouncedQuery, searchQuery]);
 
   const addComponent = (product: any) => {
     const key = product.variantId ? `${product.baseId}-${product.variantId}` : product.baseId;

@@ -168,7 +168,7 @@ export default function SettingsPage() {
               <input type="checkbox" checked={formData.felEnabled} onChange={e => setFormData({...formData, felEnabled: e.target.checked})} className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-5 h-5" />
               <div>
                 <span className="font-medium text-slate-800">Activar Facturación Electrónica (FEL)</span>
-                <p className="text-xs text-slate-500 mt-0.5">Emitir DTE's a través de un certificador autorizado</p>
+                <p className="text-xs text-slate-500 mt-0.5">Emitir DTE&apos;s a través de un certificador autorizado</p>
               </div>
             </label>
 

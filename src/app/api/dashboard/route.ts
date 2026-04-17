@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireBranchAccess, requireRole } from '@/lib/tenant';
 
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const salesWhere: any = {
+    const salesWhere: Prisma.SaleWhereInput = {
       companyId: tenant.companyId,
       status: 'COMPLETED',
     };

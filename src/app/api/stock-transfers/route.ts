@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
       // 1. Validar y Reservar Stock en Origen
       for (const item of items) {
         const originStock = await tx.productStock.findFirst({
-          where: { productId: item.productId, branchId: fromBranchId, variantId: (item.variantId || null) as any },
+          where: { productId: item.productId, branchId: fromBranchId, variantId: item.variantId || null },
           include: { product: true }
         });
 
@@ -164,7 +165,7 @@ export async function POST(req: NextRequest) {
           reference: notes,
           status: 'PENDING',
           items: {
-            create: items.map((i: any) => ({
+            create: items.map((i) => ({
               productId: i.productId,
               variantId: i.variantId || null,
               quantity: i.quantity
@@ -187,7 +188,11 @@ export async function POST(req: NextRequest) {
       message: `Guía de remisión creada. Mercadería en tránsito hacia ${toBranch.name}.`,
       transferId: transfer.id
     }, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error('Transfer persistence error:', error);
+      return NextResponse.json({ error: 'Error al persistir la transferencia' }, { status: 500 });
+    }
     console.error('Transfer error:', error);
     return NextResponse.json({ error: 'Error al procesar la transferencia' }, { status: 500 });
   }

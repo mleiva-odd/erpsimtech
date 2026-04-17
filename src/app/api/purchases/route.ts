@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
 
 function isPositiveNumber(value: unknown) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
+}
+
+interface PurchaseItemInput {
+  productId: string;
+  variantId?: string | null;
+  quantity: number;
+  cost: number;
 }
 
 export async function GET(req: NextRequest) {
@@ -32,7 +40,6 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
-  const userPayload: any = result.tenant; // Type assertion since Tenant typing may not expose userId directly
 
   const body = await req.json();
   const { supplierId, reference, items } = body;
@@ -41,7 +48,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Faltan datos logísticos (proveedor o items).' }, { status: 400 });
   }
 
-  for (const item of items) {
+  const purchaseItems = items as PurchaseItemInput[];
+
+  for (const item of purchaseItems) {
     if (!item?.productId || !isPositiveNumber(item.quantity) || !isPositiveNumber(item.cost)) {
       return NextResponse.json({ error: 'Cada línea de compra debe tener producto, cantidad y costo válidos.' }, { status: 400 });
     }
@@ -57,7 +66,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Proveedor no encontrado o inactivo' }, { status: 404 });
     }
 
-    const productIds = [...new Set(items.map((item: any) => String(item.productId)))] as string[];
+    const productIds = [...new Set(purchaseItems.map((item) => String(item.productId)))];
     const validProducts = await prisma.product.findMany({
       where: { id: { in: productIds }, companyId: result.tenant.companyId },
       select: { id: true },
@@ -67,7 +76,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Uno o más productos no pertenecen a esta empresa' }, { status: 400 });
     }
 
-    const variantIds = [...new Set(items.map((item: any) => item.variantId).filter(Boolean).map(String))] as string[];
+    const variantIds = [...new Set(purchaseItems.map((item) => item.variantId).filter((value): value is string => Boolean(value)).map(String))];
     if (variantIds.length > 0) {
       const variants = await prisma.productVariant.findMany({
         where: {
@@ -82,7 +91,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Hay variantes que no pertenecen a esta empresa' }, { status: 400 });
       }
 
-      for (const item of items) {
+      for (const item of purchaseItems) {
         if (item.variantId && variantMap.get(item.variantId) !== item.productId) {
           return NextResponse.json({ error: 'Hay variantes que no coinciden con su producto' }, { status: 400 });
         }
@@ -99,7 +108,7 @@ export async function POST(req: NextRequest) {
     }
 
     let totalAmount = 0;
-    const itemsData = items.map((item: any) => {
+    const itemsData = purchaseItems.map((item) => {
       const sub = Number(item.quantity) * Number(item.cost);
       totalAmount += sub;
       return {
@@ -119,7 +128,7 @@ export async function POST(req: NextRequest) {
           companyId: result.tenant.companyId,
           branchId,
           supplierId,
-          userId: userPayload.userId, // El empleado que recibe
+          userId: result.tenant.userId,
           reference: reference || null,
           total: totalAmount,
           status: 'COMPLETED',
@@ -139,7 +148,7 @@ export async function POST(req: NextRequest) {
            });
         } else {
            existingStock = await tx.productStock.findFirst({
-             where: { productId: item.productId, variantId: (null as any), branchId }
+             where: { productId: item.productId, variantId: null, branchId }
            });
         }
 
@@ -178,8 +187,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(purchase, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return NextResponse.json({ error: 'Error de persistencia procesando el ingreso a bodega' }, { status: 500 });
+    }
     return NextResponse.json({ error: 'Error sistémico procesando el ingreso a bodega' }, { status: 500 });
   }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireBranchAccess, requireRole } from '@/lib/tenant';
 
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
-    const salesWhere: any = {
+    const salesWhere: Prisma.SaleWhereInput = {
       companyId: tenant.companyId,
       status: 'COMPLETED',
     };
@@ -106,18 +107,18 @@ export async function GET(req: Request) {
     const productMap = Object.fromEntries(products.map(p => [p.id, p.name]));
 
     // Fetch branch names for sales by branch
-    let branchData: any[] = [];
+    let branchData: Array<{ name: string; total: number; count: number }> = [];
     if (Array.isArray(salesByBranch) && salesByBranch.length > 0) {
-      const branchIds = salesByBranch.map((b: any) => b.branchId);
+      const branchIds = salesByBranch.map((b) => b.branchId);
       const branches = await prisma.branch.findMany({
         where: { id: { in: branchIds } },
         select: { id: true, name: true },
       });
       const branchMap = Object.fromEntries(branches.map(b => [b.id, b.name]));
-      branchData = salesByBranch.map((b: any) => ({
+      branchData = salesByBranch.map((b) => ({
         name: branchMap[b.branchId] || 'Desconocida',
-        total: Number(b._sum.total),
-        count: b._count.id,
+        total: Number(b._sum?.total || 0),
+        count: typeof b._count === 'object' && b._count !== null && 'id' in b._count ? Number(b._count.id || 0) : 0,
       }));
     }
 

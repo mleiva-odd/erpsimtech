@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
         where: { id: { in: productIds }, companyId: tenant.companyId, active: true },
         include: {
           bundleItems: true,
-          stocks: { where: { branchId, variantId: (null as any) } },
+          stocks: { where: { branchId, variantId: null } },
           variants: { include: { stocks: { where: { branchId } } } }
         },
       });
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest) {
             // VERIFY COMPONENTS STOCK
              for (const bundleItem of product.bundleItems) {
                const componentStock = await tx.productStock.findFirst({
-                 where: { productId: bundleItem.componentId, branchId, variantId: (null as any) }
+                 where: { productId: bundleItem.componentId, branchId, variantId: null }
                });
                const required = item.quantity * bundleItem.quantity;
                if (!componentStock || componentStock.quantity < required) {
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
             let itemName = product.name;
   
             if (item.variantId) {
-              const variant = product.variants.find((v: any) => v.id === item.variantId);
+              const variant = product.variants.find((v) => v.id === item.variantId);
               if (!variant) throw new Error(`Variante no encontrada para ${product.name}`);
               available = variant.stocks[0]?.quantity ?? 0;
               itemName = `${product.name} - ${variant.name}`;
@@ -253,14 +253,14 @@ export async function POST(req: NextRequest) {
           discount,
           tax: 0,
           total,
-          status: status as any,
+          status,
           items: {
             create: items.map((item) => {
               const product = products.find((p) => p.id === item.productId);
               let unitCost = Number(product?.cost || 0);
 
               if (item.variantId) {
-                const variant = product?.variants.find((v: any) => v.id === item.variantId);
+                const variant = product?.variants.find((v) => v.id === item.variantId);
                 if (variant) {
                   unitCost = Number(variant.cost || 0);
                 }
@@ -303,7 +303,7 @@ export async function POST(req: NextRequest) {
                    where: {
                      productId: bundleItem.componentId,
                      branchId: branchId!,
-                     variantId: (null as any),
+                     variantId: null,
                      quantity: { gte: requiredQuantity },
                    },
                    data: { quantity: { decrement: item.quantity * bundleItem.quantity } }
@@ -311,7 +311,7 @@ export async function POST(req: NextRequest) {
                 if (stockUpdate.count !== 1) {
                   throw new Error(`El stock cambió mientras se procesaba la venta para el componente ${bundleItem.componentId}`);
                 }
-                const stk = await tx.productStock.findFirst({ where: { productId: bundleItem.componentId, branchId: branchId!, variantId: (null as any) }, include: { product: true } });
+                const stk = await tx.productStock.findFirst({ where: { productId: bundleItem.componentId, branchId: branchId!, variantId: null }, include: { product: true } });
                 if (stk) updatedStocks.push(stk);
              }
            } else {
@@ -335,7 +335,7 @@ export async function POST(req: NextRequest) {
                    where: {
                      productId: item.productId,
                      branchId: branchId!,
-                     variantId: (null as any),
+                     variantId: null,
                      quantity: { gte: item.quantity },
                    },
                    data: { quantity: { decrement: item.quantity } }
@@ -343,7 +343,7 @@ export async function POST(req: NextRequest) {
                 if (stockUpdate.count !== 1) {
                   throw new Error(`El stock cambió mientras se procesaba la venta para ${product.name}`);
                 }
-                const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: (null as any) }, include: { product: true } });
+                const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: null }, include: { product: true } });
                 if (stk) updatedStocks.push(stk);
              }
            }
@@ -428,8 +428,8 @@ export async function GET(req: NextRequest) {
 
   const status = searchParams.get('status');
 
-  const where: any = { companyId: tenant.companyId };
-  if (status) {
+  const where: Prisma.SaleWhereInput = { companyId: tenant.companyId };
+  if (status === 'COMPLETED' || status === 'QUOTE') {
     where.status = status;
   }
 

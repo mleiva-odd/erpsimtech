@@ -70,6 +70,10 @@ Si el cambio toca esquema, aplica primero los SQL manuales en `prisma/manual_mig
 
 Si subes código sin aplicar el SQL correspondiente, el deploy puede compilar pero fallar en runtime.
 
+Checklist operativa:
+
+- [docs/DEPLOY_CHECKLIST.md](docs/DEPLOY_CHECKLIST.md)
+
 ## Estado técnico actual
 
 - `npm run lint`: limpio

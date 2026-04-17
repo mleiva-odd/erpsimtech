@@ -9,8 +9,11 @@ import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 
 interface Branch { id: string; name: string; code: string; }
-interface Product { id: string; name: string; sku: string; stocks: { branchId: string; quantity: number }[]; variantId?: string; }
+interface StockEntry { branchId: string; quantity: number; }
+interface ProductVariant { id: string; name: string; sku: string; stocks?: StockEntry[]; }
+interface Product { id: string; name: string; sku: string; stocks: StockEntry[]; variantId?: string; hasVariants?: boolean; variants?: ProductVariant[]; }
 interface CartItem { product: Product; quantity: number; variantId?: string; }
+interface InventoryLookupItem { id: string; variantId?: string; stocks: StockEntry[]; }
 
 interface TransferHistory {
   id: string;
@@ -34,7 +37,6 @@ export default function StockTransfersPage() {
   // New Transfer State
   const [branches, setBranches] = useState<Branch[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const [fromBranchId, setFromBranchId] = useState('');
   const [toBranchId, setToBranchId] = useState('');
@@ -59,8 +61,7 @@ export default function StockTransfersPage() {
     ]).then(([branchData, productData]) => {
       if (Array.isArray(branchData)) setBranches(branchData);
       if (productData.products) setProducts(productData.products);
-      setIsLoading(false);
-    }).catch(() => setIsLoading(false));
+    }).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -101,19 +102,25 @@ export default function StockTransfersPage() {
     if (quantity <= 0) {
       return setCart(prev => prev.filter(item => cartItemKey(item.product.id, item.variantId) !== cartItemKey(productId, variantId)));
     }
-    const stockMax = products
-      .flatMap((product: any) => {
-        if (product.hasVariants && product.variants?.length > 0) {
-          return product.variants.map((variant: any) => ({
+    const inventoryLookup = products.reduce<InventoryLookupItem[]>((acc, product) => {
+      if (product.hasVariants && (product.variants?.length ?? 0) > 0) {
+        acc.push(
+          ...((product.variants || []).map((variant) => ({
             id: product.id,
             variantId: variant.id,
             stocks: variant.stocks || [],
-          }));
-        }
-        return [{ id: product.id, variantId: undefined, stocks: product.stocks || [] }];
-      })
+          })))
+        );
+        return acc;
+      }
+
+      acc.push({ id: product.id, variantId: undefined, stocks: product.stocks || [] });
+      return acc;
+    }, []);
+
+    const stockMax = inventoryLookup
       .find((product) => cartItemKey(product.id, product.variantId) === cartItemKey(productId, variantId))
-      ?.stocks?.find((stock: any) => stock.branchId === fromBranchId)?.quantity ?? 0;
+      ?.stocks?.find((stock) => stock.branchId === fromBranchId)?.quantity ?? 0;
     const finalQty = Math.min(quantity, stockMax);
     setCart(prev => prev.map(item => (
       cartItemKey(item.product.id, item.variantId) === cartItemKey(productId, variantId)
@@ -197,19 +204,26 @@ export default function StockTransfersPage() {
   };
 
   const filteredProducts = searchQuery
-    ? products.flatMap((p: any) => {
-        if (p.hasVariants && p.variants?.length > 0) {
-          return p.variants.map((v: any) => ({
-            ...p,
-            id: p.id,
-            variantId: v.id,
-            name: `${p.name} - ${v.name}`,
-            sku: v.sku,
-            stocks: v.stocks || []
-          }));
+    ? products.reduce<Product[]>((acc, product) => {
+        const variantCount = product.variants?.length ?? 0;
+
+        if (product.hasVariants && variantCount > 0) {
+          acc.push(
+            ...((product.variants || []).map((variant) => ({
+              ...product,
+              id: product.id,
+              variantId: variant.id,
+              name: `${product.name} - ${variant.name}`,
+              sku: variant.sku,
+              stocks: variant.stocks || [],
+            })))
+          );
+        } else {
+          acc.push(product);
         }
-        return [p];
-      }).filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase()))
+
+        return acc;
+      }, []).filter((product) => product.name.toLowerCase().includes(searchQuery.toLowerCase()) || product.sku.toLowerCase().includes(searchQuery.toLowerCase()))
     : [];
 
   const role = session?.user?.role;
@@ -306,10 +320,11 @@ export default function StockTransfersPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {filteredProducts.slice(0, 10).map(p => {
-                            const stockMax = p.stocks?.find((s: any) => s.branchId === fromBranchId)?.quantity ?? 0;
+                            const stockMax = p.stocks?.find((s) => s.branchId === fromBranchId)?.quantity ?? 0;
+                            const variantCount = p.variants?.length ?? 0;
                             return (
                               <tr key={p.id} className="hover:bg-blue-50">
-                                <td className="px-4 py-2 text-slate-800 font-medium">[{p.sku}] {p.name}</td>
+                                <td className="px-4 py-2 text-slate-800 font-medium">[{p.sku}] {p.name}{p.hasVariants ? ` (${variantCount})` : ''}</td>
                                 <td className="px-4 py-2 text-center text-slate-700">{stockMax}</td>
                                 <td className="px-4 py-2 text-right">
                                   <button onClick={() => { handleAddToCart(p); setSearchQuery(''); }} className="text-blue-600 hover:text-blue-800 font-bold px-2 py-1 bg-blue-100 rounded text-xs">Agregar</button>

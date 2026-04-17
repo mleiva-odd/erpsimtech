@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
+import { prisma } from '@/lib/prisma';
 
 /**
  * Super Admin Utility to purge old logs and notifications
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - Number(days));
 
-    const results: any = {};
+    const results: Record<string, number> = {};
 
     if (types.includes('audit')) {
       const deletedAudit = await prisma.auditLog.deleteMany({

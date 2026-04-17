@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
 
@@ -34,8 +35,8 @@ export async function POST(req: NextRequest) {
       }
     });
     return NextResponse.json(supplier, { status: 201 });
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json({ error: 'Ya existe un proveedor con este Nombre o NIT.' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Error al crear proveedor' }, { status: 500 });

@@ -17,6 +17,8 @@ interface PaymentEntry {
   reference: string;
 }
 
+type PaymentEntryValue = PaymentEntry[keyof PaymentEntry];
+
 interface PaymentSettings {
   acceptsCash: boolean;
   acceptsCard: boolean;
@@ -112,7 +114,7 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
   const hasCash = payments.some(p => p.method === 'CASH');
   const change = hasCash ? Math.max(0, cashReceived - payments.find(p => p.method === 'CASH')!.amount) : 0;
 
-  const updatePayment = (index: number, field: keyof PaymentEntry, value: any) => {
+  const updatePayment = (index: number, field: keyof PaymentEntry, value: PaymentEntryValue) => {
     setPayments(prev => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
   };
 

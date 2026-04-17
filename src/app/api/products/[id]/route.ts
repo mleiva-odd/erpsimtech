@@ -92,7 +92,7 @@ export async function PUT(
     }
 
     const updated = await prisma.$transaction(async (tx) => {
-      const p = await tx.product.update({
+      await tx.product.update({
         where: { id: resolvedParams.id },
         data: {
           name: body.name,

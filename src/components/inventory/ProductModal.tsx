@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { X, Save, Trash2, Loader2, Plus, GripVertical, ImagePlus } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
@@ -9,8 +10,38 @@ interface Category {
   name: string;
 }
 
+interface ProductVariantForm {
+  id?: string;
+  name: string;
+  sku: string;
+  barcode?: string;
+  price: number | string;
+  cost: number | string;
+  stock: number | string;
+  stocks?: Array<{ quantity: number }>;
+}
+
+interface EditableProduct {
+  id: string;
+  name: string;
+  sku: string;
+  barcode?: string | null;
+  description?: string | null;
+  categoryId: string;
+  unitOfMeasure?: string;
+  isTaxExempt?: boolean;
+  price: number | string;
+  wholesalePrice?: number | string | null;
+  cost: number | string;
+  stock?: number;
+  minStock?: number;
+  imageUrl?: string | null;
+  hasVariants?: boolean;
+  variants?: ProductVariantForm[];
+}
+
 interface ProductModalProps {
-  product: any | null;
+  product: EditableProduct | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -20,8 +51,8 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
   const [isLoading, setIsLoading] = useState(false);
   
   const [hasVariants, setHasVariants] = useState(product?.hasVariants || false);
-  const [variants, setVariants] = useState<any[]>(
-    product?.variants?.map((v: any) => ({
+  const [variants, setVariants] = useState<ProductVariantForm[]>(
+    product?.variants?.map((v) => ({
       ...v,
       stock: v.stocks && v.stocks.length > 0 ? v.stocks[0].quantity : 0
     })) || []
@@ -86,9 +117,9 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
     setVariants(variants.filter((_, i) => i !== index));
   };
 
-  const updateVariant = (index: number, field: string, value: any) => {
+  const updateVariant = (index: number, field: keyof ProductVariantForm, value: string | number) => {
     const newVariants = [...variants];
-    newVariants[index][field] = value;
+    newVariants[index] = { ...newVariants[index], [field]: value };
     setVariants(newVariants);
   };
 
@@ -123,7 +154,7 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
         const data = await res.json();
         toast({ tone: 'error', message: data.error || 'Error al guardar el formato estructural del producto.' });
       }
-    } catch (error) {
+    } catch {
       toast({ tone: 'error', message: 'Error de conexión estelar' });
     } finally {
       setIsLoading(false);
@@ -156,7 +187,7 @@ export function ProductModal({ product, onClose, onSuccess }: ProductModalProps)
              <div className="col-span-2 flex flex-col md:flex-row gap-6 mb-2">
                <div className="w-full md:w-32 h-32 flex-shrink-0 bg-white border-2 border-dashed border-slate-300 rounded-xl relative overflow-hidden flex flex-col justify-center items-center group cursor-pointer hover:border-blue-500 transition-colors">
                  {formData.imageUrl ? (
-                   <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Producto" />
+                   <Image src={formData.imageUrl} className="object-cover" alt="Producto" fill unoptimized />
                  ) : (
                    <div className="text-center p-2 text-slate-400">
                      {isUploading ? <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-500" /> : <ImagePlus className="w-8 h-8 mx-auto mb-1 text-slate-300 group-hover:text-blue-500 transition-colors" />}

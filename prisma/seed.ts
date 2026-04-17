@@ -139,7 +139,7 @@ async function main() {
   // 9. Productos Tecnológicos con y sin variantes
   
   // Producto base (Sin variantes)
-  const pAirpods = await prisma.product.create({
+  await prisma.product.create({
     data: {
       companyId: company.id,
       categoryId: catAcc.id,
@@ -158,7 +158,7 @@ async function main() {
   });
 
   // Producto base 2 (Sin variantes)
-  const pMacbook = await prisma.product.create({
+  await prisma.product.create({
     data: {
       companyId: company.id,
       categoryId: catPhones.id, // Reusando cat

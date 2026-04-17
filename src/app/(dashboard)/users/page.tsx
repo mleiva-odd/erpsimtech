@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { UserPlus, Edit2, Zap, Shield, ShieldOff, Loader2, CheckCircle } from 'lucide-react';
+import { UserPlus, Edit2, Shield, ShieldOff, Loader2, CheckCircle } from 'lucide-react';
 import { UserModal } from '@/components/users/UserModal';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';

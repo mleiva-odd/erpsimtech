@@ -23,6 +23,16 @@ interface BranchOption {
   code: string;
 }
 
+interface UserPayload {
+  name: string;
+  email: string;
+  role: string;
+  active: boolean;
+  branchId: string | null;
+  branchAccess: string[];
+  password?: string;
+}
+
 export function UserModal({ user, onClose, onSuccess }: UserModalProps) {
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -66,7 +76,7 @@ export function UserModal({ user, onClose, onSuccess }: UserModalProps) {
       const url = user ? `/api/users/${user.id}` : '/api/users';
       const method = user ? 'PUT' : 'POST';
 
-      const payload: any = {
+      const payload: UserPayload = {
         name: formData.name,
         email: formData.email,
         role: formData.role,

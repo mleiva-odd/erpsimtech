@@ -59,11 +59,11 @@ test.describe('Flujo Crítico de Ventas POS (E2E) - Prevención de Doble Cobro',
 
     // 7. Resultado esperado: Redirección de éxito y que el botón haya quedado desactivado por 'isLoading'
     // Comprobar la notificación de éxito
-    const exitoMensaje = page.locator('text=Venta finalizada');
+    const _exitoMensaje = page.locator('text=Venta finalizada');
     //await expect(exitoMensaje).toBeVisible(); // Depende si pusimos Toast notification
     
     // Al menos un modal de Error NO debió aparecer
-    const errorAlert = page.locator('.bg-red-50');
+    const _errorAlert = page.locator('.bg-red-50');
     //await expect(errorAlert).not.toBeVisible();
     
     // Opcionalmente podemos revisar la DB conectándonos vía Prisma en un script "beforeEach", 

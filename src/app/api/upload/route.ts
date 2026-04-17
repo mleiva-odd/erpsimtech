@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const filepath = `products/${filename}`;
 
     // 3. Subir a Supabase Storage (Bucket: products)
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('products')
       .upload(filepath, compressedBuffer, {
         contentType: 'image/webp',

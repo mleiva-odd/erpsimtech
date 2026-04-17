@@ -214,7 +214,7 @@ export function TicketModal({ saleId, onClose }: TicketModalProps) {
       window.dispatchEvent(new Event('pos:inventory-changed'));
       setShowReturnForm(false);
       await fetchSale();
-    } catch (err) {
+    } catch {
       setReturnError('Error de conexión al procesar la devolución.');
     } finally {
       setIsSubmittingReturn(false);

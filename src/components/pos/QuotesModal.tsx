@@ -11,7 +11,14 @@ interface Quote {
   total: number;
   customer?: { id: string; name: string };
   user: { name: string };
-  items: any[];
+  items: QuoteItem[];
+}
+
+interface QuoteItem {
+  quantity: number;
+  unitPrice: number | string;
+  product: { id: string; name: string; sku: string };
+  variant?: { id: string; name: string; sku: string } | null;
 }
 
 interface QuotesModalProps {

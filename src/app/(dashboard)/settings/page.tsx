@@ -2,12 +2,42 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Save, Building2, Receipt, CreditCard, DollarSign } from 'lucide-react';
+import { Save, Building2, Receipt, DollarSign } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+
+type SettingsFormData = {
+  storeName: string;
+  address: string;
+  phone: string;
+  nit: string;
+  receiptMsg: string;
+  felEnabled: boolean;
+  felProvider: string;
+  felNitEmisor: string;
+  felApiUser: string;
+  felApiKey: string;
+  acceptsCash: boolean;
+  acceptsCard: boolean;
+  acceptsTransfer: boolean;
+  acceptsCredit: boolean;
+  taxRate: number;
+  taxIncluded: boolean;
+  currency: string;
+  currencySymbol: string;
+};
+
+type PaymentMethodSettingKey = 'acceptsCash' | 'acceptsCard' | 'acceptsTransfer' | 'acceptsCredit';
+
+const PAYMENT_METHOD_OPTIONS: Array<{ key: PaymentMethodSettingKey; label: string; desc: string }> = [
+  { key: 'acceptsCash', label: 'Efectivo', desc: 'Billetes y monedas' },
+  { key: 'acceptsCard', label: 'Tarjeta', desc: 'Débito y crédito (terminal externa)' },
+  { key: 'acceptsTransfer', label: 'Transferencia', desc: 'Transferencia bancaria' },
+  { key: 'acceptsCredit', label: 'Fiado (Crédito)', desc: 'Clientes con límite de crédito aprobado' },
+];
 
 export default function SettingsPage() {
   const { data: session } = useSession();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SettingsFormData>({
     storeName: '', address: '', phone: '', nit: '', receiptMsg: '',
     // FEL
     felEnabled: false, felProvider: 'NONE' as string,
@@ -210,16 +240,11 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm font-semibold text-slate-700 mb-3">Métodos de pago aceptados</p>
               <div className="space-y-2">
-                {[
-                  { key: 'acceptsCash', label: 'Efectivo', desc: 'Billetes y monedas' },
-                  { key: 'acceptsCard', label: 'Tarjeta', desc: 'Débito y crédito (terminal externa)' },
-                  { key: 'acceptsTransfer', label: 'Transferencia', desc: 'Transferencia bancaria' },
-                  { key: 'acceptsCredit', label: 'Fiado (Crédito)', desc: 'Clientes con límite de crédito aprobado' },
-                ].map(m => (
+                {PAYMENT_METHOD_OPTIONS.map((m) => (
                   <label key={m.key} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition">
                     <input
                       type="checkbox"
-                      checked={(formData as any)[m.key]}
+                      checked={formData[m.key]}
                       onChange={e => setFormData({...formData, [m.key]: e.target.checked})}
                       className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-5 h-5"
                     />

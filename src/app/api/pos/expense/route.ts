@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(transaction, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error registrando egreso de caja:', error);
     return NextResponse.json({ error: 'Hubo un error del servidor al intentar guardar el egreso' }, { status: 500 });
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
 
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') ?? '1');
   const limit = parseInt(searchParams.get('limit') ?? '50');
 
-  const whereOptions: any = { companyId: tenant.companyId };
+  const whereOptions: Prisma.AuditLogWhereInput = { companyId: tenant.companyId };
   if (action) whereOptions.action = action;
   if (entity) whereOptions.entity = entity;
 

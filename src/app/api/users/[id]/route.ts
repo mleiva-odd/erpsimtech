@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
 import bcrypt from 'bcryptjs';
+
+interface UserUpdateData extends Prisma.UserUpdateInput {
+  branchAccess?: {
+    deleteMany: Record<string, never>;
+    create: Array<{ branchId: string }>;
+  };
+}
 
 export async function PUT(
   req: NextRequest,
@@ -46,12 +54,12 @@ export async function PUT(
       }
     }
 
-    const dataToUpdate: any = {
+    const dataToUpdate: UserUpdateData = {
       name: body.name,
       email: body.email,
       role: body.role,
       active: body.active,
-      branchId: body.branchId || null,
+      branch: body.branchId ? { connect: { id: body.branchId } } : { disconnect: true },
     };
 
     if (body.branchAccess !== undefined && Array.isArray(body.branchAccess)) {

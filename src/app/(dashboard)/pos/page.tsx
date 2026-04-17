@@ -29,6 +29,9 @@ export default function POSPage() {
   const [isQuoting, setIsQuoting] = useState(false);
   const { toast } = useToast();
 
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error ? error.message : fallback;
+
   const handleSuccess = (saleId: string) => {
     window.dispatchEvent(new Event('pos:inventory-changed'));
     setLastSaleId(saleId);
@@ -72,8 +75,8 @@ export default function POSPage() {
         tone: 'success',
         message: `Cotización guardada correctamente. ID: ${data.id.split('-')[0].toUpperCase()}`,
       });
-    } catch (e: any) {
-      toast({ tone: 'error', message: e.message || 'Error al crear cotización.' });
+    } catch (error) {
+      toast({ tone: 'error', message: getErrorMessage(error, 'Error al crear cotización.') });
     } finally {
       setIsQuoting(false);
     }

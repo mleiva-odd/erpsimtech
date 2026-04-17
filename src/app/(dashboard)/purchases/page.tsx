@@ -7,12 +7,21 @@ import { VariantSelectionModal } from '@/components/pos/VariantSelectionModal';
 import { useToast } from '@/components/ui/toast';
 
 interface Supplier { id: string; name: string; }
-interface Product { id: string; name: string; sku: string; cost: string; unitOfMeasure: string; hasVariants?: boolean; variants?: any[]; }
+interface VariantOption { id: string; name: string; sku: string; price: string | number; stocks?: Array<{ quantity: number }>; }
+interface Product { id: string; name: string; sku: string; cost: string; unitOfMeasure: string; hasVariants?: boolean; variants?: VariantOption[]; }
 interface PurchaseItem { product: Product; variantId?: string; variantName?: string; quantity: number; cost: number; }
+interface PurchaseHistoryItem {
+  id: string;
+  createdAt: string;
+  total: number | string;
+  reference?: string | null;
+  supplier: { name: string };
+  user?: { name?: string | null } | null;
+}
 
 export default function PurchasesPage() {
   const [view, setView] = useState<'history' | 'new'>('history');
-  const [purchases, setPurchases] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<PurchaseHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // New Purchase State
@@ -22,7 +31,6 @@ export default function PurchasesPage() {
   const [cart, setCart] = useState<PurchaseItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [variantModalProduct, setVariantModalProduct] = useState<Product | null>(null);
   const { toast } = useToast();
@@ -53,11 +61,10 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     if (!debouncedSearch) { setSearchResults([]); return; }
-    setIsSearching(true);
     fetch(`/api/products?q=${encodeURIComponent(debouncedSearch)}&limit=10`)
       .then(res => res.json())
       .then(data => setSearchResults(data.products || []))
-      .finally(() => setIsSearching(false));
+      .catch(() => setSearchResults([]));
   }, [debouncedSearch]);
 
   const addProduct = (p: Product, variantId?: string, variantName?: string) => {
@@ -138,7 +145,7 @@ export default function PurchasesPage() {
             isOpen={!!variantModalProduct}
             product={variantModalProduct}
             onClose={() => setVariantModalProduct(null)}
-            onSelect={(_, variant) => addProduct(variantModalProduct as Product, variant.id, variant.name)}
+            onSelect={(_, variant) => variantModalProduct && addProduct(variantModalProduct, variant.id, variant.name)}
           />
         )}
 

@@ -21,7 +21,15 @@ interface Product {
   categoryId: string;
   isBundle?: boolean;
   hasVariants?: boolean;
-  variants?: any[];
+  variants?: ProductVariant[];
+}
+
+interface ProductVariant {
+  id: string;
+  name: string;
+  sku: string;
+  price: string | number;
+  stocks?: Array<{ quantity: number }>;
 }
 
 export function ProductGrid() {
@@ -95,7 +103,7 @@ export function ProductGrid() {
     });
   };
 
-  const handleVariantSelect = (product: Product, variant: any) => {
+  const handleVariantSelect = (product: { id: string; name: string }, variant: ProductVariant) => {
     addItem({
       id: product.id,
       variantId: variant.id,
@@ -213,9 +221,9 @@ export function ProductGrid() {
       {/* Variant Modal Popup */}
       <VariantSelectionModal 
         isOpen={variantModal.isOpen} 
-        product={variantModal.product as any} 
+        product={variantModal.product} 
         onClose={() => setVariantModal({ isOpen: false, product: null })} 
-        onSelect={handleVariantSelect as any} 
+        onSelect={handleVariantSelect} 
       />
     </div>
   );

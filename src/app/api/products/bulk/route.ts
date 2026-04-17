@@ -1,7 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
+import { Prisma, UnitOfMeasure } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
+
+interface ImportedProductRow {
+  name?: string;
+  sku?: string;
+  categoryId?: string;
+  categoryName?: string;
+  unitOfMeasure?: string;
+  variantName?: string;
+  barcode?: string;
+  price?: number | string;
+  cost?: number | string;
+  stock?: number | string;
+  minStock?: number | string;
+}
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 async function upsertBaseStock(tx: Prisma.TransactionClient, input: {
   productId: string;
@@ -46,7 +63,8 @@ export async function POST(req: NextRequest) {
   const { tenant } = result;
 
   try {
-    const { products } = await req.json();
+    const body = await req.json();
+    const products = Array.isArray(body.products) ? (body.products as ImportedProductRow[]) : [];
 
     if (!Array.isArray(products) || products.length === 0) {
       return NextResponse.json({ error: 'El archivo Excel/CSV está vacío o tiene formato inválido.' }, { status: 400 });
@@ -67,7 +85,7 @@ export async function POST(req: NextRequest) {
       let count = 0;
 
       // Group rows by Parent Name
-      const productMap = new Map<string, any[]>();
+      const productMap = new Map<string, ImportedProductRow[]>();
       for (const p of products) {
         if (!p.name || !p.sku) continue; // Skip broken rows
         const key = String(p.name).trim();
@@ -100,8 +118,11 @@ export async function POST(req: NextRequest) {
         }
 
         // Map and Format UOM safely
-        const validUOM = ['UNIT', 'KG', 'LB', 'LITER', 'GALLON', 'BOX'];
-        const chosenUOM = validUOM.includes(firstRow.unitOfMeasure?.toUpperCase()) ? firstRow.unitOfMeasure?.toUpperCase() : 'UNIT';
+        const validUOM: readonly UnitOfMeasure[] = ['UNIT', 'KG', 'LB', 'LITER', 'GALLON', 'BOX'];
+        const normalizedUOM = firstRow.unitOfMeasure?.toUpperCase();
+        const chosenUOM: UnitOfMeasure = normalizedUOM && validUOM.includes(normalizedUOM as UnitOfMeasure)
+          ? (normalizedUOM as UnitOfMeasure)
+          : 'UNIT';
 
         const isMatrix = rows.length > 1 || !!firstRow.variantName;
 
@@ -132,6 +153,7 @@ export async function POST(req: NextRequest) {
               barcode: firstRow.barcode ? String(firstRow.barcode) : null,
               price: Number(firstRow.price) || 0,
               cost: Number(firstRow.cost) || 0,
+              unitOfMeasure: chosenUOM,
               stocks: {
                 create: {
                   branchId,
@@ -162,6 +184,7 @@ export async function POST(req: NextRequest) {
                 sku: parentSku,
                 price: 0,
                 cost: 0,
+                unitOfMeasure: chosenUOM,
                 hasVariants: true
               }
             });
@@ -210,8 +233,8 @@ export async function POST(req: NextRequest) {
     }, { timeout: 30000 }); // Allowed 30 seconds for giant datasets
 
     return NextResponse.json({ message: 'Procesamiento Masivo Finalizado Exitosamente', inserted: createdCount }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: error.message || 'Error destructivo procesando catálogo.' }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error, 'Error destructivo procesando catálogo.') }, { status: 500 });
   }
 }

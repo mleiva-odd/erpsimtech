@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireBranchAccess, requireRole } from '@/lib/tenant';
 
+interface ValuationBucket {
+  investment: number;
+  revenue: number;
+  items: number;
+}
+
 /**
  * Reporte de Valuación de Inventario
  * Permite conocer el valor monetario de la mercadería en stock.
@@ -54,8 +60,8 @@ export async function GET(req: NextRequest) {
     let totalExpectedRevenue = 0;
     let totalItems = 0;
 
-    const valuationByBranch: Record<string, any> = {};
-    const valuationByCategory: Record<string, any> = {};
+    const valuationByBranch: Record<string, ValuationBucket> = {};
+    const valuationByCategory: Record<string, ValuationBucket> = {};
 
     stocks.forEach(s => {
       const price = Number(s.variant?.price || s.product.price);

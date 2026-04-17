@@ -12,6 +12,9 @@ const AdjustmentSchema = z.object({
   reason: z.string().min(2, 'El motivo es obligatorio'),
 });
 
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
 async function setProductStockQuantity(tx: Prisma.TransactionClient, input: {
   productId: string;
   branchId: string;
@@ -215,8 +218,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(adjustment, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in inventory adjustment:', error);
-    return NextResponse.json({ error: error.message || 'Error procesando el ajuste' }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error, 'Error procesando el ajuste') }, { status: 500 });
   }
 }

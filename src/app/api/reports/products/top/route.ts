@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireBranchAccess, requireRole } from '@/lib/tenant';
+
+interface ProductStat {
+  name: string;
+  sku: string;
+  quantity: number;
+  revenue: number;
+  cost: number;
+  profit: number;
+}
 
 /**
  * Reporte de Ranking de Productos (Análisis ABC)
@@ -25,7 +35,7 @@ export async function GET(req: NextRequest) {
     const endDate = to ? new Date(to) : new Date();
     endDate.setHours(23, 59, 59, 999);
 
-    const saleWhere: any = {
+    const saleWhere: Prisma.SaleWhereInput = {
       companyId: tenant.companyId,
       status: 'COMPLETED',
       createdAt: { gte: startDate, lte: endDate }
@@ -49,7 +59,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    const productStats: Record<string, any> = {};
+    const productStats: Record<string, ProductStat> = {};
 
     items.forEach(item => {
       const key = item.variantId ? `${item.productId}-${item.variantId}` : item.productId;

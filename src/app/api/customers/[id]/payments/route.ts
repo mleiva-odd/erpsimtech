@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
@@ -10,6 +11,9 @@ const PaymentSchema = z.object({
   reference: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 /**
  * GET: Obtener historial de abonos de un cliente
@@ -64,6 +68,7 @@ export async function POST(
     }
 
     const { amount, method, reference, notes } = parsed.data;
+    const guardedAmount = new Prisma.Decimal(amount);
 
     // 1. Verificar si hay caja abierta para ingresos en efectivo
     let activeRegisterId = null;
@@ -111,7 +116,7 @@ export async function POST(
         where: {
           id: resolvedParams.id,
           companyId: tenant.companyId,
-          balance: { gte: amount as any },
+          balance: { gte: guardedAmount },
         },
         data: {
           balance: { decrement: amount }
@@ -141,8 +146,8 @@ export async function POST(
     });
 
     return NextResponse.json(payment, { status: 201 });
-  } catch (error: any) {
-    console.error('Error recording payment:', error);
-    return NextResponse.json({ error: error.message || 'Error al procesar el abono' }, { status: 500 });
+    } catch (error) {
+      console.error('Error recording payment:', error);
+    return NextResponse.json({ error: getErrorMessage(error, 'Error al procesar el abono') }, { status: 500 });
   }
 }

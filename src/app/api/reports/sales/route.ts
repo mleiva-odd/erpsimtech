@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireBranchAccess, requireRole } from '@/lib/tenant';
 import { parse } from 'json2csv';
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
     const endDate = to ? new Date(to) : new Date();
     endDate.setHours(23, 59, 59, 999);
 
-    const where: any = {
+    const where: Prisma.SaleWhereInput = {
       companyId: tenant.companyId,
       status: 'COMPLETED',
       createdAt: {

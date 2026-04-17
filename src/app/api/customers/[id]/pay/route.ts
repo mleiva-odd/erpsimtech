@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 import { z } from 'zod';
@@ -24,6 +25,7 @@ export async function POST(
   }
 
   const { amount } = parsed.data;
+  const guardedAmount = new Prisma.Decimal(amount);
 
   try {
     const customer = await prisma.customer.findFirst({
@@ -53,7 +55,7 @@ export async function POST(
         where: {
           id: resolvedParams.id,
           companyId: tenant.companyId,
-          balance: { gte: amount as any },
+          balance: { gte: guardedAmount },
         },
         data: {
           balance: {
@@ -74,7 +76,7 @@ export async function POST(
       }
 
       // 2. Crear el registro legal de Abono (AccountPayment)
-      const payment = await (tx as any).accountPayment.create({
+      const payment = await tx.accountPayment.create({
         data: {
           amount,
           customerId: customer.id,

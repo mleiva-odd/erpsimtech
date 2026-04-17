@@ -3,6 +3,15 @@ import { prisma } from '@/lib/prisma';
 import { requireTenant, requireRole } from '@/lib/tenant';
 import { z } from 'zod';
 
+const VariantSchema = z.object({
+  name: z.string(),
+  sku: z.string(),
+  barcode: z.string().optional().nullable(),
+  price: z.preprocess((val) => Number(val), z.number().min(0)),
+  cost: z.preprocess((val) => Number(val), z.number().min(0)),
+  stock: z.preprocess((val) => Number(val), z.number().min(0)),
+});
+
 export async function GET(req: NextRequest) {
   const result = await requireTenant();
   if ('error' in result) return result.error;
@@ -49,8 +58,8 @@ export async function GET(req: NextRequest) {
       include: {
         category: { select: { id: true, name: true } },
         stocks: targetBranchId
-          ? { where: { branchId: targetBranchId, variantId: (null as any) } }
-          : { where: { variantId: (null as any) } },
+          ? { where: { branchId: targetBranchId, variantId: null } }
+          : { where: { variantId: null } },
         variants: {
           include: {
             stocks: targetBranchId
@@ -112,7 +121,7 @@ const ProductSchema = z.object({
   isTaxExempt: z.boolean().optional().default(false),
   unitOfMeasure: z.enum(['UNIT', 'KG', 'LB', 'LITER', 'GALLON', 'BOX']).optional().default('UNIT'),
   hasVariants: z.boolean().optional().default(false),
-  variants: z.array(z.any()).optional(), 
+  variants: z.array(VariantSchema).optional(),
   imageUrl: z.string().optional().nullable(),
   isBundle: z.boolean().optional().default(false),
   bundleItems: z.array(z.object({

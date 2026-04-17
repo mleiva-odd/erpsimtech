@@ -2,9 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { Shield, Building2, Plus, Edit2, Users, MapPin, CreditCard, Loader2, Check, X, AlertTriangle } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { Shield, Building2, Plus, Loader2, Check, X, AlertTriangle } from 'lucide-react';
 
 interface CompanyData {
   id: string;

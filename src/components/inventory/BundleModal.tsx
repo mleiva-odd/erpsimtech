@@ -1,23 +1,81 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, Trash2, Loader2, Search, Package, Plus } from 'lucide-react';
+import { X, Save, Trash2, Loader2, Search, Plus } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useToast } from '@/components/ui/toast';
 
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface BundleVariant {
+  id: string;
+  name: string;
+  sku: string;
+  cost?: number | string | null;
+}
+
+interface BundleSearchProduct {
+  id: string;
+  name: string;
+  sku: string;
+  cost?: number | string | null;
+  isBundle?: boolean;
+  hasVariants?: boolean;
+  variants?: BundleVariant[];
+}
+
+interface BundleDetailItem {
+  componentId: string;
+  variantId?: string | null;
+  quantity: number;
+  component: {
+    name: string;
+    cost?: number | string | null;
+  };
+  variant?: {
+    name: string;
+    cost?: number | string | null;
+  } | null;
+}
+
+interface BundleProductDetail {
+  id: string;
+  name: string;
+  sku: string;
+  barcode?: string | null;
+  price: number | string;
+  categoryId: string;
+  description?: string | null;
+  bundleItems?: BundleDetailItem[];
+}
+
+interface EditableBundleProduct {
+  id: string;
+}
+
+interface BundleComponentInput {
+  baseId: string;
+  variantId?: string | null;
+  name: string;
+  cost?: number | string | null;
+}
+
 interface BundleModalProps {
-  product?: any;
+  product?: EditableBundleProduct | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedQuery = useDebounce(searchQuery, 300);
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [selectedParent, setSelectedParent] = useState<any>(null);
+  const [searchResults, setSearchResults] = useState<BundleSearchProduct[]>([]);
+  const [selectedParent, setSelectedParent] = useState<BundleSearchProduct | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -29,7 +87,7 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
     description: '',
   });
 
-  const [bundleItems, setBundleItems] = useState<{ id: string; variantId?: string; name: string; quantity: number; cost: number; uniqueKey: string }[]>([]);
+  const [bundleItems, setBundleItems] = useState<{ id: string; variantId?: string | null; name: string; quantity: number; cost: number; uniqueKey: string }[]>([]);
 
   useEffect(() => {
     fetch('/api/categories').then(res => res.json()).then(data => {
@@ -43,7 +101,7 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
        setIsLoading(true);
        fetch(`/api/products/${product.id}`)
           .then(res => res.json())
-          .then(data => {
+          .then((data: BundleProductDetail) => {
              setFormData({
                 name: data.name,
                 sku: data.sku,
@@ -53,7 +111,7 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
                 description: data.description || '',
              });
              if (data.bundleItems) {
-                setBundleItems(data.bundleItems.map((b: any) => ({
+                setBundleItems(data.bundleItems.map((b) => ({
                    id: b.componentId,
                    variantId: b.variantId || null,
                    name: b.variant ? `${b.component.name} - ${b.variant.name}` : b.component.name,
@@ -72,7 +130,7 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
       if (searchQuery !== debouncedQuery) setSelectedParent(null);
       fetch(`/api/products?q=${encodeURIComponent(debouncedQuery)}&limit=5`)
         .then(res => res.json())
-        .then(data => setSearchResults(data.products.filter((p: any) => !p.isBundle)))
+        .then((data: { products?: BundleSearchProduct[] }) => setSearchResults((data.products || []).filter((p) => !p.isBundle)))
         .catch(() => {});
     } else {
       setSearchResults([]);
@@ -80,7 +138,7 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
     }
   }, [debouncedQuery, searchQuery]);
 
-  const addComponent = (product: any) => {
+  const addComponent = (product: BundleComponentInput) => {
     const key = product.variantId ? `${product.baseId}-${product.variantId}` : product.baseId;
     if (bundleItems.find(i => i.uniqueKey === key)) return;
     setBundleItems([...bundleItems, { id: product.baseId, variantId: product.variantId, name: product.name, quantity: 1, cost: Number(product.cost), uniqueKey: key }]);
@@ -200,7 +258,7 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
                           <span className="font-bold text-slate-700 text-sm">Seleccione la variante:</span>
                           <button type="button" onClick={() => setSelectedParent(null)} className="text-slate-500 hover:text-slate-800 text-xs font-bold px-2 py-1 bg-slate-200 rounded">Volver</button>
                         </div>
-                        {selectedParent.variants.map((v: any) => (
+                        {selectedParent.variants?.map((v) => (
                            <button key={v.id} type="button" onClick={() => { addComponent({ ...v, baseId: selectedParent.id, variantId: v.id, name: `${selectedParent.name} - ${v.name}`, cost: v.cost || selectedParent.cost }); setSelectedParent(null); }} className="w-full text-left px-4 py-3 hover:bg-indigo-50 border-b flex justify-between items-center transition-colors">
                               <div>
                                 <div className="font-bold text-sm text-slate-800">{selectedParent.name} - {v.name}</div>
@@ -211,16 +269,19 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
                         ))}
                       </div>
                     ) : (
-                      searchResults.map((p: any) => (
+                      searchResults.map((p) => {
+                        const variantCount = p.variants?.length ?? 0;
+
+                        return (
                         <button key={p.id} type="button" onClick={() => {
-                          if (p.hasVariants && p.variants?.length > 0) {
+                          if (p.hasVariants && variantCount > 0) {
                             setSelectedParent(p);
                           } else {
                             addComponent({...p, baseId: p.id, variantId: null});
                           }
                         }} className="w-full text-left px-4 py-3 hover:bg-indigo-50 border-b flex justify-between items-center transition-colors">
                           <div>
-                             <div className="font-bold text-sm text-slate-800">{p.name} {p.hasVariants ? `(${p.variants.length} variantes)` : ''}</div>
+                             <div className="font-bold text-sm text-slate-800">{p.name} {p.hasVariants ? `(${variantCount} variantes)` : ''}</div>
                              <div className="text-xs text-slate-500 font-mono">{p.sku}</div>
                           </div>
                           {p.hasVariants ? (
@@ -229,7 +290,8 @@ export function BundleModal({ product, onClose, onSuccess }: BundleModalProps) {
                             <div className="text-indigo-600 font-bold text-sm"><Plus className="w-4 h-4"/></div>
                           )}
                         </button>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 )}

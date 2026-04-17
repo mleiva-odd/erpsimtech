@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Loader2, Save, Tags } from 'lucide-react';
+import { X, Loader2, Save } from 'lucide-react';
 
 interface CategoryModalProps {
   onClose: () => void;
@@ -34,8 +34,8 @@ export function CategoryModal({ onClose, onSuccess }: CategoryModalProps) {
       }
 
       onSuccess();
-    } catch (e: any) {
-      setError(e.message);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Error al guardar categoría');
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Tag } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface Variant {
   id: string;

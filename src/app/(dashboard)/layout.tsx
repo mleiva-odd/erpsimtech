@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { LogOut, Home, Store, Settings, Package, Users, BarChart3, Building2, Shield, ArrowRightLeft, Activity } from "lucide-react";
+import { Store } from "lucide-react";
 import { ClientSidebar } from "@/components/layout/ClientSidebar";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {

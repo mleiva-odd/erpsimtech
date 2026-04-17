@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, UploadCloud, Download, FileSpreadsheet, AlertCircle, Loader2 } from 'lucide-react';
+import { X, UploadCloud, Download, Loader2 } from 'lucide-react';
 import Papa from 'papaparse';
 import { useToast } from '@/components/ui/toast';
 
@@ -67,7 +67,7 @@ export function ImportExcelModal({ onClose, onSuccess }: ImportExcelModalProps) 
           } else {
             setError(data.error || 'Error subiendo los productos.');
           }
-        } catch (e) {
+        } catch {
           setError('Corte de conexión detectado.');
         } finally {
           setLoading(false);

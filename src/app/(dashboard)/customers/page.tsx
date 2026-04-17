@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { Search, Plus, CreditCard, UserCircle, Edit2, ShieldAlert, Users } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useToast } from '@/components/ui/toast';
@@ -18,7 +17,6 @@ interface Customer {
 }
 
 export default function CustomersPage() {
-  const { data: session } = useSession();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

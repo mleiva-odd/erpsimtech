@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, UserCircle, X, Users } from 'lucide-react';
+import { UserCircle, X, Users } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
 import { useDebounce } from '@/hooks/useDebounce';
 

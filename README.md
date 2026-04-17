@@ -1,71 +1,78 @@
-# 🚀 SIMTECH POS - Enterprise SaaS
+# SIMTECH POS
 
-Bienvenido al repositorio oficial de **SIMTECH POS**, un Punto de Venta (ERP) avanzado con arquitectura de software como servicio (SaaS) Multi-Sucursal, construido en **Next.js 16**, **Tailwind CSS**, **Prisma ORM** y **PostgreSQL**.
+POS/ERP multi-sucursal construido con Next.js 16, Prisma, PostgreSQL y Supabase.
 
----
+## Requisitos
 
-## 🏗️ Requisitos Previos (Local)
+- Node.js 18+
+- PostgreSQL o Supabase
+- variables de entorno configuradas
 
-Para ejecutar este proyecto en un entorno local, asegúrate de tener instalados:
-- **Node.js** (v18.0 o superior)
-- **PostgreSQL** corriendo localmente o una URI válida (ej. Supabase)
+## Variables de entorno
 
----
+Usa [.env.example](.env.example) como base. Las variables mínimas para desarrollo y despliegue son:
 
-## ⚙️ Despliegue en Entorno Local (Paso a Paso)
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
-Sigue estas estrictas instrucciones si vas a probar este sistema en modo "Desarrollador/QA":
+## Desarrollo local
 
-### 1. Clonar e Instalar Independencias
-Clona el repositorio e instala los paquetes de Node:
+1. Instala dependencias:
+
 ```bash
-git clone git@github.com:mleiva-odd/SIMTECHPOS.git
-cd SIMTECHPOS
 npm install
 ```
 
-### 2. Variables de Entorno (`.env`)
-En la raíz del proyecto, asegúrate de crear el archivo `.env` configurando la base de datos de Postgres y tu secreto de NextAuth:
-```bash
-# Variables Obligatorias
-DATABASE_URL="postgresql://USUARIO:CONTRASEÑA@localhost:5432/simtechdb?schema=public"
-NEXTAUTH_SECRET="cualquier-string-largo-aleatorio-para-encriptacion-de-sesiones"
-NEXTAUTH_URL="http://localhost:3000"
-```
+2. Crea `.env` a partir de `.env.example`.
 
-### 3. Sincronización DB y Sembrado de Datos (Seed)
-Este proyecto cuenta con un script inyector (`prisma/seed.ts`), el cual construirá toda la base de datos inicial y cargará usuarios e inventario base.
+3. Sincroniza la base local y genera datos semilla:
 
-Sube las tablas a tu base de datos:
 ```bash
 npx prisma db push
-```
-
-Corre la Semilla (Seeder):
-```bash
 npx prisma db seed
-# Node inyectará el inventario semilla y las credenciales maestras.
 ```
 
-### 4. Levantar Servidor
-Finalmente, arranca la máquina en modo desarrollo (Turbopack):
+4. Levanta la app:
+
 ```bash
 npm run dev
 ```
-Dirígete a `http://localhost:3000` en tu navegador para ver el App Launcher.
 
----
+## Credenciales de seed
 
-## 🔑 Credenciales Generadas Automáticamente (Para Pruebas)
+Después de `npx prisma db seed`:
 
-Al correr el comando `npx prisma db seed`, el sistema crea por defecto estas dos identidades para que inicies sesión:
+- `admin@simtechpos.com` / `admin123`
+- `simtech@simtech.com` / `admin123`
 
-| Usuario / Rol | Correo Electrónico (Login) | Contraseña | ¿Qué puede hacer? |
-| --- | --- | --- | --- |
-| **Súper Administrador** | `admin@simtechpos.com` | `admin123` | Control global de la aplicación, auditorías, empresas y facturación global. |
-| **Admin de Empresa** | `simtech@simtech.com` | `admin123` | Control del Negocio (SIMTECH), gestión de toda su Sucursal Central, Stock y Usuarios. |
+## Preproducción
 
-> **Nota Adicional:** El Seeder del `Admin de Empresa` ya incluye un inventario de **3 Productos Tecnológicos** inyectados automáticamente en la sucursal para que puedas empezar a cobrar en el `POS` o trasladarlos apenas ingreses.
+Antes de desplegar:
 
----
-**Simtech Enterprise Solutions © 2026**
+```bash
+npm run prisma:validate
+npm run check:preprod
+```
+
+## Despliegue y migraciones
+
+Este proyecto no debe depender de `prisma db push` en producción.
+
+Si el cambio toca esquema, aplica primero los SQL manuales en `prisma/manual_migrations/` y luego despliega el código. En esta base ya existen migraciones manuales importantes para:
+
+- idempotencia de ventas y devoluciones
+- `cashRegisterId` en `AccountPayment`
+- `unitCost` en `SaleItem`
+
+Si subes código sin aplicar el SQL correspondiente, el deploy puede compilar pero fallar en runtime.
+
+## Estado técnico actual
+
+- `npm run lint`: limpio
+- `npm run typecheck`: limpio
+- `npm run build`: limpio
+- `npm audit --omit=dev`: limpio

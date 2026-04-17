@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(sanitizeSettings(settings));
   } catch (error) {
+    console.error('Settings GET error:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
@@ -126,6 +127,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json(sanitizeSettings(updated));
   } catch (error) {
+    console.error('Settings PUT error:', error);
     return NextResponse.json({ error: 'Error actualizando settings' }, { status: 500 });
   }
 }

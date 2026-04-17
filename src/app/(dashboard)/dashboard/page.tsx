@@ -39,11 +39,11 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [charts, setCharts] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const { selectedBranchId } = useBranchStore();
   const role = session?.user?.role;
-  const hasCompanyContext = Boolean(session?.user?.companyId);
-  const canAccess = hasCompanyContext && (role === 'SUPERVISOR' || role === 'ADMIN');
+  const canAccess = role === 'SUPERVISOR' || role === 'ADMIN' || role === 'SUPER_ADMIN';
 
   useEffect(() => {
     if (status === 'loading') {
@@ -53,6 +53,7 @@ export default function DashboardPage() {
     if (!canAccess) {
       setStats(null);
       setCharts(null);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -64,12 +65,24 @@ export default function DashboardPage() {
       const branchQuery = selectedBranchId ? `?branchId=${selectedBranchId}` : '';
 
       try {
+        setError(null);
+        const [statsResponse, chartsResponse] = await Promise.all([
+          fetch(`/api/dashboard${branchQuery}`),
+          fetch(`/api/dashboard/charts${branchQuery}`),
+        ]);
         const [statsData, chartsData] = await Promise.all([
-          fetch(`/api/dashboard${branchQuery}`).then((r) => r.json()),
-          fetch(`/api/dashboard/charts${branchQuery}`).then((r) => r.json()),
+          statsResponse.json(),
+          chartsResponse.json(),
         ]);
 
         if (!active) return;
+
+        if (!statsResponse.ok) {
+          setStats(null);
+          setCharts(null);
+          setError(statsData.error || 'No fue posible cargar el dashboard.');
+          return;
+        }
 
         setStats({
           revenueToday: statsData.revenueToday ?? 0,
@@ -78,7 +91,7 @@ export default function DashboardPage() {
           lowStockProducts: statsData.lowStockProducts ?? 0,
           recentSales: statsData.recentSales ?? [],
         });
-        setCharts(chartsData.error ? null : chartsData);
+        setCharts(chartsResponse.ok && !chartsData.error ? chartsData : null);
       } finally {
         if (active) {
           setLoading(false);
@@ -106,7 +119,18 @@ export default function DashboardPage() {
       <div className="flex min-h-[50vh] items-center justify-center p-8">
         <div className="rounded-3xl border border-rose-100 bg-rose-50 px-8 py-10 text-center">
           <h2 className="text-xl font-bold text-rose-700">Acceso denegado</h2>
-          <p className="mt-2 text-sm text-rose-600">Las métricas operativas solo están disponibles dentro de una empresa activa.</p>
+          <p className="mt-2 text-sm text-rose-600">No tienes permisos para ver métricas del negocio.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center p-8">
+        <div className="rounded-3xl border border-rose-100 bg-rose-50 px-8 py-10 text-center">
+          <h2 className="text-xl font-bold text-rose-700">Error cargando métricas</h2>
+          <p className="mt-2 text-sm text-rose-600">{error}</p>
         </div>
       </div>
     );

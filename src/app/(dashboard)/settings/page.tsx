@@ -51,10 +51,10 @@ export default function SettingsPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'fel' | 'payments'>('general');
   const { toast } = useToast();
-  const hasCompanyContext = Boolean(session?.user?.companyId);
-  const canAccess = session?.user?.role === 'ADMIN' && hasCompanyContext;
+  const canAccess = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
     if (status === 'loading') {
@@ -63,35 +63,46 @@ export default function SettingsPage() {
 
     if (!canAccess) {
       setIsLoading(false);
+      setLoadError(null);
       return;
     }
 
     setIsLoading(true);
     fetch('/api/settings')
-      .then(r => r.json())
+      .then(async (response) => ({
+        ok: response.ok,
+        data: await response.json(),
+      }))
       .then(data => {
-        if (!data.error) {
+        if (data.ok && !data.data.error) {
+          setLoadError(null);
           setFormData({
-            storeName: data.storeName || '',
-            address: data.address || '',
-            phone: data.phone || '',
-            nit: data.nit || '',
-            receiptMsg: data.receiptMsg || '',
-            felEnabled: data.felEnabled || false,
-            felProvider: data.felProvider || 'NONE',
-            felNitEmisor: data.felNitEmisor || '',
-            felApiUser: data.felApiUser || '',
-            felApiKey: data.felApiKey || '',
-            acceptsCash: data.acceptsCash ?? true,
-            acceptsCard: data.acceptsCard ?? true,
-            acceptsTransfer: data.acceptsTransfer ?? true,
-            acceptsCredit: data.acceptsCredit ?? false,
-            taxRate: Number(data.taxRate) || 0.12,
-            taxIncluded: data.taxIncluded ?? true,
-            currency: data.currency || 'GTQ',
-            currencySymbol: data.currencySymbol || 'Q',
+            storeName: data.data.storeName || '',
+            address: data.data.address || '',
+            phone: data.data.phone || '',
+            nit: data.data.nit || '',
+            receiptMsg: data.data.receiptMsg || '',
+            felEnabled: data.data.felEnabled || false,
+            felProvider: data.data.felProvider || 'NONE',
+            felNitEmisor: data.data.felNitEmisor || '',
+            felApiUser: data.data.felApiUser || '',
+            felApiKey: data.data.felApiKey || '',
+            acceptsCash: data.data.acceptsCash ?? true,
+            acceptsCard: data.data.acceptsCard ?? true,
+            acceptsTransfer: data.data.acceptsTransfer ?? true,
+            acceptsCredit: data.data.acceptsCredit ?? false,
+            taxRate: Number(data.data.taxRate) || 0.12,
+            taxIncluded: data.data.taxIncluded ?? true,
+            currency: data.data.currency || 'GTQ',
+            currencySymbol: data.data.currencySymbol || 'Q',
           });
+        } else {
+          setLoadError(data.data.error || 'No fue posible cargar la configuración.');
         }
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setLoadError('No fue posible cargar la configuración.');
         setIsLoading(false);
       });
   }, [canAccess, status]);
@@ -129,7 +140,16 @@ export default function SettingsPage() {
     return (
       <div className="flex flex-col items-center justify-center p-10 bg-red-50 text-red-600 rounded-2xl m-8">
         <h2 className="font-bold text-xl mb-2">Acceso Denegado</h2>
-        <p>La configuración del negocio solo puede editarse dentro de una empresa activa.</p>
+        <p>Solo el Administrador puede editar la configuración.</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-10 bg-red-50 text-red-600 rounded-2xl m-8">
+        <h2 className="font-bold text-xl mb-2">Error cargando configuración</h2>
+        <p>{loadError}</p>
       </div>
     );
   }

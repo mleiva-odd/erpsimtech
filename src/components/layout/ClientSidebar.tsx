@@ -60,8 +60,8 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
   const hasCompanyContext = Boolean(activeSession?.user?.companyId);
   
   const isSuperAdmin = reliableRole === 'SUPER_ADMIN' || propIsSuperAdmin;
-  const isAdmin = reliableRole === 'ADMIN' || (!isSuperAdmin && propIsAdmin);
-  const isSupervisor = reliableRole === 'SUPERVISOR' || isAdmin || (!isSuperAdmin && propIsSupervisor);
+  const isAdmin = reliableRole === 'ADMIN' || reliableRole === 'SUPER_ADMIN' || propIsAdmin;
+  const isSupervisor = reliableRole === 'SUPERVISOR' || isAdmin || propIsSupervisor;
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 

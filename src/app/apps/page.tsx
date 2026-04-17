@@ -34,7 +34,7 @@ export default function AppLauncher() {
 
   const role = session?.user?.role;
   const hasCompanyContext = Boolean(session?.user?.companyId);
-  const isAdmin = role === 'ADMIN';
+  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
   const isSupervisor = role === 'SUPERVISOR' || isAdmin;
   const isSuperAdmin = role === 'SUPER_ADMIN';
 

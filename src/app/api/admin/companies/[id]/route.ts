@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/tenant';
+import bcrypt from 'bcryptjs';
 
 // Super Admin: Update company
 export async function PUT(
@@ -16,6 +17,15 @@ export async function PUT(
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
+      const primaryAdmin = await tx.user.findFirst({
+        where: {
+          companyId: resolvedParams.id,
+          role: 'ADMIN',
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+
       const company = await tx.company.update({
         where: { id: resolvedParams.id },
         data: {
@@ -41,6 +51,33 @@ export async function PUT(
         });
       }
 
+      if (body.admin && primaryAdmin) {
+        const adminData: {
+          name?: string;
+          email?: string;
+          password?: string;
+        } = {};
+
+        if (typeof body.admin.name === 'string' && body.admin.name.trim()) {
+          adminData.name = body.admin.name.trim();
+        }
+
+        if (typeof body.admin.email === 'string' && body.admin.email.trim()) {
+          adminData.email = body.admin.email.trim().toLowerCase();
+        }
+
+        if (typeof body.admin.password === 'string' && body.admin.password.trim()) {
+          adminData.password = await bcrypt.hash(body.admin.password.trim(), 10);
+        }
+
+        if (Object.keys(adminData).length > 0) {
+          await tx.user.update({
+            where: { id: primaryAdmin.id },
+            data: adminData,
+          });
+        }
+      }
+
       return tx.company.findUnique({
         where: { id: company.id },
         include: {
@@ -48,13 +85,19 @@ export async function PUT(
           subscription: {
             select: { plan: true, status: true, currentPeriodEnd: true, maxBranches: true, maxUsersPerBranch: true, price: true },
           },
+          users: {
+            where: { role: 'ADMIN' },
+            orderBy: { createdAt: 'asc' },
+            take: 1,
+            select: { id: true, name: true, email: true },
+          },
         },
       });
     });
     return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json({ error: 'Slug o correo ya están en uso por otra empresa' }, { status: 409 });
+      return NextResponse.json({ error: 'Slug o correo ya están en uso' }, { status: 409 });
     }
     return NextResponse.json({ error: 'Error al actualizar empresa' }, { status: 500 });
   }

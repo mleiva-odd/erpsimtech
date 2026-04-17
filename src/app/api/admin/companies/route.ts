@@ -29,6 +29,12 @@ export async function GET(req: NextRequest) {
         subscription: {
           select: { plan: true, status: true, currentPeriodEnd: true, maxBranches: true, maxUsersPerBranch: true, price: true },
         },
+        users: {
+          where: { role: 'ADMIN' },
+          orderBy: { createdAt: 'asc' },
+          take: 1,
+          select: { id: true, name: true, email: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

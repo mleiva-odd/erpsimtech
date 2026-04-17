@@ -23,6 +23,11 @@ interface CompanyData {
     maxUsersPerBranch: number;
     price: string | number;
   } | null;
+  users: Array<{
+    id: string;
+    name: string;
+    email: string;
+  }>;
 }
 
 type CompanyFormData = {
@@ -111,6 +116,11 @@ export default function AdminPage() {
                   maxUsersPerBranch: formData.maxUsersPerBranch,
                   price: formData.price,
                 },
+                admin: {
+                  name: formData.adminName,
+                  email: formData.adminEmail,
+                  password: formData.adminPassword,
+                },
               }
             : formData
         ),
@@ -177,8 +187,8 @@ export default function AdminPage() {
       maxBranches: company.subscription?.maxBranches || 1,
       maxUsersPerBranch: company.subscription?.maxUsersPerBranch || 3,
       price: Number(company.subscription?.price || 0),
-      adminName: '',
-      adminEmail: '',
+      adminName: company.users[0]?.name || '',
+      adminEmail: company.users[0]?.email || '',
       adminPassword: '',
     });
     setIsModalOpen(true);
@@ -410,7 +420,6 @@ export default function AdminPage() {
                   {/* Columna 2: Usuario e Inversión */}
                   <div className="space-y-8">
                     {/* Usuario */}
-                    {!selectedCompany && (
                     <div className="space-y-5">
                       <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
                          <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
@@ -436,17 +445,23 @@ export default function AdminPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Contraseña *</label>
-                            <input required type="password" value={formData.adminPassword}
+                            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">
+                              Contraseña {selectedCompany ? '(opcional)' : '*'}
+                            </label>
+                            <input required={!selectedCompany} type="password" value={formData.adminPassword}
                               onChange={e => setFormData({...formData, adminPassword: e.target.value})}
                               className="w-full px-4 py-2.5 border-2 border-blue-50 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none font-semibold text-sm"
-                              placeholder="••••••••"
+                              placeholder={selectedCompany ? 'Dejar en blanco para conservarla' : '••••••••'}
                             />
                           </div>
                         </div>
+                        {selectedCompany && (
+                          <p className="text-xs text-slate-500">
+                            Si cambias la contraseña aquí, se reemplaza inmediatamente para el administrador principal de la empresa.
+                          </p>
+                        )}
                       </div>
                     </div>
-                    )}
 
                     {/* Plan */}
                     <div className="pt-2">

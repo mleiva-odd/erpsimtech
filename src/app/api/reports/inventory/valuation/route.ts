@@ -1,24 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireBranchAccess, requireRole } from '@/lib/tenant';
 
 /**
  * Reporte de Valuación de Inventario
  * Permite conocer el valor monetario de la mercadería en stock.
  */
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
   try {
     const { searchParams } = new URL(req.url);
-    const branchId = searchParams.get('branchId');
+    const requestedBranchId = searchParams.get('branchId');
+    const branchId = requestedBranchId && requestedBranchId !== 'all' && requestedBranchId !== 'null'
+      ? requestedBranchId
+      : null;
+
+    if (branchId) {
+      const branchResult = await requireBranchAccess(tenant, branchId);
+      if ('error' in branchResult) return branchResult.error;
+    }
 
     const stocks = await prisma.productStock.findMany({
       where: {
         product: { companyId: tenant.companyId, active: true },
         ...(branchId && branchId !== 'all' && { branchId }),
+        ...(!branchId && tenant.role !== 'ADMIN' && tenant.role !== 'SUPER_ADMIN' && tenant.branchId && { branchId: tenant.branchId }),
       },
       include: {
         product: {

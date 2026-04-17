@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Printer, RefreshCw, BarChart3, TrendingUp, AlertCircle, Download, FileText, Lock } from 'lucide-react';
@@ -30,6 +31,7 @@ interface Sale {
 }
 
 export default function ReportsPage() {
+  const { data: session, status } = useSession();
   const [sales, setSales] = useState<Sale[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -41,6 +43,8 @@ export default function ReportsPage() {
 
   const { selectedBranchId } = useBranchStore();
   const { toast } = useToast();
+  const role = session?.user?.role;
+  const canAccess = role === 'SUPERVISOR' || role === 'ADMIN' || role === 'SUPER_ADMIN';
 
   const fetchSalesAndRegister = async () => {
     setIsLoading(true);
@@ -63,8 +67,31 @@ export default function ReportsPage() {
   };
 
   useEffect(() => {
+    if (status === 'loading' || !canAccess) {
+      setIsLoading(false);
+      return;
+    }
     fetchSalesAndRegister();
-  }, [selectedBranchId]);
+  }, [selectedBranchId, status, canAccess]);
+
+  if (status === 'loading') {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!canAccess) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center p-8">
+        <div className="rounded-3xl border border-rose-100 bg-rose-50 px-8 py-10 text-center">
+          <h2 className="text-xl font-bold text-rose-700">Acceso denegado</h2>
+          <p className="mt-2 text-sm text-rose-600">No tienes permisos para ver reportes o cerrar caja desde esta pantalla.</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleOpenCloseModal = () => {
     if (!register) return;

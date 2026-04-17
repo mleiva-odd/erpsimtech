@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireBranchAccess, requireRole } from '@/lib/tenant';
 
 /**
  * Reporte de Ranking de Productos (Análisis ABC)
  * Identifica los productos más vendidos y los más rentables.
  */
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -16,18 +16,32 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
     const limit = parseInt(searchParams.get('limit') || '10');
+    const requestedBranchId = searchParams.get('branchId');
+    const branchId = requestedBranchId && requestedBranchId !== 'all' && requestedBranchId !== 'null'
+      ? requestedBranchId
+      : null;
 
     const startDate = from ? new Date(from) : new Date(new Date().setDate(new Date().getDate() - 30));
     const endDate = to ? new Date(to) : new Date();
     endDate.setHours(23, 59, 59, 999);
 
+    const saleWhere: any = {
+      companyId: tenant.companyId,
+      status: 'COMPLETED',
+      createdAt: { gte: startDate, lte: endDate }
+    };
+
+    if (branchId) {
+      const branchResult = await requireBranchAccess(tenant, branchId);
+      if ('error' in branchResult) return branchResult.error;
+      saleWhere.branchId = branchId;
+    } else if (tenant.role !== 'ADMIN' && tenant.role !== 'SUPER_ADMIN' && tenant.branchId) {
+      saleWhere.branchId = tenant.branchId;
+    }
+
     const items = await prisma.saleItem.findMany({
       where: {
-        sale: {
-          companyId: tenant.companyId,
-          status: 'COMPLETED',
-          createdAt: { gte: startDate, lte: endDate }
-        }
+        sale: saleWhere,
       },
       include: {
         product: { select: { name: true, sku: true } },

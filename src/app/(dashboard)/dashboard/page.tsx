@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { ArrowUpRight, DollarSign, Package, AlertTriangle, Activity, TrendingUp } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -29,13 +30,21 @@ const PAYMENT_LABELS: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const { data: session, status } = useSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [charts, setCharts] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
   
   const { selectedBranchId } = useBranchStore();
+  const role = session?.user?.role;
+  const canAccess = role === 'SUPERVISOR' || role === 'ADMIN' || role === 'SUPER_ADMIN';
 
   useEffect(() => {
+    if (status === 'loading' || !canAccess) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const branchQuery = selectedBranchId ? `?branchId=${selectedBranchId}` : '';
     
@@ -53,7 +62,26 @@ export default function DashboardPage() {
       setCharts(chartsData.error ? null : chartsData);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, [selectedBranchId]);
+  }, [selectedBranchId, status, canAccess]);
+
+  if (status === 'loading') {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!canAccess) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center p-8">
+        <div className="rounded-3xl border border-rose-100 bg-rose-50 px-8 py-10 text-center">
+          <h2 className="text-xl font-bold text-rose-700">Acceso denegado</h2>
+          <p className="mt-2 text-sm text-rose-600">No tienes permisos para ver métricas del negocio.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading || !stats) {
     return (

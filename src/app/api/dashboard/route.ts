@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireBranchAccess, requireRole } from '@/lib/tenant';
 
 export async function GET(req: Request) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -11,11 +11,18 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const requestedBranchId = searchParams.get('branchId');
     const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+    const branchId = requestedBranchId && requestedBranchId !== 'all' && requestedBranchId !== 'null'
+      ? requestedBranchId
+      : null;
 
     // Determinar la sucursal de destino: Admin usa URL, empleados usan su token
-    const targetBranchId = (!isAdmin || !requestedBranchId || requestedBranchId === 'null') 
-      ? tenant.branchId 
-      : requestedBranchId;
+    let targetBranchId = isAdmin ? branchId : tenant.branchId;
+
+    if (targetBranchId) {
+      const branchResult = await requireBranchAccess(tenant, targetBranchId);
+      if ('error' in branchResult) return branchResult.error;
+      targetBranchId = branchResult.branchId as string;
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);

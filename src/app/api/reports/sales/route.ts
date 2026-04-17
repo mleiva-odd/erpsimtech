@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireBranchAccess, requireRole } from '@/lib/tenant';
 import { parse } from 'json2csv';
 
 /**
@@ -8,7 +8,7 @@ import { parse } from 'json2csv';
  * Permite analizar ingresos vs costos por periodo y sucursal.
  */
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireRole('SUPERVISOR');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -16,8 +16,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const from = searchParams.get('from');
     const to = searchParams.get('to');
-    const branchId = searchParams.get('branchId');
+    const requestedBranchId = searchParams.get('branchId');
     const exportFormat = searchParams.get('export');
+    const branchId = requestedBranchId && requestedBranchId !== 'all' && requestedBranchId !== 'null'
+      ? requestedBranchId
+      : null;
 
     const startDate = from ? new Date(from) : new Date(new Date().setDate(new Date().getDate() - 30));
     const endDate = to ? new Date(to) : new Date();
@@ -32,8 +35,12 @@ export async function GET(req: NextRequest) {
       },
     };
 
-    if (branchId && branchId !== 'all') {
+    if (branchId) {
+      const branchResult = await requireBranchAccess(tenant, branchId);
+      if ('error' in branchResult) return branchResult.error;
       where.branchId = branchId;
+    } else if (tenant.role !== 'ADMIN' && tenant.role !== 'SUPER_ADMIN' && tenant.branchId) {
+      where.branchId = tenant.branchId;
     }
 
     const sales = await prisma.sale.findMany({

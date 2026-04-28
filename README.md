@@ -80,6 +80,39 @@ Si el cambio toca esquema, aplica primero los SQL manuales en `prisma/manual_mig
 
 Si subes código sin aplicar el SQL correspondiente, el deploy puede compilar pero fallar en runtime.
 
+## Bootstrap de una base nueva
+
+Para una base vacía de Supabase:
+
+1. Crear la estructura base una sola vez:
+
+```bash
+npm run prisma:push
+```
+
+2. Aplicar los SQL manuales de `prisma/manual_migrations/` en la base objetivo.
+
+3. Crear el primer `SUPER_ADMIN` sin datos demo ni borrado de registros:
+
+```bash
+BOOTSTRAP_SUPERADMIN_NAME="Super Admin SIMTECH" \
+BOOTSTRAP_SUPERADMIN_EMAIL="admin@tu-dominio.com" \
+BOOTSTRAP_SUPERADMIN_PASSWORD="tu-password-segura" \
+npm run bootstrap:superadmin
+```
+
+Si el correo ya existe como `SUPER_ADMIN` y quieres resetear nombre/contraseña:
+
+```bash
+BOOTSTRAP_SUPERADMIN_NAME="Super Admin SIMTECH" \
+BOOTSTRAP_SUPERADMIN_EMAIL="admin@tu-dominio.com" \
+BOOTSTRAP_SUPERADMIN_PASSWORD="tu-password-segura" \
+BOOTSTRAP_SUPERADMIN_FORCE_RESET=true \
+npm run bootstrap:superadmin
+```
+
+El seed de `prisma/seed.ts` no debe usarse en producción porque limpia datos y crea información demo.
+
 Checklist operativa:
 
 - [docs/DEPLOY_CHECKLIST.md](docs/DEPLOY_CHECKLIST.md)
@@ -87,7 +120,7 @@ Checklist operativa:
 
 ## Estado técnico actual
 
-- `npm run lint`: sin errores, con advertencias pendientes
+- `npm run lint`: limpio
 - `npm run typecheck`: limpio
 - `npm run build`: limpio
 - `npm audit --omit=dev`: con vulnerabilidades moderadas pendientes de actualización

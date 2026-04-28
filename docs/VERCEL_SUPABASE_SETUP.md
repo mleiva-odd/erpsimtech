@@ -122,7 +122,33 @@ Referencia oficial:
 1. Confirma que `npm run lint` pase.
 2. Confirma que `npm run typecheck` pase.
 3. Confirma que `npm run build` pase.
-4. Aplica manualmente, en la base objetivo, estos SQL si aún no existen:
+4. Si la base de Supabase es nueva y está vacía, crea primero la estructura base:
+
+```bash
+npm run prisma:push
+```
+
+5. Crea el primer `SUPER_ADMIN` sin datos demo ni borrado de registros:
+
+```bash
+BOOTSTRAP_SUPERADMIN_NAME="Super Admin SIMTECH" \
+BOOTSTRAP_SUPERADMIN_EMAIL="admin@tu-dominio.com" \
+BOOTSTRAP_SUPERADMIN_PASSWORD="tu-password-segura" \
+npm run bootstrap:superadmin
+```
+
+Si ya existe ese correo como `SUPER_ADMIN` y necesitas resetear nombre/contraseña:
+
+```bash
+BOOTSTRAP_SUPERADMIN_NAME="Super Admin SIMTECH" \
+BOOTSTRAP_SUPERADMIN_EMAIL="admin@tu-dominio.com" \
+BOOTSTRAP_SUPERADMIN_PASSWORD="tu-password-segura" \
+BOOTSTRAP_SUPERADMIN_FORCE_RESET=true \
+npm run bootstrap:superadmin
+```
+
+6. No uses `npm run seed` en producción. Ese script limpia datos y además crea información demo.
+7. Aplica manualmente, en la base objetivo, estos SQL si aún no existen:
    - `prisma/manual_migrations/20260415_sales_idempotency_and_returns.sql`
    - `prisma/manual_migrations/20260415_account_payment_cash_register.sql`
    - `prisma/manual_migrations/20260415_sale_item_unit_cost.sql`

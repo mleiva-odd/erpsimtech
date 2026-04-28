@@ -9,9 +9,11 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "prisma:validate": "prisma validate",
+    "prisma:push": "prisma db push",
     "check:preprod": "npm run lint && npm run typecheck && npm run build",
     "test:e2e": "playwright test",
     "seed": "tsx prisma/seed.ts",
+    "bootstrap:superadmin": "tsx scripts/bootstrap-superadmin.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

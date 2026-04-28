@@ -3,10 +3,15 @@ import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SIMTECH POS — Sistema de Punto de Venta",
-  description: "Sistema profesional de punto de venta para negocios modernos. Gestión de inventario, ventas y reportes en tiempo real.",
+  title: "SIMTECH ERP — Plataforma de Gestión Empresarial",
+  description: "ERP multi-sucursal para operaciones, inventario, ventas, tesorería, recursos humanos y reportes en tiempo real.",
   icons: {
-    icon: "/logo.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/logo.png",
   },
 };
 

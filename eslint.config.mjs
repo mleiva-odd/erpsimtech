@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     ".agent/**",
     "prisma/seed.js",
+    "scratch/**",
+    "Rediseñar landing y login/**",
+    "Rediseñar landing y login/**",
   ]),
   {
     rules: {

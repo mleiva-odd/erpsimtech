@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
+import { createAccountingEntryAsync } from '@/lib/accounting';
 
 function isPositiveNumber(value: unknown) {
   return Number.isFinite(Number(value)) && Number(value) > 0;
@@ -15,7 +16,7 @@ interface PurchaseItemInput {
 }
 
 export async function GET(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
   
   // Get recent purchases for the tenant's branch
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
 
   const body = await req.json();
@@ -169,7 +170,7 @@ export async function POST(req: NextRequest) {
            });
         }
 
-        // Persist the latest acquisition cost on the concrete SKU that was received.
+        // 3. Persist the latest acquisition cost on the concrete SKU that was received.
         if (item.variantId) {
           await tx.productVariant.update({
             where: { id: item.variantId },
@@ -183,7 +184,37 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // 4. Create Supplier Payable (Debt)
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30); // Default 30 net days
+
+      await tx.supplierPayable.create({
+        data: {
+          companyId: result.tenant.companyId,
+          supplierId,
+          purchaseId: po.id,
+          userId: result.tenant.userId,
+          description: `Compra Ref: ${reference || po.id.split('-')[0]}`,
+          totalAmount: totalAmount,
+          paidAmount: 0,
+          status: 'PENDING',
+          dueDate: dueDate,
+        }
+      });
+
       return po;
+    });
+    // Automatic accounting entry for purchase expense
+    await createAccountingEntryAsync(prisma, {
+      companyId: result.tenant.companyId,
+      branchId: branchId || undefined,
+      type: 'EXPENSE',
+      categoryName: 'Compras de Inventario',
+      description: `Compra a proveedor ${reference ? `(Ref: ${reference})` : ''} — ${purchaseItems.length} producto(s)`,
+      amount: totalAmount,
+      referenceType: 'PURCHASE',
+      referenceId: purchase.id,
+      userId: result.tenant.userId,
     });
 
     return NextResponse.json(purchase, { status: 201 });

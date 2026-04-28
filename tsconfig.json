@@ -30,5 +30,13 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "Rediseñar landing y login"]
+  "exclude": [
+    "node_modules",
+    "Rediseñar landing y login",
+    "Rediseñar landing y login",
+    "**/Rediseñar landing y login/**",
+    "**/Rediseñar landing y login/**",
+    "scratch",
+    "scratch/**"
+  ]
 }

@@ -6,6 +6,19 @@ import { requireEnv } from "@/lib/env";
 
 const nextAuthSecret = requireEnv("NEXTAUTH_SECRET");
 
+type AuthRole = 'SUPER_ADMIN' | 'USER';
+
+type AuthUserPayload = {
+  id: string;
+  email: string;
+  name: string;
+  role: AuthRole;
+  companyId: string;
+  branchId: string | null;
+  customRoleName?: string;
+  permissions: string[];
+};
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -23,6 +36,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email },
           include: {
             company: { select: { id: true, active: true } },
+            customRole: { select: { name: true, permissions: true } },
           },
         });
 
@@ -43,10 +57,12 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: user.role as AuthRole,
           companyId: user.companyId || '',
           branchId: user.branchId,
-        };
+          customRoleName: user.customRole?.name,
+          permissions: user.customRole?.permissions || [],
+        } satisfies AuthUserPayload;
       },
     }),
   ],
@@ -54,18 +70,22 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
+        token.role = user.role as AuthRole;
         token.companyId = user.companyId;
         token.branchId = user.branchId;
+        token.customRoleName = user.customRoleName;
+        token.permissions = user.permissions;
       }
       return token;
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id as string;
-        session.user.role = token.role as 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'CASHIER';
+        session.user.role = token.role as 'SUPER_ADMIN' | 'USER';
         session.user.companyId = token.companyId as string;
         session.user.branchId = token.branchId as string | null;
+        session.user.customRoleName = token.customRoleName as string | undefined;
+        session.user.permissions = (token.permissions as string[]) || [];
       }
       return session;
     },

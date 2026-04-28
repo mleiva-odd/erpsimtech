@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireBranchAccess, requireRole } from '@/lib/tenant';
+import { requirePermission, requireBranchAccess } from '@/lib/tenant';
 
 export async function GET(req: Request) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
   if (!result.tenant.companyId) {
     return NextResponse.json({ error: 'Este recurso requiere una empresa activa en contexto' }, { status: 403 });
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const requestedBranchId = searchParams.get('branchId');
-    const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+    const isAdmin = tenant.role === 'SUPER_ADMIN' || tenant.permissions?.includes('settings:manage');
     const branchId = requestedBranchId && requestedBranchId !== 'all' && requestedBranchId !== 'null'
       ? requestedBranchId
       : null;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireRole, requireTenant } from '@/lib/tenant';
+import { requirePermission, requireTenant } from '@/lib/tenant';
 import { z } from 'zod';
 
 const CategorySchema = z.object({
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

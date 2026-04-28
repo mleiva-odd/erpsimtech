@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
+import { createAccountingEntryAsync } from '@/lib/accounting';
 import { z } from 'zod';
 
 const PaymentSchema = z.object({
@@ -143,6 +144,19 @@ export async function POST(
         customerId: resolvedParams.id,
         newBalance: 'updated'
       }
+    });
+
+    // Automatic accounting entry for received customer payment
+    await createAccountingEntryAsync(prisma, {
+      companyId: tenant.companyId,
+      branchId: activeRegisterId ? undefined : tenant.branchId, // If cash register exists we could potentially pull its branch, but undefined or tenant branch is fine for accounts receivable
+      type: 'INCOME',
+      categoryName: 'Abonos de Clientes',
+      description: `Abono de cliente recibido (${method})${reference ? ` Ref: ${reference}` : ''}`,
+      amount,
+      referenceType: 'CUSTOMER_PAYMENT',
+      referenceId: payment.id,
+      userId: tenant.userId,
     });
 
     return NextResponse.json(payment, { status: 201 });

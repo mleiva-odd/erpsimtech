@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { prisma } from '@/lib/prisma';
 
@@ -8,7 +8,7 @@ import { prisma } from '@/lib/prisma';
  * Keeping the database lean and performant
  */
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

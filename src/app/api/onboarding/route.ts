@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createAuditLog } from '@/lib/audit';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 
@@ -23,7 +23,7 @@ const OnboardingSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   try {
@@ -104,16 +104,36 @@ export async function POST(req: NextRequest) {
         include: { branches: true },
       });
 
-      // 2. Create admin user assigned to main branch
+      // 2. Create Administrador CustomRole and admin user
       const mainBranch = newCompany.branches[0];
+      const adminRole = await tx.customRole.create({
+        data: {
+          companyId: newCompany.id,
+          name: 'Administrador',
+          description: 'Administrador de la empresa con acceso total',
+          permissions: [
+            'pos:access', 'pos:discount', 'sales:view', 'sales:void',
+            'inventory:view', 'inventory:adjust', 'inventory:transfer',
+            'purchases:view', 'purchases:create',
+            'treasury:view', 'treasury:manage',
+            'reports:view', 'reports:export',
+            'customers:view', 'customers:manage',
+            'suppliers:view', 'suppliers:manage',
+            'settings:manage', 'users:manage',
+            'hr:manage', 'payroll:manage',
+          ],
+        },
+      });
+
       await tx.user.create({
         data: {
           name: data.adminName,
           email: data.adminEmail,
           password: hashedPassword,
-          role: 'ADMIN',
+          role: 'USER',
           companyId: newCompany.id,
           branchId: mainBranch.id,
+          customRoleId: adminRole.id,
         },
       });
 

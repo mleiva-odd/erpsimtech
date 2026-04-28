@@ -7,7 +7,9 @@ export interface TenantContext {
   userId: string;
   companyId: string;
   branchId: string | null;
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'CASHIER';
+  role: 'SUPER_ADMIN' | 'USER';
+  customRoleName?: string;
+  permissions: string[];
 }
 
 /**
@@ -29,6 +31,8 @@ export async function getTenantContext(): Promise<TenantContext | null> {
     companyId: session.user.companyId,
     branchId: session.user.branchId,
     role: session.user.role,
+    customRoleName: session.user.customRoleName,
+    permissions: session.user.permissions || [],
   };
 }
 
@@ -75,28 +79,41 @@ export async function requireCompanyTenant(): Promise<
 }
 
 /**
- * Requires a specific role or higher.
- * Role hierarchy: SUPER_ADMIN > ADMIN > SUPERVISOR > CASHIER
+ * Helper to check if a tenant has a specific permission.
+ * SUPER_ADMIN has access to everything.
+ * Users with the 'admin:all' (virtual) or specific permissions get access.
  */
-export async function requireRole(minRole: 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'CASHIER'): Promise<
+export function hasPermission(tenant: TenantContext, permission: string): boolean {
+  if (tenant.role === 'SUPER_ADMIN') return true;
+  
+  // Si el usuario tiene permisos absolutos por ser "ADMIN" clásico (migrado a todos los permisos)
+  if (tenant.permissions.includes('admin:all')) return true;
+
+  return tenant.permissions.includes(permission);
+}
+
+/**
+ * Requires a specific permission to access an API route.
+ * Replaces the old requireRole function.
+ */
+export async function requirePermission(permission: string): Promise<
   { tenant: TenantContext } | { error: NextResponse }
 > {
   const result = await requireTenant();
   if ('error' in result) return result;
 
-  const hierarchy = ['CASHIER', 'SUPERVISOR', 'ADMIN', 'SUPER_ADMIN'];
-  const userLevel = hierarchy.indexOf(result.tenant.role);
-  const requiredLevel = hierarchy.indexOf(minRole);
-
-  if (userLevel < requiredLevel) {
-    return { error: NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 }) };
+  if (!hasPermission(result.tenant, permission)) {
+    return { error: NextResponse.json({ error: `Permiso denegado: se requiere ${permission}` }, { status: 403 }) };
   }
 
   return result;
 }
 
-export function isAdminRole(role: TenantContext['role']) {
-  return role === 'ADMIN' || role === 'SUPER_ADMIN';
+/**
+ * Admins are those who have settings:manage or are SUPER_ADMIN
+ */
+export function isAdminRole(tenant: TenantContext) {
+  return tenant.role === 'SUPER_ADMIN' || tenant.permissions.includes('settings:manage');
 }
 
 /**
@@ -111,7 +128,7 @@ export async function requireBranchAccess(
     return { branchId };
   }
 
-  if (isAdminRole(tenant.role)) {
+  if (isAdminRole(tenant)) {
     const branch = await prisma.branch.findFirst({
       where: {
         id: branchId,
@@ -133,3 +150,4 @@ export async function requireBranchAccess(
 
   return { branchId };
 }
+

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 import { supabase } from '@/lib/supabase';
 import sharp from 'sharp';
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
 
   try {

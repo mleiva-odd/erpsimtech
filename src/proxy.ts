@@ -30,28 +30,31 @@ export async function proxy(request: NextRequest) {
   }
 
   const role = token.role as string;
+  const permissions = (token.permissions as string[]) || [];
 
+  // SUPER_ADMIN bypasses all route checks
   if (role === 'SUPER_ADMIN') {
     return NextResponse.next();
   }
 
+  // Admin-only paths (Super Admin platform management)
   const adminPaths = ['/admin', '/onboarding', '/api/onboarding'];
   if (adminPaths.some((path) => pathname.startsWith(path))) {
-    if (role !== 'SUPER_ADMIN') {
-      return NextResponse.redirect(new URL('/apps', request.url));
-    }
+    return NextResponse.redirect(new URL('/apps', request.url));
   }
 
-  const companyPaths = ['/branches', '/users', '/settings', '/audit'];
+  // Company management paths - require settings:manage permission
+  const companyPaths = ['/branches', '/users', '/settings', '/audit', '/accounting'];
   if (companyPaths.some((path) => pathname.startsWith(path))) {
-    if (role !== 'ADMIN') {
+    if (!permissions.includes('settings:manage') && !permissions.includes('users:manage')) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
-  const operationsPaths = ['/stock-transfers', '/inventory', '/purchases', '/suppliers', '/reports', '/dashboard'];
+  // Operations paths - require reports:view or inventory permissions
+  const operationsPaths = ['/stock-transfers', '/inventory', '/purchases', '/suppliers', '/reports', '/dashboard', '/sales'];
   if (operationsPaths.some((path) => pathname.startsWith(path))) {
-    if (role !== 'ADMIN' && role !== 'SUPERVISOR') {
+    if (!permissions.includes('reports:view') && !permissions.includes('inventory:view') && !permissions.includes('sales:view')) {
       return NextResponse.redirect(new URL('/pos', request.url));
     }
   }

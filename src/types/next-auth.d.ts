@@ -4,25 +4,31 @@ declare module 'next-auth' {
   interface Session {
     user: {
       id: string;
-      role: 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'CASHIER';
+      role: 'SUPER_ADMIN' | 'USER';
       companyId: string;
       branchId: string | null;
+      customRoleName?: string;
+      permissions: string[];
     } & DefaultSession['user'];
   }
 
   interface User {
     id: string;
-    role: 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'CASHIER';
+    role: 'SUPER_ADMIN' | 'USER';
     companyId: string;
     branchId: string | null;
+    customRoleName?: string;
+    permissions?: string[];
   }
 }
 
 declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
-    role: 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'CASHIER';
+    role: 'SUPER_ADMIN' | 'USER';
     companyId: string;
     branchId: string | null;
+    customRoleName?: string;
+    permissions?: string[];
   }
 }

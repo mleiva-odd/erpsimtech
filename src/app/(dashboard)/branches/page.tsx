@@ -17,6 +17,8 @@ interface BranchData {
 
 export default function BranchesPage() {
   const { data: session } = useSession();
+  const permissions = session?.user?.permissions ?? [];
+  const canManageBranches = session?.user?.role === 'SUPER_ADMIN' || permissions.includes('settings:manage');
   const [branches, setBranches] = useState<BranchData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,7 +95,7 @@ export default function BranchesPage() {
     }
   };
 
-  if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') {
+  if (!canManageBranches) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-10 text-slate-600">
         <Building2 className="w-16 h-16 mb-4 opacity-30" />

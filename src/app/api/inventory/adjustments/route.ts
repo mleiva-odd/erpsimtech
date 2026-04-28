@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { requireBranchAccess, requireRole } from '@/lib/tenant';
+import { requireBranchAccess, requirePermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { z } from 'zod';
 
@@ -77,7 +77,7 @@ async function setProductStockQuantity(tx: Prisma.TransactionClient, input: {
  * GET: Consultar historial de ajustes de inventario
  */
 export async function GET(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
  * POST: Registrar un nuevo ajuste manual de inventario
  */
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireBranchAccess, requireRole } from '@/lib/tenant';
+import { requireBranchAccess, requirePermission } from '@/lib/tenant';
 import { parse } from 'json2csv';
 
 /**
@@ -9,7 +9,7 @@ import { parse } from 'json2csv';
  * Permite analizar ingresos vs costos por periodo y sucursal.
  */
 export async function GET(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       const branchResult = await requireBranchAccess(tenant, branchId);
       if ('error' in branchResult) return branchResult.error;
       where.branchId = branchId;
-    } else if (tenant.role !== 'ADMIN' && tenant.role !== 'SUPER_ADMIN' && tenant.branchId) {
+    } else if (tenant.role !== 'SUPER_ADMIN' && !tenant.permissions?.includes('settings:manage') && tenant.branchId) {
       where.branchId = tenant.branchId;
     }
 

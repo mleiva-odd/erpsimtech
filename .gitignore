@@ -42,13 +42,9 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
-vercel_production.env
 
 # Logs y archivos temporales de desarrollo
 *.log
 terminal.txt
 /scratch/
-Propuesta_SIMTECH_POS.*
-credentials.md
-productos_prueba_simtech.csv
 Rediseñar landing y login

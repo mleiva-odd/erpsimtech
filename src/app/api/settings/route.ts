@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireCompanyTenant, requireRole } from '@/lib/tenant';
+import { requireCompanyTenant, requirePermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { z } from 'zod';
 
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -90,13 +90,26 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
     }
 
+    const existingSettings = await prisma.companySettings.findUnique({
+      where: { companyId: tenant.companyId },
+    });
+
+    const nextFelApiUser = parsed.data.felApiUser?.trim()
+      ? parsed.data.felApiUser.trim()
+      : existingSettings?.felApiUser ?? null;
+    const nextFelApiKey = parsed.data.felApiKey?.trim()
+      ? parsed.data.felApiKey.trim()
+      : existingSettings?.felApiKey ?? null;
+
     const felMetadata = {
-      felEnabled: parsed.data.felEnabled ?? false,
-      felProvider: parsed.data.felProvider ?? 'NONE',
-      felNitEmisor: parsed.data.felNitEmisor || null,
-      felApiUser: null,
-      felApiKey: null,
-      felCertificateUrl: null,
+      felEnabled: parsed.data.felEnabled ?? existingSettings?.felEnabled ?? false,
+      felProvider: parsed.data.felProvider ?? existingSettings?.felProvider ?? 'NONE',
+      felNitEmisor: parsed.data.felNitEmisor?.trim()
+        ? parsed.data.felNitEmisor.trim()
+        : existingSettings?.felNitEmisor ?? null,
+      felApiUser: nextFelApiUser,
+      felApiKey: nextFelApiKey,
+      felCertificateUrl: existingSettings?.felCertificateUrl ?? null,
     };
 
     const safeData = {

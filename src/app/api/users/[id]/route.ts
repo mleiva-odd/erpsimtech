@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 import bcrypt from 'bcryptjs';
 
 interface UserUpdateData extends Prisma.UserUpdateInput {
@@ -15,7 +15,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('users:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -57,7 +57,8 @@ export async function PUT(
     const dataToUpdate: UserUpdateData = {
       name: body.name,
       email: body.email,
-      role: body.role,
+      role: 'USER',
+      customRole: body.customRoleId ? { connect: { id: body.customRoleId } } : { disconnect: true },
       active: body.active,
       branch: body.branchId ? { connect: { id: body.branchId } } : { disconnect: true },
     };
@@ -81,6 +82,8 @@ export async function PUT(
         name: true,
         email: true,
         role: true,
+        customRoleId: true,
+        customRole: { select: { name: true } },
         active: true,
         branch: { select: { id: true, name: true } },
         branchAccess: { select: { branch: { select: { id: true, name: true } } } },
@@ -97,7 +100,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('users:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

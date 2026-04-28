@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
+import { createAccountingEntryAsync } from '@/lib/accounting';
 import { z } from 'zod';
 
 const ExpenseSchema = z.object({
@@ -11,7 +12,7 @@ const ExpenseSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('CASHIER');
+  const result = await requirePermission('pos:access');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -84,6 +85,22 @@ export async function POST(req: NextRequest) {
       entityId: transaction.id,
       details: { amount, description, type },
     });
+
+    // Automatic accounting entry for cash expense/withdrawal
+    if (type === 'EXPENSE' || type === 'WITHDRAWAL') {
+      const categoryName = type === 'EXPENSE' ? 'Gastos de Operación (Caja)' : 'Retiros de Efectivo (Caja)';
+      await createAccountingEntryAsync(prisma, {
+        companyId: tenant.companyId,
+        branchId: activeRegister.branchId,
+        type: 'EXPENSE',
+        categoryName,
+        description: `Egreso de caja: ${description}`,
+        amount,
+        referenceType: 'CASH_EXPENSE',
+        referenceId: transaction.id,
+        userId: tenant.userId,
+      });
+    }
 
     return NextResponse.json(transaction, { status: 201 });
   } catch (error) {

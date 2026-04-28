@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 import bcrypt from 'bcryptjs';
 
 function getPlanDefaults(plan: string) {
@@ -19,7 +19,7 @@ function getPlanDefaults(plan: string) {
 
 // Super Admin: List all companies
 export async function GET(req: NextRequest) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   try {
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
           select: { plan: true, status: true, currentPeriodEnd: true, maxBranches: true, maxUsersPerBranch: true, price: true },
         },
         users: {
-          where: { role: 'ADMIN' },
+          where: { customRole: { name: 'Administrador' } },
           orderBy: { createdAt: 'asc' },
           take: 1,
           select: { id: true, name: true, email: true },
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
 // Super Admin: Create a new company
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   try {
@@ -112,14 +112,35 @@ export async function POST(req: NextRequest) {
       // 3. Create the Administrator User with their own access email
       const mainBranchId = newCompany.branches[0].id;
 
+      // Create or get the Administrador CustomRole for this company
+      const adminRole = await tx.customRole.create({
+        data: {
+          companyId: newCompany.id,
+          name: 'Administrador',
+          description: 'Administrador de la empresa con acceso total',
+          permissions: [
+            'pos:access', 'pos:discount', 'sales:view', 'sales:void',
+            'inventory:view', 'inventory:adjust', 'inventory:transfer',
+            'purchases:view', 'purchases:create',
+            'treasury:view', 'treasury:manage',
+            'reports:view', 'reports:export',
+            'customers:view', 'customers:manage',
+            'suppliers:view', 'suppliers:manage',
+            'settings:manage', 'users:manage',
+            'hr:manage', 'payroll:manage',
+          ],
+        },
+      });
+
       await tx.user.create({
         data: {
           name: adminName,
-          email: adminEmail, // Correo de ACCESO del administrador
+          email: adminEmail,
           password: hashedPassword,
-          role: 'ADMIN',
+          role: 'USER',
           companyId: newCompany.id,
           branchId: mainBranchId,
+          customRoleId: adminRole.id,
         }
       });
 

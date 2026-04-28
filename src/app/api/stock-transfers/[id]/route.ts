@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 import type { TenantContext } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 
@@ -69,7 +69,7 @@ async function receiveTransfer(transferId: string, tenant: TenantContext) {
   if (!transfer) return NextResponse.json({ error: 'Traslado no encontrado' }, { status: 404 });
   if (transfer.status !== 'PENDING') return NextResponse.json({ error: 'Este traslado ya no se puede modificar' }, { status: 400 });
 
-  const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+  const isAdmin = tenant.role === 'SUPER_ADMIN' || tenant.permissions?.includes('settings:manage');
   if (!isAdmin && transfer.toBranchId !== tenant.branchId) {
     return NextResponse.json({
       error: 'No tienes permiso para recibir mercadería en una sucursal que no es la tuya.'
@@ -108,7 +108,7 @@ async function receiveTransfer(transferId: string, tenant: TenantContext) {
  * Gestión individual de Remisiones (Detalle, Recepción y Anulación)
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -143,7 +143,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
  * Solo el supervisor de la sucursal de DESTINO puede confirmar.
  */
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -166,7 +166,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
  * Solo el supervisor de ORIGEN o el Gerente pueden anular.
  */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -181,7 +181,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!transfer) return NextResponse.json({ error: 'Traslado no encontrado' }, { status: 404 });
     if (transfer.status !== 'PENDING') return NextResponse.json({ error: 'Solo se pueden anular traslados pendientes' }, { status: 400 });
 
-    const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+    const isAdmin = tenant.role === 'SUPER_ADMIN' || tenant.permissions?.includes('settings:manage');
     if (!isAdmin && transfer.fromBranchId !== tenant.branchId) {
       return NextResponse.json({ 
         error: 'No tienes permiso para anular un envío que no se originó en tu sucursal.' 

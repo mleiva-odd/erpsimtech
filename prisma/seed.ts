@@ -1,7 +1,46 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
 
 const prisma = new PrismaClient();
+
+const ADMIN_PERMISSIONS = [
+  'pos:access', 'pos:discount',
+  'sales:view', 'sales:void',
+  'inventory:view', 'inventory:adjust', 'inventory:transfer',
+  'purchases:view', 'purchases:create',
+  'treasury:view', 'treasury:manage',
+  'reports:view', 'reports:export',
+  'customers:view', 'customers:manage',
+  'suppliers:view', 'suppliers:manage',
+  'settings:manage', 'users:manage',
+  'hr:manage', 'payroll:manage',
+] as const;
+
+const MANAGER_PERMISSIONS = [
+  'pos:access',
+  'sales:view',
+  'inventory:view', 'inventory:transfer',
+  'purchases:view',
+  'reports:view',
+  'customers:view',
+  'suppliers:view',
+] as const;
+
+const CASHIER_PERMISSIONS = [
+  'pos:access',
+  'customers:view',
+] as const;
+
+function getSeedValue(name: string, fallback: string) {
+  return process.env[name]?.trim() || fallback;
+}
+
+function getSeedPassword(name: string) {
+  const existing = process.env[name]?.trim();
+  if (existing) return existing;
+  return randomBytes(9).toString('base64url');
+}
 
 async function main() {
   console.log('Iniciando Wipe & Re-Seed de la Base de Datos SIMTECH...');
@@ -29,16 +68,24 @@ async function main() {
 
   console.log('-> Base de datos limpia de registros previos.');
 
-  const hashedPassword = await bcrypt.hash('admin123', 10);
-  const gerentePassword = await bcrypt.hash('gerente123', 10);
-  const cajeroPassword = await bcrypt.hash('cajero123', 10);
+  const superAdminEmail = getSeedValue('SEED_SUPERADMIN_EMAIL', 'admin@simtechgt.com');
+  const superAdminPassword = getSeedPassword('SEED_SUPERADMIN_PASSWORD');
+  const companyAdminEmail = getSeedValue('SEED_COMPANY_ADMIN_EMAIL', 'simtech@simtechgt.com');
+  const companyAdminPassword = getSeedPassword('SEED_COMPANY_ADMIN_PASSWORD');
+  const managerPassword = getSeedPassword('SEED_MANAGER_PASSWORD');
+  const cashierPassword = getSeedPassword('SEED_CASHIER_PASSWORD');
+
+  const hashedSuperAdminPassword = await bcrypt.hash(superAdminPassword, 10);
+  const hashedCompanyAdminPassword = await bcrypt.hash(companyAdminPassword, 10);
+  const hashedManagerPassword = await bcrypt.hash(managerPassword, 10);
+  const hashedCashierPassword = await bcrypt.hash(cashierPassword, 10);
 
   // 2. Plataforma Super Admin
   await prisma.user.create({
     data: {
       name: 'Super Admin SIMTECH',
-      email: 'admin@simtechgt.com',
-      password: hashedPassword,
+      email: superAdminEmail,
+      password: hashedSuperAdminPassword,
       role: 'SUPER_ADMIN',
     },
   });
@@ -48,7 +95,7 @@ async function main() {
     data: {
       name: 'Simtech Store',
       slug: 'simtech-store',
-      email: 'simtech@simtechgt.com',
+      email: companyAdminEmail,
       settings: {
         create: {
           storeName: 'Simtech Store',
@@ -67,14 +114,43 @@ async function main() {
     data: { companyId: company.id, name: 'Santa', code: 'SUC-SANTA', isMain: false }
   });
 
+  const adminRole = await prisma.customRole.create({
+    data: {
+      companyId: company.id,
+      name: 'Administrador',
+      description: 'Administrador local con acceso integral al tenant demo',
+      permissions: [...ADMIN_PERMISSIONS],
+    },
+  });
+
+  const managerRole = await prisma.customRole.create({
+    data: {
+      companyId: company.id,
+      name: 'Gerente',
+      description: 'Supervisor operativo del tenant demo',
+      permissions: [...MANAGER_PERMISSIONS],
+    },
+  });
+
+  const cashierRole = await prisma.customRole.create({
+    data: {
+      companyId: company.id,
+      name: 'Cajero',
+      description: 'Operación básica de caja en tenant demo',
+      permissions: [...CASHIER_PERMISSIONS],
+    },
+  });
+
   // 5. Personal Administrativo y Gerencial
   await prisma.user.create({
     data: {
       companyId: company.id,
       name: 'Dueño Simtech',
-      email: 'simtech@simtechgt.com',
-      password: hashedPassword,
-      role: 'ADMIN',
+      email: companyAdminEmail,
+      password: hashedCompanyAdminPassword,
+      role: 'USER',
+      branchId: branchTecpan.id,
+      customRoleId: adminRole.id,
     }
   });
 
@@ -83,8 +159,9 @@ async function main() {
       companyId: company.id,
       name: 'Gerente General',
       email: 'gerentegeneral@simtechgt.com',
-      password: gerentePassword,
-      role: 'ADMIN', // Rol ADMIN para que pueda ver ambas sucursales con el selector
+      password: hashedManagerPassword,
+      role: 'USER',
+      customRoleId: managerRole.id,
     }
   });
 
@@ -95,8 +172,9 @@ async function main() {
       branchId: branchTecpan.id,
       name: 'Gerente Tecpán',
       email: 'gerentetecpan@simtechgt.com',
-      password: gerentePassword,
-      role: 'SUPERVISOR',
+      password: hashedManagerPassword,
+      role: 'USER',
+      customRoleId: managerRole.id,
     }
   });
   await prisma.user.create({
@@ -105,8 +183,9 @@ async function main() {
       branchId: branchTecpan.id,
       name: 'Cajero Tecpán',
       email: 'cajerotecpan@simtechgt.com',
-      password: cajeroPassword,
-      role: 'CASHIER',
+      password: hashedCashierPassword,
+      role: 'USER',
+      customRoleId: cashierRole.id,
     }
   });
 
@@ -117,8 +196,9 @@ async function main() {
       branchId: branchSanta.id,
       name: 'Gerente Santa',
       email: 'gerentesanta@simtechgt.com',
-      password: gerentePassword,
-      role: 'SUPERVISOR',
+      password: hashedManagerPassword,
+      role: 'USER',
+      customRoleId: managerRole.id,
     }
   });
   await prisma.user.create({
@@ -127,8 +207,9 @@ async function main() {
       branchId: branchSanta.id,
       name: 'Cajero Santa',
       email: 'cajerosanta@simtechgt.com',
-      password: cajeroPassword,
-      role: 'CASHIER',
+      password: hashedCashierPassword,
+      role: 'USER',
+      customRoleId: cashierRole.id,
     }
   });
 
@@ -221,6 +302,14 @@ async function main() {
   });
 
   console.log('-> Inventario de Prueba Tecnológico distribuido en ambas sucursales.');
+  console.log('\nCredenciales generadas para desarrollo local:');
+  console.table([
+    { account: 'Super Admin', email: superAdminEmail, password: superAdminPassword },
+    { account: 'Admin Empresa', email: companyAdminEmail, password: companyAdminPassword },
+    { account: 'Gerentes Demo', email: 'gerentegeneral@simtechgt.com / gerentetecpan@simtechgt.com / gerentesanta@simtechgt.com', password: managerPassword },
+    { account: 'Cajeros Demo', email: 'cajerotecpan@simtechgt.com / cajerosanta@simtechgt.com', password: cashierPassword },
+  ]);
+  console.log('Puedes fijar credenciales estables exportando SEED_* antes de correr el seed.');
 }
 
 main()

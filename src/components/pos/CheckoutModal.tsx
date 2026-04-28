@@ -7,6 +7,7 @@ import { useCartStore } from '@/stores/cartStore';
 interface CheckoutModalProps {
   onClose: () => void;
   onSuccess: (saleId: string) => void;
+  channel?: 'POS' | 'REMOTE';
 }
 
 type PaymentMethodType = 'CASH' | 'CARD' | 'TRANSFER' | 'CREDIT';
@@ -15,6 +16,7 @@ interface PaymentEntry {
   method: PaymentMethodType;
   amount: number;
   reference: string;
+  bankAccountId?: string;
 }
 
 type PaymentEntryValue = PaymentEntry[keyof PaymentEntry];
@@ -33,7 +35,7 @@ const METHODS: { value: PaymentMethodType; label: string; icon: React.ReactNode 
   { value: 'CREDIT', label: 'Crédito', icon: <UserCircle className="w-4 h-4" /> },
 ];
 
-export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
+export function CheckoutModal({ onClose, onSuccess, channel = 'POS' }: CheckoutModalProps) {
   const {
     items, discount, customerId,
     totalWithDiscount, clearCart, ensureCheckoutRequestId,
@@ -54,12 +56,23 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
   const [error, setError] = useState('');
   const contentRef = useRef<HTMLDivElement>(null);
 
+  const [banks, setBanks] = useState<{id: string, name: string}[]>([]);
+  
   const enabledMethods = METHODS.filter((method) => {
     if (method.value === 'CASH') return paymentSettings.acceptsCash;
     if (method.value === 'CARD') return paymentSettings.acceptsCard;
     if (method.value === 'TRANSFER') return paymentSettings.acceptsTransfer;
     return paymentSettings.acceptsCredit;
   });
+
+  useEffect(() => {
+    fetch('/api/accounting/banks?active=true')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) setBanks(data);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,6 +172,13 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
       return;
     }
 
+    // Validation: Require Bank Account for CARD or TRANSFER
+    const missingBank = payments.find(p => (p.method === 'CARD' || p.method === 'TRANSFER') && !p.bankAccountId);
+    if (missingBank) {
+      setError('Debes seleccionar el Banco de destino para pagos con Tarjeta o Transferencia.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
@@ -176,10 +196,12 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
             quantity: i.quantity,
             unitPrice: i.unitPrice,
           })),
+          channel,
           payments: payments.map(p => ({
             method: p.method,
             amount: p.amount,
             reference: p.reference || null,
+            bankAccountId: p.bankAccountId || null,
           })),
           discount,
           customerId,
@@ -300,6 +322,25 @@ export function CheckoutModal({ onClose, onSuccess }: CheckoutModalProps) {
                       />
                     </div>
 
+                    {/* Bank Selector for CARD/TRANSFER */}
+                    {(payment.method === 'CARD' || payment.method === 'TRANSFER') && (
+                      <div className="flex-1">
+                        <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-widest mb-1 px-1">
+                          Banco Destino <span className="text-red-400">*</span>
+                        </label>
+                        <select
+                          value={payment.bankAccountId || ''}
+                          onChange={(e) => updatePayment(idx, 'bankAccountId', e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-2 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-shadow outline-none font-medium"
+                        >
+                          <option value="">Seleccione Cuenta</option>
+                          {banks.map(bank => (
+                            <option key={bank.id} value={bank.id}>{bank.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    
                     {/* Reference for card/transfer */}
                     {payment.method !== 'CASH' && (
                       <div className="flex-1">

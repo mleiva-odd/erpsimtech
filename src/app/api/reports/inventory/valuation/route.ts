@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireBranchAccess, requireRole } from '@/lib/tenant';
+import { requireBranchAccess, requirePermission } from '@/lib/tenant';
 
 interface ValuationBucket {
   investment: number;
@@ -13,7 +13,7 @@ interface ValuationBucket {
  * Permite conocer el valor monetario de la mercadería en stock.
  */
 export async function GET(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('reports:view');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       where: {
         product: { companyId: tenant.companyId, active: true },
         ...(branchId && branchId !== 'all' && { branchId }),
-        ...(!branchId && tenant.role !== 'ADMIN' && tenant.role !== 'SUPER_ADMIN' && tenant.branchId && { branchId: tenant.branchId }),
+        ...(!branchId && tenant.role !== 'SUPER_ADMIN' && !tenant.permissions?.includes('settings:manage') && tenant.branchId && { branchId: tenant.branchId }),
       },
       include: {
         product: {

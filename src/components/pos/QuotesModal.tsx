@@ -37,7 +37,7 @@ export function QuotesModal({ onClose }: QuotesModalProps) {
     try {
       const res = await fetch('/api/sales?status=QUOTE');
       const data = await res.json();
-      setQuotes(Array.isArray(data) ? data : data.sales || []);
+      setQuotes(Array.isArray(data) ? data : data.data || []);
     } catch (e) {
       console.error(e);
     } finally {

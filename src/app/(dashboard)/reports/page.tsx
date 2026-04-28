@@ -51,7 +51,8 @@ export default function ReportsPage() {
   const { selectedBranchId } = useBranchStore();
   const { toast } = useToast();
   const role = session?.user?.role;
-  const canAccess = role === 'SUPERVISOR' || role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const permissions = session?.user?.permissions || [];
+  const canAccess = role === 'SUPER_ADMIN' || permissions.includes('reports:view');
 
   useEffect(() => {
     if (status === 'loading') {
@@ -80,7 +81,7 @@ export default function ReportsPage() {
 
         if (!active) return;
 
-        setSales(Array.isArray(dataSales) ? dataSales : []);
+        setSales(Array.isArray(dataSales) ? dataSales : dataSales.data || []);
         if (dataReg.status === 'OPEN') setRegister(dataReg);
         else setRegister(null);
       } catch (error) {

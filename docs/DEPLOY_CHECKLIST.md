@@ -15,6 +15,7 @@
    - `prisma/manual_migrations/20260415_sales_idempotency_and_returns.sql`
    - `prisma/manual_migrations/20260415_account_payment_cash_register.sql`
    - `prisma/manual_migrations/20260415_sale_item_unit_cost.sql`
+   - `prisma/manual_migrations/20260417_company_settings_alignment.sql`
 5. Valida localmente:
    - `npm run prisma:validate`
    - `npm run check:preprod`

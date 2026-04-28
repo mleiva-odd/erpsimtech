@@ -5,6 +5,7 @@ import { requireTenant } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { checkSubscription } from '@/lib/subscription';
 import { createNotification } from '@/app/api/notifications/route';
+import { createAccountingEntryAsync } from '@/lib/accounting';
 import { z } from 'zod';
 
 const SaleItemSchema = z.object({
@@ -18,6 +19,7 @@ const PaymentSchema = z.object({
   method: z.enum(['CASH', 'CARD', 'TRANSFER', 'CREDIT']),
   amount: z.number().positive(),
   reference: z.string().optional().nullable(),
+  bankAccountId: z.string().uuid().optional().nullable(),
 });
 
 const CreateSaleSchema = z.object({
@@ -27,6 +29,7 @@ const CreateSaleSchema = z.object({
   discount: z.number().min(0).max(100).default(0),
   customerId: z.string().uuid().optional().nullable(),
   status: z.enum(['COMPLETED', 'QUOTE']).default('COMPLETED'),
+  channel: z.enum(['POS', 'REMOTE', 'WEB']).default('POS'),
 });
 
 const saleResponseInclude = {
@@ -34,6 +37,7 @@ const saleResponseInclude = {
   payments: true,
   user: { select: { id: true, name: true } },
   customer: { select: { id: true, name: true } },
+  returns: { select: { id: true, amount: true, reason: true, createdAt: true } },
 } as const;
 
 export async function POST(req: NextRequest) {
@@ -55,7 +59,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { clientRequestId, items, payments = [], discount, customerId, status } = parsed.data;
+  const { clientRequestId, items, payments = [], discount, customerId, status, channel } = parsed.data;
 
   if (clientRequestId) {
     const existingSale = await prisma.sale.findFirst({
@@ -130,7 +134,8 @@ export async function POST(req: NextRequest) {
 
   try {
     let activeRegisterId = null;
-    if (status === 'COMPLETED') {
+    // Solo requerir caja abierta para ventas POS completadas (no remotas ni cotizaciones)
+    if (status === 'COMPLETED' && channel === 'POS') {
       const activeRegister = await prisma.cashRegister.findFirst({
         where: { userId: tenant.userId, branchId, status: 'OPEN' },
       });
@@ -254,6 +259,7 @@ export async function POST(req: NextRequest) {
           tax: 0,
           total,
           status,
+          channel,
           items: {
             create: items.map((item) => {
               const product = products.find((p) => p.id === item.productId);
@@ -276,17 +282,63 @@ export async function POST(req: NextRequest) {
               };
             }),
           },
-          ...(status === 'COMPLETED' ? {
-            payments: {
-              create: payments.map((p) => ({
-                method: p.method,
-                amount: p.amount,
-                reference: p.reference || null,
-              })),
-            }
-          } : {})
         },
-        include: saleResponseInclude,
+      });
+
+      // Handle Payments manually within transaction to capture bank IDs
+      const finalPayments = [];
+      if (status === 'COMPLETED') {
+         // Resolve default bank account for company if missing
+         let defaultBankAccount = null;
+         if (payments.some(p => ['CARD', 'TRANSFER'].includes(p.method))) {
+             defaultBankAccount = await tx.bankAccount.findFirst({
+                 where: { companyId: tenant.companyId, type: 'BANK_ACCOUNT', isActive: true }
+             });
+             if (!defaultBankAccount) {
+                 defaultBankAccount = await tx.bankAccount.create({
+                     data: { companyId: tenant.companyId, name: 'Cuenta de Integración Base', type: 'BANK_ACCOUNT', currency: 'GTQ' }
+                 });
+             }
+         }
+
+         for (const p of payments) {
+             let resolvedBankId = null;
+             if (['CARD', 'TRANSFER'].includes(p.method)) {
+                 resolvedBankId = p.bankAccountId || defaultBankAccount?.id;
+             }
+             
+             const createdPayment = await tx.payment.create({
+                 data: {
+                     saleId: newSale.id,
+                     method: p.method,
+                     amount: p.amount,
+                     reference: p.reference || null,
+                      bankAccountId: resolvedBankId,
+                 }
+             });
+             finalPayments.push(createdPayment);
+
+             // Create BankTransaction if applicable
+             if (resolvedBankId) {
+                 await tx.bankTransaction.create({
+                     data: {
+                         bankAccountId: resolvedBankId,
+                         userId: tenant.userId,
+                         type: 'INCOME',
+                         amount: p.amount,
+                         reference: `Venta POS #${newSale.id.split('-')[0].toUpperCase()} - ${p.reference || ''}`,
+                         description: 'Ingreso automatizado por venta facturada',
+                         reconciled: false
+                     }
+                 });
+             }
+         }
+      }
+
+      // Re-fetch sale to include new payments
+      const completedSale = await tx.sale.findUniqueOrThrow({
+         where: { id: newSale.id },
+         include: saleResponseInclude
       });
 
       // 6. Decrement stock in this branch and capture new stock data ONLY IF COMPLETED
@@ -350,7 +402,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-    return { newSale, updatedStocks };
+    return { newSale: completedSale, updatedStocks };
     });
 
     const { newSale: sale, updatedStocks } = transactionResult;
@@ -378,6 +430,22 @@ export async function POST(req: NextRequest) {
       entityId: sale.id,
       details: { total: sale.total, items: items.length, payments: payments.length },
     });
+
+    // Automatic accounting entry for completed sales
+    if (status === 'COMPLETED') {
+      const categoryName = channel === 'REMOTE' ? 'Ventas Remotas' : 'Ventas POS';
+      await createAccountingEntryAsync(prisma, {
+        companyId: tenant.companyId,
+        branchId,
+        type: 'INCOME',
+        categoryName,
+        description: `Venta #${sale.id.split('-')[0].toUpperCase()} — ${sale.items?.length || items.length} producto(s)`,
+        amount: Number(sale.total),
+        referenceType: 'SALE',
+        referenceId: sale.id,
+        userId: tenant.userId,
+      });
+    }
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error: unknown) {
@@ -420,36 +488,105 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') ?? '1');
   const limit = parseInt(searchParams.get('limit') ?? '20');
   const requestedBranchId = searchParams.get('branchId');
-  const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+  const isAdmin = tenant.role === 'SUPER_ADMIN' || tenant.permissions?.includes('settings:manage');
 
   const targetBranchId = (!isAdmin || !requestedBranchId || requestedBranchId === 'null')
     ? tenant.branchId
     : requestedBranchId;
 
+  // Filtros avanzados
   const status = searchParams.get('status');
+  const channel = searchParams.get('channel');
+  const dateFrom = searchParams.get('dateFrom');
+  const dateTo = searchParams.get('dateTo');
+  const userId = searchParams.get('userId');
+  const customerId = searchParams.get('customerId');
+  const paymentMethod = searchParams.get('paymentMethod');
+  const search = searchParams.get('search');
 
   const where: Prisma.SaleWhereInput = { companyId: tenant.companyId };
-  if (status === 'COMPLETED' || status === 'QUOTE') {
-    where.status = status;
+
+  // Status filter (supports multiple comma-separated)
+  if (status) {
+    const statuses = status.split(',').filter(s => ['COMPLETED', 'PENDING', 'CANCELLED', 'QUOTE'].includes(s));
+    if (statuses.length === 1) {
+      where.status = statuses[0] as Prisma.EnumSaleStatusFilter;
+    } else if (statuses.length > 1) {
+      where.status = { in: statuses as Array<'COMPLETED' | 'PENDING' | 'CANCELLED' | 'QUOTE'> };
+    }
   }
 
+  // Channel filter
+  if (channel && ['POS', 'REMOTE', 'WEB'].includes(channel)) {
+    where.channel = channel as Prisma.EnumSaleChannelFilter;
+  }
+
+  // Branch filter
   if (targetBranchId) {
     where.branchId = targetBranchId;
   }
 
-  const sales = await prisma.sale.findMany({
-    where,
-    include: {
-      user: { select: { name: true } },
-      customer: { select: { id: true, name: true } },
-      branch: { select: { name: true } },
-      items: { include: { product: { select: { name: true } } } },
-      payments: true,
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    skip: (page - 1) * limit,
-  });
+  // Date range filter
+  if (dateFrom || dateTo) {
+    where.createdAt = {};
+    if (dateFrom) {
+      (where.createdAt as Prisma.DateTimeFilter).gte = new Date(dateFrom);
+    }
+    if (dateTo) {
+      const endDate = new Date(dateTo);
+      endDate.setHours(23, 59, 59, 999);
+      (where.createdAt as Prisma.DateTimeFilter).lte = endDate;
+    }
+  }
 
-  return NextResponse.json(sales);
+  // User (seller) filter
+  if (userId) {
+    where.userId = userId;
+  }
+
+  // Customer filter
+  if (customerId) {
+    where.customerId = customerId;
+  }
+
+  // Payment method filter
+  if (paymentMethod && ['CASH', 'CARD', 'TRANSFER', 'CREDIT'].includes(paymentMethod)) {
+    where.payments = { some: { method: paymentMethod as 'CASH' | 'CARD' | 'TRANSFER' | 'CREDIT' } };
+  }
+
+  // Text search (ticket ID or customer name)
+  if (search && search.trim()) {
+    const term = search.trim();
+    where.OR = [
+      { id: { startsWith: term.toLowerCase() } },
+      { invoiceNumber: { contains: term, mode: 'insensitive' } },
+      { customer: { name: { contains: term, mode: 'insensitive' } } },
+    ];
+  }
+
+  const [sales, total] = await Promise.all([
+    prisma.sale.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true } },
+        customer: { select: { id: true, name: true } },
+        branch: { select: { id: true, name: true } },
+        items: { include: { product: { select: { name: true, sku: true } }, variant: { select: { name: true } } } },
+        payments: true,
+        returns: { select: { id: true, amount: true, createdAt: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: (page - 1) * limit,
+    }),
+    prisma.sale.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    data: sales,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  });
 }

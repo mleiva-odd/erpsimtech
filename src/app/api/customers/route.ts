@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 import { z } from 'zod';
@@ -20,21 +21,45 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
+    const hasBalance = searchParams.get('hasBalance') === 'true';
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const page = parseInt(searchParams.get('page') || '1');
 
-    const customers = await prisma.customer.findMany({
-      where: {
-        companyId: tenant.companyId,
-        OR: [
-          { name: { contains: query, mode: 'insensitive' } },
-          { nit: { contains: query, mode: 'insensitive' } },
-          { phone: { contains: query, mode: 'insensitive' } },
-        ],
-      },
-      orderBy: { name: 'asc' },
-      take: 20,
-    });
+    const where: Prisma.CustomerWhereInput = {
+      companyId: tenant.companyId,
+    };
 
-    return NextResponse.json({ customers });
+    if (query) {
+      where.OR = [
+        { name: { contains: query, mode: 'insensitive' } },
+        { nit: { contains: query, mode: 'insensitive' } },
+        { phone: { contains: query, mode: 'insensitive' } },
+      ];
+    }
+
+    if (hasBalance) {
+      where.balance = { gt: 0 };
+    }
+
+    const [customers, total] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        take: limit,
+        skip: (page - 1) * limit,
+        include: {
+          sales: {
+            where: { status: 'COMPLETED' },
+            orderBy: { createdAt: 'desc' },
+            take: 3,
+            select: { id: true, total: true, createdAt: true }
+          }
+        }
+      }),
+      prisma.customer.count({ where }),
+    ]);
+
+    return NextResponse.json({ data: customers, total });
   } catch (error) {
     console.error('Error fetching customers:', error);
     return NextResponse.json({ error: 'Error fetching customers' }, { status: 500 });

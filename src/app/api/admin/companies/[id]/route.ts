@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 import bcrypt from 'bcryptjs';
 
 // Super Admin: Update company
@@ -9,7 +9,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   const resolvedParams = await params;
@@ -20,7 +20,7 @@ export async function PUT(
       const primaryAdmin = await tx.user.findFirst({
         where: {
           companyId: resolvedParams.id,
-          role: 'ADMIN',
+          customRole: { name: 'Administrador' },
         },
         orderBy: { createdAt: 'asc' },
         select: { id: true },
@@ -86,7 +86,7 @@ export async function PUT(
             select: { plan: true, status: true, currentPeriodEnd: true, maxBranches: true, maxUsersPerBranch: true, price: true },
           },
           users: {
-            where: { role: 'ADMIN' },
+            where: { customRole: { name: 'Administrador' } },
             orderBy: { createdAt: 'asc' },
             take: 1,
             select: { id: true, name: true, email: true },
@@ -108,7 +108,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   const resolvedParams = await params;

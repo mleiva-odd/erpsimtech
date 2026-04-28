@@ -11,7 +11,7 @@
     "prisma:validate": "prisma validate",
     "check:preprod": "npm run lint && npm run typecheck && npm run build",
     "test:e2e": "playwright test",
-    "seed": "ts-node --compiler-options {\\module\\:\\CommonJS\\} prisma/seed.ts",
+    "seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

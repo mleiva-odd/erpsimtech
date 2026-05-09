@@ -47,7 +47,12 @@ next-env.d.ts
 *.log
 terminal.txt
 /scratch/
-Rediseñar landing y login
+
+# Carpeta de mockup de rediseño — dos patrones para cubrir macOS NFD/NFC.
+# El nombre tiene 'ñ' que en HFS+/APFS macOS suele codificarse como n + combining tilde,
+# por eso ambos patrones.
+Rediseñar landing y login/
+Redise*landing y login/
 
 # Reportes y resultados de tests (auto-generados)
 /playwright-report/

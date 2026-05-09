@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId,
       branchId: activeRegister.branchId,
       userId: tenant.userId,

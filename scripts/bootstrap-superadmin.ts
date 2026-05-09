@@ -54,7 +54,8 @@ async function main() {
     });
 
     console.log('SUPER_ADMIN creado.');
-    console.log(JSON.stringify(created, null, 2));
+    // No dumpeamos el objeto completo a logs (queda en CI / Vercel build logs).
+    console.log(`  id=${created.id} role=${created.role}`);
     return;
   }
 
@@ -69,7 +70,7 @@ async function main() {
     console.log(
       'Si quieres actualizar nombre/contraseña, vuelve a correr con BOOTSTRAP_SUPERADMIN_FORCE_RESET=true.',
     );
-    console.log(JSON.stringify(existingUser, null, 2));
+    console.log(`  id=${existingUser.id} role=${existingUser.role} active=${existingUser.active}`);
     return;
   }
 
@@ -90,7 +91,7 @@ async function main() {
   });
 
   console.log('SUPER_ADMIN actualizado.');
-  console.log(JSON.stringify(updated, null, 2));
+  console.log(`  id=${updated.id} role=${updated.role} active=${updated.active}`);
 }
 
 main()

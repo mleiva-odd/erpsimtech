@@ -1,7 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { verifyPassword } from "@/lib/hashing";
 import { requireEnv } from "@/lib/env";
 
 const nextAuthSecret = requireEnv("NEXTAUTH_SECRET");
@@ -24,23 +24,26 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "admin@simtech.com" },
+        email: { label: "Email", type: "email", placeholder: "admin@example.com" },
         password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          // Mensaje genérico — no filtra si el email existe o no.
           throw new Error("Credenciales inválidas");
         }
 
+        const normalizedEmail = credentials.email.trim().toLowerCase();
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: normalizedEmail },
           include: {
             company: { select: { id: true, active: true } },
             customRole: { select: { name: true, permissions: true } },
           },
         });
 
-        if (!user || !(await bcrypt.compare(credentials.password, user.password))) {
+        if (!user || !(await verifyPassword(credentials.password, user.password))) {
           throw new Error("Credenciales inválidas");
         }
 
@@ -96,7 +99,25 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    // 14 días: balance entre comodidad y radio de daño en caso de robo de cookie.
+    // Bajamos de los 30 días originales. Combinado con `userVersion` (Sprint 2.C)
+    // permite revocación inmediata al cambiar contraseña / desactivar usuario.
+    maxAge: 14 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60, // refrescar el token cada 24h de actividad
+  },
+  cookies: {
+    sessionToken: {
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   },
   secret: nextAuthSecret,
 };

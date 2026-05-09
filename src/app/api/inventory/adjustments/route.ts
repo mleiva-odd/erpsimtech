@@ -200,7 +200,7 @@ export async function POST(req: NextRequest) {
     });
 
     // 5. Auditoría
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       branchId,

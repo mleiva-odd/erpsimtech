@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       action: 'STOCK_TRANSFER_SENT',

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireCompanyTenant } from '@/lib/tenant';
+// Re-export para compatibilidad con código existente que importa
+// `createNotification` desde este módulo. La lógica vive en `@/lib/notifications`.
+export { createNotification } from '@/lib/notifications';
 
 export async function GET(req: NextRequest) {
   const result = await requireCompanyTenant();
@@ -56,18 +59,5 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// Utility function to be used server-side (in other APIs like sales)
-export async function createNotification(companyId: string, title: string, message: string, type: 'INFO' | 'WARNING' | 'ERROR' = 'INFO') {
-  try {
-    await prisma.notification.create({
-      data: {
-        companyId,
-        title,
-        message,
-        type,
-      }
-    });
-  } catch (error) {
-    console.error('Failed to create notification', error);
-  }
-}
+// `createNotification` se mantiene exportado al inicio del archivo (re-export).
+// Los nuevos consumidores deben importar directamente desde `@/lib/notifications`.

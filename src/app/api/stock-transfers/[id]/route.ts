@@ -92,7 +92,7 @@ async function receiveTransfer(transferId: string, tenant: TenantContext) {
     }
   });
 
-  createAuditLog({
+  await createAuditLog({
     companyId: tenant.companyId,
     userId: tenant.userId,
     action: 'STOCK_TRANSFER_RECEIVED',
@@ -217,7 +217,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       }
     });
 
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       action: 'STOCK_TRANSFER_CANCELLED',

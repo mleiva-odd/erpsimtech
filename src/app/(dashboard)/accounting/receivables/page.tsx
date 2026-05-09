@@ -190,12 +190,10 @@ export default function ReceivablesPage() {
                           </span>
                           {p.status === 'VOID' && <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[9px] font-bold">ANULADO</span>}
                         </div>
-                        {p.status !== 'VOID' && (
-                          {canManageTreasury && (
-                            <button onClick={() => handleVoidPayment(p.id)} className="text-red-500 hover:text-red-700 font-medium underline">
-                              Anular
-                            </button>
-                          )}
+                        {p.status !== 'VOID' && canManageTreasury && (
+                          <button onClick={() => handleVoidPayment(p.id)} className="text-red-500 hover:text-red-700 font-medium underline">
+                            Anular
+                          </button>
                         )}
                       </div>
                     ))}

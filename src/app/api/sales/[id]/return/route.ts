@@ -144,7 +144,7 @@ export async function POST(
     });
 
     // Audit log
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       action: 'SALE_RETURNED',

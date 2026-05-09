@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/tenant';
-import bcrypt from 'bcryptjs';
+import { hashPassword, validatePasswordStrength } from '@/lib/hashing';
 
 // Super Admin: Update company
 export async function PUT(
@@ -14,6 +14,18 @@ export async function PUT(
 
   const resolvedParams = await params;
   const body = await req.json();
+
+  // Validar fuerza de contraseña ANTES de entrar a la transacción
+  // para no devolver 500 cuando lo correcto es 400.
+  if (typeof body?.admin?.password === 'string' && body.admin.password.trim()) {
+    const strength = validatePasswordStrength(body.admin.password.trim());
+    if (!strength.ok) {
+      return NextResponse.json(
+        { error: 'Contraseña de admin débil', details: strength.errors },
+        { status: 400 },
+      );
+    }
+  }
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
@@ -67,7 +79,8 @@ export async function PUT(
         }
 
         if (typeof body.admin.password === 'string' && body.admin.password.trim()) {
-          adminData.password = await bcrypt.hash(body.admin.password.trim(), 10);
+          // La fuerza ya se validó fuera de la transacción.
+          adminData.password = await hashPassword(body.admin.password.trim());
         }
 
         if (Object.keys(adminData).length > 0) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/tenant';
-import bcrypt from 'bcryptjs';
+import { hashPassword, validatePasswordStrength } from '@/lib/hashing';
 
 function getPlanDefaults(plan: string) {
   switch (plan) {
@@ -57,16 +57,25 @@ export async function POST(req: NextRequest) {
 
     // Validación estricta de campos obligatorios
     if (!name || !slug || !email || !adminName || !adminEmail || !adminPassword) {
-      return NextResponse.json({ 
-        error: 'Los datos de la empresa y del administrador son obligatorios' 
+      return NextResponse.json({
+        error: 'Los datos de la empresa y del administrador son obligatorios'
       }, { status: 400 });
+    }
+
+    // Política de contraseña centralizada (12+ chars, complejidad).
+    const strength = validatePasswordStrength(adminPassword);
+    if (!strength.ok) {
+      return NextResponse.json(
+        { error: 'Contraseña de admin débil', details: strength.errors },
+        { status: 400 },
+      );
     }
 
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + 30);
 
-    // 1. Hash the password
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    // 1. Hash the password (rounds centralizados en lib/hashing).
+    const hashedPassword = await hashPassword(adminPassword);
 
     // 2. Create company ecosystem (Transaction)
     const company = await prisma.$transaction(async (tx) => {

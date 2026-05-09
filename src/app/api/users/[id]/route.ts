@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/tenant';
-import bcrypt from 'bcryptjs';
+import { hashPassword, validatePasswordStrength } from '@/lib/hashing';
 
 interface UserUpdateData extends Prisma.UserUpdateInput {
   branchAccess?: {
@@ -71,7 +71,14 @@ export async function PUT(
     }
 
     if (body.password) {
-      dataToUpdate.password = await bcrypt.hash(body.password, 10);
+      const strength = validatePasswordStrength(body.password);
+      if (!strength.ok) {
+        return NextResponse.json(
+          { error: 'Contraseña débil', details: strength.errors },
+          { status: 400 },
+        );
+      }
+      dataToUpdate.password = await hashPassword(body.password);
     }
 
     const updated = await prisma.user.update({

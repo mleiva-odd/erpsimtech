@@ -17,7 +17,8 @@ function getPassword(name: string) {
 async function main() {
   const adminEmail = getValue('RESTRICTED_COMPANY_ADMIN_EMAIL', 'testadmin@restricted.com');
   const adminPassword = getPassword('RESTRICTED_COMPANY_ADMIN_PASSWORD');
-  const password = await bcrypt.hash(adminPassword, 10);
+  // bcrypt rounds alineados a `src/lib/hashing.ts`.
+  const password = await bcrypt.hash(adminPassword, 12);
 
   // Clean up existing test data
   await prisma.user.deleteMany({ where: { email: adminEmail } });

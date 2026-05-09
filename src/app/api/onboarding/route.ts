@@ -3,22 +3,32 @@ import { prisma } from '@/lib/prisma';
 import { createAuditLog } from '@/lib/audit';
 import { requirePermission } from '@/lib/tenant';
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
+import { hashPassword, PASSWORD_MIN_LENGTH } from '@/lib/hashing';
 
 const OnboardingSchema = z.object({
   // Company info
-  companyName: z.string().min(2, 'Nombre de empresa requerido'),
-  companySlug: z.string().min(2).regex(/^[a-z0-9-]+$/, 'Solo letras minúsculas, números y guiones'),
-  companyEmail: z.string().email('Email inválido'),
+  companyName: z.string().trim().min(2, 'Nombre de empresa requerido'),
+  companySlug: z
+    .string()
+    .trim()
+    .min(2)
+    .regex(/^[a-z0-9-]+$/, 'Solo letras minúsculas, números y guiones'),
+  companyEmail: z.string().trim().toLowerCase().email('Email inválido'),
   companyPhone: z.string().optional().or(z.literal('')),
   companyNit: z.string().optional().or(z.literal('')),
   // Admin user
-  adminName: z.string().min(2, 'Nombre del administrador requerido'),
-  adminEmail: z.string().email('Email del admin inválido'),
-  adminPassword: z.string().min(6, 'Mínimo 6 caracteres'),
+  adminName: z.string().trim().min(2, 'Nombre del administrador requerido'),
+  adminEmail: z.string().trim().toLowerCase().email('Email del admin inválido'),
+  adminPassword: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, `Mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
+    .regex(/[a-z]/, 'Debe incluir al menos una minúscula')
+    .regex(/[A-Z]/, 'Debe incluir al menos una mayúscula')
+    .regex(/[0-9]/, 'Debe incluir al menos un dígito')
+    .regex(/[^A-Za-z0-9]/, 'Debe incluir al menos un símbolo'),
   // First branch
-  branchName: z.string().min(2, 'Nombre de sucursal requerido').default('Sucursal Central'),
-  branchCode: z.string().min(2).default('SUC-01'),
+  branchName: z.string().trim().min(2, 'Nombre de sucursal requerido').default('Sucursal Central'),
+  branchCode: z.string().trim().min(2).default('SUC-01'),
   branchAddress: z.string().optional().or(z.literal('')),
 });
 
@@ -55,8 +65,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ya existe un usuario con ese correo electrónico' }, { status: 409 });
     }
 
-    // Hash admin password
-    const hashedPassword = await bcrypt.hash(data.adminPassword, 12);
+    // Hash admin password (rounds centralizados en lib/hashing)
+    const hashedPassword = await hashPassword(data.adminPassword);
 
     // Trial period: 30 days
     const trialEnd = new Date();
@@ -140,8 +150,8 @@ export async function POST(req: NextRequest) {
       return newCompany;
     });
 
-    // Audit log (fire and forget)
-    createAuditLog({
+    // Audit log — esperamos para garantizar persistencia antes de cerrar la lambda.
+    await createAuditLog({
       companyId: company.id,
       userId: 'system',
       action: 'COMPANY_CREATED',

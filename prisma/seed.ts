@@ -4,6 +4,10 @@ import { randomBytes } from 'node:crypto';
 
 const prisma = new PrismaClient();
 
+// Mantenemos bcrypt rounds alineado a `src/lib/hashing.ts`. No importamos
+// directamente desde `@/lib/hashing` porque el seed corre fuera del bundling de Next.
+const SEED_BCRYPT_ROUNDS = 12;
+
 const ADMIN_PERMISSIONS = [
   'pos:access', 'pos:discount',
   'sales:view', 'sales:void',
@@ -75,10 +79,10 @@ async function main() {
   const managerPassword = getSeedPassword('SEED_MANAGER_PASSWORD');
   const cashierPassword = getSeedPassword('SEED_CASHIER_PASSWORD');
 
-  const hashedSuperAdminPassword = await bcrypt.hash(superAdminPassword, 10);
-  const hashedCompanyAdminPassword = await bcrypt.hash(companyAdminPassword, 10);
-  const hashedManagerPassword = await bcrypt.hash(managerPassword, 10);
-  const hashedCashierPassword = await bcrypt.hash(cashierPassword, 10);
+  const hashedSuperAdminPassword = await bcrypt.hash(superAdminPassword, SEED_BCRYPT_ROUNDS);
+  const hashedCompanyAdminPassword = await bcrypt.hash(companyAdminPassword, SEED_BCRYPT_ROUNDS);
+  const hashedManagerPassword = await bcrypt.hash(managerPassword, SEED_BCRYPT_ROUNDS);
+  const hashedCashierPassword = await bcrypt.hash(cashierPassword, SEED_BCRYPT_ROUNDS);
 
   // 2. Plataforma Super Admin
   await prisma.user.create({

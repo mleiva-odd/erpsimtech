@@ -132,7 +132,7 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId, userId: tenant.userId,
       action: 'SETTINGS_UPDATED', entity: 'CompanySettings', entityId: updated.id,
       details: { updatedFields: Object.keys(parsed.data) },

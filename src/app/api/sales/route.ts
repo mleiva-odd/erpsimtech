@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
-import { createNotification } from '@/app/api/notifications/route';
+import { createNotification } from '@/lib/notifications';
 import { createAccountingEntryAsync } from '@/lib/accounting';
 import { z } from 'zod';
 
@@ -40,7 +40,6 @@ const saleResponseInclude = {
 } as const;
 
 export async function POST(req: NextRequest) {
-  console.log('--- SOLICITUD DE VENTA RECIBIDA ---');
   const result = await requireOperationalPermission(['pos:access', 'sales:view', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
@@ -401,21 +400,24 @@ export async function POST(req: NextRequest) {
     const { newSale: sale, updatedStocks } = transactionResult;
 
     // Async tasks post-transaction
-    
-    // Low stock notifications
-    updatedStocks.forEach(stock => {
-      if (stock.quantity <= stock.minStock) {
-        createNotification(
-          tenant.companyId,
-          'Alerta de Inventario',
-          `El producto "${stock.product.name}" ha llegado a nivel bajo en inventario (${stock.quantity} unidades restantes).`,
-          'WARNING'
-        );
-      }
-    });
 
-    // Audit log
-    createAuditLog({
+    // Low stock notifications — esperamos para garantizar flush antes de devolver respuesta.
+    await Promise.all(
+      updatedStocks
+        .filter((stock) => stock.quantity <= stock.minStock)
+        .map((stock) =>
+          createNotification(
+            tenant.companyId,
+            'Alerta de Inventario',
+            `El producto "${stock.product.name}" ha llegado a nivel bajo en inventario (${stock.quantity} unidades restantes).`,
+            'WARNING',
+          ),
+        ),
+    );
+
+    // Audit log — `createAuditLog` ya captura sus errores internos pero
+    // esperamos a que termine para garantizar persistencia antes de cerrar la lambda.
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       action: 'SALE_CREATED',

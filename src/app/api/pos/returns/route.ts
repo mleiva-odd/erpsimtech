@@ -297,7 +297,7 @@ export async function POST(req: NextRequest) {
       return newReturn;
     });
 
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       entity: 'SaleReturn',

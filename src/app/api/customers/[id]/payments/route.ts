@@ -132,7 +132,7 @@ export async function POST(
     });
 
     // 3. Auditoría
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       action: 'CUSTOMER_PAYMENT_RECORDED',

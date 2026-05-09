@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireOperationalPermission } from '@/lib/tenant';
 import { createAccountingEntry } from '@/lib/accounting';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ customerId: string }> }
 ) {
-  const result = await requireTenant();
+  const result = await requireOperationalPermission('treasury:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

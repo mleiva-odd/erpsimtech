@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAccountingEntryAsync } from '@/lib/accounting';
 
 function isPositiveNumber(value: unknown) {
@@ -16,7 +16,7 @@ interface PurchaseItemInput {
 }
 
 export async function GET(req: NextRequest) {
-  const result = await requirePermission('reports:view');
+  const result = await requireAnyPermission(['purchases:view', 'purchases:create', 'settings:manage']);
   if ('error' in result) return result.error;
   
   // Get recent purchases for the tenant's branch
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requirePermission('reports:view');
+  const result = await requireOperationalPermission(['purchases:create', 'settings:manage']);
   if ('error' in result) return result.error;
 
   const body = await req.json();

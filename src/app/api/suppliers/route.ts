@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 
 export async function GET(req: NextRequest) {
-  const result = await requirePermission('reports:view');
+  const result = await requireAnyPermission(['suppliers:view', 'suppliers:manage', 'purchases:view', 'treasury:view', 'treasury:manage', 'settings:manage']);
   if ('error' in result) return result.error;
 
   const suppliers = await prisma.supplier.findMany({
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requirePermission('reports:view');
+  const result = await requireOperationalPermission(['suppliers:manage', 'settings:manage']);
   if ('error' in result) return result.error;
 
   const body = await req.json();

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireCompanyTenant } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 
 export async function GET(request: NextRequest) {
   try {
-    const result = await requireCompanyTenant();
+    const result = await requireAnyPermission(['treasury:view', 'treasury:manage']);
     if ('error' in result) return result.error;
     const { tenant } = result;
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const result = await requireCompanyTenant();
+    const result = await requireOperationalPermission('treasury:manage');
     if ('error' in result) return result.error;
     const { tenant } = result;
 

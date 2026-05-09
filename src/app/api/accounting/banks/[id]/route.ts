@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireCompanyTenant } from '@/lib/tenant';
+import { requireOperationalPermission } from '@/lib/tenant';
 
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await requireCompanyTenant();
+    const result = await requireOperationalPermission('treasury:manage');
     if ('error' in result) return result.error;
     const { tenant } = result;
 
@@ -49,7 +49,7 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await requireCompanyTenant();
+    const result = await requireOperationalPermission('treasury:manage');
     if ('error' in result) return result.error;
     const { tenant } = result;
 

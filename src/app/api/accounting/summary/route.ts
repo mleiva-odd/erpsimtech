@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireAnyPermission } from '@/lib/tenant';
 
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireAnyPermission(['treasury:view', 'treasury:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 

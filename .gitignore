@@ -48,3 +48,33 @@ next-env.d.ts
 terminal.txt
 /scratch/
 Rediseñar landing y login
+
+# Reportes y resultados de tests (auto-generados)
+/playwright-report/
+/test-results/
+/coverage/
+
+# Artefactos de auditoría / agentes / IDEs
+/.agent/
+.audit-*
+get_admin.js
+
+# Archivos sensibles que NUNCA deben commitearse
+credentials.md
+*.credentials
+*.secret
+secrets/
+vercel_production.env
+
+# Archivos de propuesta/marketing en raíz (mover a /docs/marketing si aplica)
+/Propuesta_SIMTECH_POS.*
+/SIMTECH_POS_Blueprint.md
+/fondo*.jpeg
+/fondo*.jpg
+/simtechlogo.*
+/logo.png
+/productos_prueba_*.csv
+
+# OS
+Thumbs.db
+ehthumbs.db

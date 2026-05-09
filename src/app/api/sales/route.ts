@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
-import { checkSubscription } from '@/lib/subscription';
 import { createNotification } from '@/app/api/notifications/route';
 import { createAccountingEntryAsync } from '@/lib/accounting';
 import { z } from 'zod';
@@ -42,15 +41,9 @@ const saleResponseInclude = {
 
 export async function POST(req: NextRequest) {
   console.log('--- SOLICITUD DE VENTA RECIBIDA ---');
-  const result = await requireTenant();
+  const result = await requireOperationalPermission(['pos:access', 'sales:view', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
-
-  // Check subscription before allowing sale
-  const subError = await checkSubscription(tenant.companyId);
-  if (subError) {
-    return NextResponse.json({ error: subError }, { status: 403 });
-  }
 
   const body = await req.json();
   const parsed = CreateSaleSchema.safeParse(body);
@@ -480,7 +473,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireAnyPermission(['sales:view', 'reports:view', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 

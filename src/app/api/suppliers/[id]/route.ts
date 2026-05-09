@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/tenant';
+import { requireOperationalPermission } from '@/lib/tenant';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requirePermission('reports:view');
+  const result = await requireOperationalPermission(['suppliers:manage', 'settings:manage']);
   if ('error' in result) return result.error;
   
   const resolvedParams = await params;
@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requirePermission('reports:view');
+  const result = await requireOperationalPermission(['suppliers:manage', 'settings:manage']);
   if ('error' in result) return result.error;
   const resolvedParams = await params;
 

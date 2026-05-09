@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { checkSubscription } from '@/lib/subscription';
 
 export interface TenantContext {
   userId: string;
@@ -92,6 +93,10 @@ export function hasPermission(tenant: TenantContext, permission: string): boolea
   return tenant.permissions.includes(permission);
 }
 
+export function hasAnyPermission(tenant: TenantContext, permissions: string[]): boolean {
+  return permissions.some((permission) => hasPermission(tenant, permission));
+}
+
 /**
  * Requires a specific permission to access an API route.
  * Replaces the old requireRole function.
@@ -105,6 +110,46 @@ export async function requirePermission(permission: string): Promise<
   if (!hasPermission(result.tenant, permission)) {
     return { error: NextResponse.json({ error: `Permiso denegado: se requiere ${permission}` }, { status: 403 }) };
   }
+
+  return result;
+}
+
+export async function requireAnyPermission(permissions: string[]): Promise<
+  { tenant: TenantContext } | { error: NextResponse }
+> {
+  const result = await requireTenant();
+  if ('error' in result) return result;
+
+  if (!hasAnyPermission(result.tenant, permissions)) {
+    return {
+      error: NextResponse.json(
+        { error: `Permiso denegado: se requiere uno de ${permissions.join(', ')}` },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return result;
+}
+
+export async function requireActiveSubscription(tenant: TenantContext): Promise<NextResponse | null> {
+  if (!tenant.companyId || tenant.role === 'SUPER_ADMIN') return null;
+
+  const subscriptionError = await checkSubscription(tenant.companyId);
+  if (!subscriptionError) return null;
+
+  return NextResponse.json({ error: subscriptionError }, { status: 403 });
+}
+
+export async function requireOperationalPermission(permission: string | string[]): Promise<
+  { tenant: TenantContext } | { error: NextResponse }
+> {
+  const permissions = Array.isArray(permission) ? permission : [permission];
+  const result = await requireAnyPermission(permissions);
+  if ('error' in result) return result;
+
+  const subscriptionError = await requireActiveSubscription(result.tenant);
+  if (subscriptionError) return { error: subscriptionError };
 
   return result;
 }
@@ -150,4 +195,3 @@ export async function requireBranchAccess(
 
   return { branchId };
 }
-

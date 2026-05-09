@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { z } from 'zod';
 
 const CreateEntrySchema = z.object({
@@ -13,7 +13,7 @@ const CreateEntrySchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireAnyPermission(['treasury:view', 'treasury:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -71,14 +71,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireOperationalPermission('treasury:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
-
-  // Require at least supervisor for manual entries
-  if (!tenant.permissions?.includes('treasury:manage') && tenant.role !== 'SUPER_ADMIN') {
-    return NextResponse.json({ error: 'No tienes permisos para crear entradas contables' }, { status: 403 });
-  }
 
   const body = await req.json();
   const parsed = CreateEntrySchema.safeParse(body);

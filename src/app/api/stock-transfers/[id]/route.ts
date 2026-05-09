@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import type { TenantContext } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 
@@ -108,7 +108,7 @@ async function receiveTransfer(transferId: string, tenant: TenantContext) {
  * Gestión individual de Remisiones (Detalle, Recepción y Anulación)
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requirePermission('reports:view');
+  const result = await requireAnyPermission(['inventory:transfer', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -143,7 +143,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
  * Solo el supervisor de la sucursal de DESTINO puede confirmar.
  */
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requirePermission('reports:view');
+  const result = await requireOperationalPermission(['inventory:transfer', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -166,7 +166,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
  * Solo el supervisor de ORIGEN o el Gerente pueden anular.
  */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const result = await requirePermission('reports:view');
+  const result = await requireOperationalPermission(['inventory:transfer', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 

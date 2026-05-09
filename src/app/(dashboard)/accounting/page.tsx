@@ -52,7 +52,8 @@ export default function AccountingPage() {
 
   const role = session?.user?.role;
   const permissions = session?.user?.permissions ?? [];
-  const canAccess = role === 'SUPER_ADMIN' || permissions.includes('treasury:manage');
+  const canManageTreasury = role === 'SUPER_ADMIN' || permissions.includes('treasury:manage');
+  const canAccess = canManageTreasury || permissions.includes('treasury:view');
 
   const [summary, setSummary] = useState<Summary | null>(null);
   const [entries, setEntries] = useState<AccountingEntry[]>([]);
@@ -198,9 +199,11 @@ export default function AccountingPage() {
           <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-xl text-sm font-medium hover:bg-green-100 transition">
             <Download className="w-4 h-4" /> Exportar CSV
           </button>
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20">
-            <Plus className="w-4 h-4" /> Registrar
-          </button>
+          {canManageTreasury && (
+            <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20">
+              <Plus className="w-4 h-4" /> Registrar
+            </button>
+          )}
         </div>
       </div>
 
@@ -329,7 +332,7 @@ export default function AccountingPage() {
       </div>
 
       {/* Manual Entry Modal */}
-      {showForm && (
+      {showForm && canManageTreasury && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
             <div className="p-6 border-b border-slate-100">

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission, requireTenant } from '@/lib/tenant';
+import { requireAnyPermission } from '@/lib/tenant';
 
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireAnyPermission(['users:manage', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requirePermission('settings:manage');
+  const result = await requireAnyPermission(['users:manage', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -46,4 +46,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Error al crear el rol' }, { status: 500 });
   }
 }
-

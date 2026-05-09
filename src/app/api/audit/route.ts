@@ -5,7 +5,7 @@ import { requirePermission } from '@/lib/tenant';
 
 export async function GET(req: NextRequest) {
   // Only ADMINs or SUPER_ADMINs can view the full audit log
-  const result = await requirePermission('admin:all');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

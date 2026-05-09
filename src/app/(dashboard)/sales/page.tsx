@@ -82,7 +82,7 @@ export default function SalesPage() {
 
   const role = session?.user?.role;
   const permissions = session?.user?.permissions || [];
-  const canAccess = role === 'SUPER_ADMIN' || permissions.includes('reports:view');
+  const canAccess = role === 'SUPER_ADMIN' || permissions.includes('sales:view') || permissions.includes('reports:view');
 
   const [sales, setSales] = useState<Sale[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);

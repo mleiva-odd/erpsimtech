@@ -89,8 +89,14 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
   
   const isSuperAdmin = reliableRole === 'SUPER_ADMIN' || propIsSuperAdmin;
   const permissions = activeSession?.user?.permissions || [];
-  const isAdmin = isSuperAdmin || permissions.includes('settings:manage') || propIsAdmin;
-  const isSupervisor = isAdmin || permissions.includes('reports:view') || propIsSupervisor;
+  const can = (permission: string) => isSuperAdmin || permissions.includes('admin:all') || permissions.includes(permission);
+  const isAdmin = can('settings:manage') || propIsAdmin;
+  const isSupervisor = isAdmin || can('reports:view') || propIsSupervisor;
+  const canViewSales = isSupervisor || can('sales:view');
+  const canViewInventory = isAdmin || can('inventory:view') || can('inventory:transfer') || can('purchases:view') || can('suppliers:view');
+  const canViewFinance = isSuperAdmin || can('treasury:view') || can('treasury:manage');
+  const canViewHr = isAdmin || can('hr:manage') || can('payroll:manage');
+  const canViewUsers = can('users:manage') || isAdmin;
 
   const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
@@ -144,7 +150,7 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
           <NavItem href="/customers" icon={<Users className="w-5 h-5" />} label="Directorio de Clientes" pathname={pathname || ''} isCollapsed={isCollapsed} />
         </MenuGroup>
         
-        {isSupervisor && (
+        {canViewSales && (
           <MenuGroup 
             icon={<ReceiptText className="w-5 h-5" />} 
             label="Ventas Comerciales" 
@@ -156,21 +162,21 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
           </MenuGroup>
         )}
 
-        {isSupervisor && (
+        {canViewInventory && (
           <MenuGroup 
             icon={<Package className="w-5 h-5" />} 
             label="Bodega y Logística" 
             isCollapsed={isCollapsed}
             active={pathname?.startsWith('/inventory') || pathname?.startsWith('/purchases') || pathname?.startsWith('/stock-transfers') || pathname?.startsWith('/suppliers')}
           >
-            <NavItem href="/inventory" icon={<Package className="w-5 h-5" />} label="Inventario" pathname={pathname || ''} isCollapsed={isCollapsed} />
-            <NavItem href="/purchases" icon={<Inbox className="w-5 h-5" />} label="Ingresos (Compras)" pathname={pathname || ''} isCollapsed={isCollapsed} />
-            <NavItem href="/stock-transfers" icon={<ArrowRightLeft className="w-5 h-5" />} label="Traslados" pathname={pathname || ''} isCollapsed={isCollapsed} />
-            <NavItem href="/suppliers" icon={<Truck className="w-5 h-5" />} label="Proveedores" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            {(isAdmin || can('inventory:view')) && <NavItem href="/inventory" icon={<Package className="w-5 h-5" />} label="Inventario" pathname={pathname || ''} isCollapsed={isCollapsed} />}
+            {(isAdmin || can('purchases:view') || can('purchases:create')) && <NavItem href="/purchases" icon={<Inbox className="w-5 h-5" />} label="Ingresos (Compras)" pathname={pathname || ''} isCollapsed={isCollapsed} />}
+            {(isAdmin || can('inventory:transfer')) && <NavItem href="/stock-transfers" icon={<ArrowRightLeft className="w-5 h-5" />} label="Traslados" pathname={pathname || ''} isCollapsed={isCollapsed} />}
+            {(isAdmin || can('suppliers:view') || can('suppliers:manage')) && <NavItem href="/suppliers" icon={<Truck className="w-5 h-5" />} label="Proveedores" pathname={pathname || ''} isCollapsed={isCollapsed} />}
           </MenuGroup>
         )}
 
-        {isAdmin && (
+        {canViewFinance && (
           <MenuGroup 
             icon={<Landmark className="w-5 h-5" />} 
             label="Finanzas" 
@@ -184,35 +190,39 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
           </MenuGroup>
         )}
 
-        {isSupervisor && (
+        {canViewHr && (
           <MenuGroup 
             icon={<UserCheck className="w-5 h-5" />} 
             label="Recursos Humanos" 
             isCollapsed={isCollapsed}
             active={pathname?.startsWith('/hr')}
           >
-            <NavItem href="/hr/employees" icon={<Users className="w-5 h-5" />} label="Personal" pathname={pathname || ''} isCollapsed={isCollapsed} />
-            <NavItem href="/hr/attendance" icon={<ClipboardCheck className="w-5 h-5" />} label="Asistencia" pathname={pathname || ''} isCollapsed={isCollapsed} />
-            <NavItem href="/hr/leaves" icon={<Palmtree className="w-5 h-5" />} label="Vacaciones y Permisos" pathname={pathname || ''} isCollapsed={isCollapsed} />
-            <NavItem href="/hr/payroll" icon={<Wallet className="w-5 h-5" />} label="Planillas" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            {(isAdmin || can('hr:manage')) && <NavItem href="/hr/employees" icon={<Users className="w-5 h-5" />} label="Personal" pathname={pathname || ''} isCollapsed={isCollapsed} />}
+            {(isAdmin || can('hr:manage')) && <NavItem href="/hr/attendance" icon={<ClipboardCheck className="w-5 h-5" />} label="Asistencia" pathname={pathname || ''} isCollapsed={isCollapsed} />}
+            {(isAdmin || can('hr:manage')) && <NavItem href="/hr/leaves" icon={<Palmtree className="w-5 h-5" />} label="Vacaciones y Permisos" pathname={pathname || ''} isCollapsed={isCollapsed} />}
+            {(isAdmin || can('payroll:manage')) && <NavItem href="/hr/payroll" icon={<Wallet className="w-5 h-5" />} label="Planillas" pathname={pathname || ''} isCollapsed={isCollapsed} />}
           </MenuGroup>
         )}
 
-        {isSupervisor && (
+        {(isSupervisor || canViewUsers) && (
           <MenuGroup 
             icon={<Settings className="w-5 h-5" />} 
             label="Configuración" 
             isCollapsed={isCollapsed}
             active={pathname?.startsWith('/reports') || pathname?.startsWith('/branches') || pathname?.startsWith('/users') || pathname?.startsWith('/audit') || pathname?.startsWith('/settings')}
           >
-            <NavItem href="/reports" icon={<BarChart3 className="w-5 h-5" />} label="Reportes" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            {isSupervisor && <NavItem href="/reports" icon={<BarChart3 className="w-5 h-5" />} label="Reportes" pathname={pathname || ''} isCollapsed={isCollapsed} />}
             {isAdmin && (
               <>
                 <NavItem href="/branches" icon={<Building2 className="w-5 h-5" />} label="Sucursales" pathname={pathname || ''} isCollapsed={isCollapsed} />
-                <NavItem href="/users" icon={<Users className="w-5 h-5" />} label="Equipo" pathname={pathname || ''} isCollapsed={isCollapsed} />
-                <NavItem href="/users/roles" icon={<Key className="w-5 h-5" />} label="Roles y Permisos" pathname={pathname || ''} isCollapsed={isCollapsed} />
                 <NavItem href="/audit" icon={<Activity className="w-5 h-5" />} label="Auditoría" pathname={pathname || ''} isCollapsed={isCollapsed} />
                 <NavItem href="/settings" icon={<Settings className="w-5 h-5" />} label="Ajustes Generales" pathname={pathname || ''} isCollapsed={isCollapsed} />
+              </>
+            )}
+            {canViewUsers && (
+              <>
+                <NavItem href="/users" icon={<Users className="w-5 h-5" />} label="Equipo" pathname={pathname || ''} isCollapsed={isCollapsed} />
+                <NavItem href="/users/roles" icon={<Key className="w-5 h-5" />} label="Roles y Permisos" pathname={pathname || ''} isCollapsed={isCollapsed} />
               </>
             )}
           </MenuGroup>

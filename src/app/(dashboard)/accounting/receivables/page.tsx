@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { format } from 'date-fns';
 import { HandCoins, Search, RefreshCw, User } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
@@ -18,6 +19,8 @@ interface CustomerWithBalance {
 
 export default function ReceivablesPage() {
   const { toast } = useToast();
+  const { data: session } = useSession();
+  const canManageTreasury = session?.user?.role === 'SUPER_ADMIN' || session?.user?.permissions?.includes('treasury:manage');
   const [customers, setCustomers] = useState<CustomerWithBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -166,9 +169,11 @@ export default function ReceivablesPage() {
                     <p className="text-xl font-bold text-amber-600">Q{Number(c.balance).toFixed(2)}</p>
                     <p className="text-[10px] text-slate-400">Límite: Q{Number(c.creditLimit).toFixed(2)}</p>
                   </div>
-                  <button onClick={() => { setSelectedCustomer(c); setPaymentAmount(''); }} className="px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold hover:bg-amber-100 transition">
-                    Abonar
-                  </button>
+                  {canManageTreasury && (
+                    <button onClick={() => { setSelectedCustomer(c); setPaymentAmount(''); }} className="px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold hover:bg-amber-100 transition">
+                      Abonar
+                    </button>
+                  )}
                 </div>
               </div>
               
@@ -186,9 +191,11 @@ export default function ReceivablesPage() {
                           {p.status === 'VOID' && <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[9px] font-bold">ANULADO</span>}
                         </div>
                         {p.status !== 'VOID' && (
-                          <button onClick={() => handleVoidPayment(p.id)} className="text-red-500 hover:text-red-700 font-medium underline">
-                            Anular
-                          </button>
+                          {canManageTreasury && (
+                            <button onClick={() => handleVoidPayment(p.id)} className="text-red-500 hover:text-red-700 font-medium underline">
+                              Anular
+                            </button>
+                          )}
                         )}
                       </div>
                     ))}
@@ -201,7 +208,7 @@ export default function ReceivablesPage() {
       </div>
 
       {/* Payment Modal */}
-      {selectedCustomer && (
+      {selectedCustomer && canManageTreasury && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
             <div className="p-6 border-b border-slate-100">

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/tenant';
+import { requireAnyPermission } from '@/lib/tenant';
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requirePermission('settings:manage');
+  const result = await requireAnyPermission(['users:manage', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -37,7 +37,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requirePermission('settings:manage');
+  const result = await requireAnyPermission(['users:manage', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 

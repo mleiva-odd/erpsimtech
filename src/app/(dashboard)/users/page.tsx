@@ -21,6 +21,9 @@ interface UserData {
 
 export default function UsersPage() {
   const { data: session } = useSession();
+  const canManageUsers = session?.user?.role === 'SUPER_ADMIN'
+    || session?.user?.permissions?.includes('users:manage')
+    || session?.user?.permissions?.includes('settings:manage');
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
@@ -42,10 +45,10 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    if (session?.user?.role === 'SUPER_ADMIN' || session?.user?.permissions?.includes('settings:manage')) fetchUsers();
-  }, [session]);
+    if (canManageUsers) fetchUsers();
+  }, [canManageUsers]);
 
-  if (session?.user?.role !== 'SUPER_ADMIN' && !session?.user?.permissions?.includes('settings:manage')) {
+  if (!canManageUsers) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-10 bg-red-50 text-red-600 rounded-3xl m-8">
         <ShieldOff className="w-16 h-16 mb-4 opacity-50" />

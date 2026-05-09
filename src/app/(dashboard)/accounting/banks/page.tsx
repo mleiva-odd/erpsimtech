@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Plus, Landmark, Wallet, CreditCard, Edit2, ShieldAlert, Banknote, History, ArrowRightLeft, RefreshCw, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
@@ -34,6 +35,8 @@ interface LedgerTransaction {
 
 export default function BanksPage() {
   const { toast } = useToast();
+  const { data: session } = useSession();
+  const canManageTreasury = session?.user?.role === 'SUPER_ADMIN' || session?.user?.permissions?.includes('treasury:manage');
   const [banks, setBanks] = useState<BankRecord[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -160,23 +163,25 @@ export default function BanksPage() {
             Administra cuentas bancarias reales, cajas físicas y controla los saldos conciliables.
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button 
-            onClick={() => setIsTransferModalOpen(true)}
-            variant="outline"
-            className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
-          >
-            <ArrowRightLeft className="w-4 h-4 mr-2" />
-            Trasladar Fondos
-          </Button>
-          <Button 
-            onClick={openNewBank}
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Cuenta
-          </Button>
-        </div>
+        {canManageTreasury && (
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => setIsTransferModalOpen(true)}
+              variant="outline"
+              className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+            >
+              <ArrowRightLeft className="w-4 h-4 mr-2" />
+              Trasladar Fondos
+            </Button>
+            <Button 
+              onClick={openNewBank}
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva Cuenta
+            </Button>
+          </div>
+        )}
       </div>
 
       {!loading && banks.length === 0 && (
@@ -188,9 +193,11 @@ export default function BanksPage() {
           <p className="text-slate-400 max-w-sm mx-auto mb-6">
             Registra tu primera cuenta bancaria o caja para poder procesar pagos de ventas con tarjeta o transferencia.
           </p>
-          <Button onClick={openNewBank} variant="outline" className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10">
-            Crear Primera Cuenta
-          </Button>
+          {canManageTreasury && (
+            <Button onClick={openNewBank} variant="outline" className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10">
+              Crear Primera Cuenta
+            </Button>
+          )}
         </div>
       )}
 
@@ -251,13 +258,15 @@ export default function BanksPage() {
                   >
                     <History className="w-4 h-4" />
                   </button>
-                  <button 
-                     onClick={() => openEditBank(bank)}
-                     className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                     title="Editar Cuenta"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
+                  {canManageTreasury && (
+                    <button 
+                       onClick={() => openEditBank(bank)}
+                       className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-800 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                       title="Editar Cuenta"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -285,7 +294,7 @@ export default function BanksPage() {
         </div>
       )}
 
-      {isModalOpen && (
+      {isModalOpen && canManageTreasury && (
         <BankModal 
           bank={editingBank}
           onClose={() => setIsModalOpen(false)} 
@@ -297,7 +306,7 @@ export default function BanksPage() {
       )}
 
       {/* Transfer Modal */}
-      {isTransferModalOpen && (
+      {isTransferModalOpen && canManageTreasury && (
         <div className="fixed inset-0 z-50 flex justify-center items-center p-4 bg-black/60 backdrop-blur-sm">
            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-xl flex flex-col overflow-hidden">
              <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center">

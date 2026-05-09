@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { z } from 'zod';
 
@@ -20,7 +20,7 @@ const TransferBatchSchema = z.object({
 
 // List stock transfers (with logistical status)
 export async function GET(req: NextRequest) {
-  const result = await requirePermission('reports:view');
+  const result = await requireAnyPermission(['inventory:transfer', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
 // Transfer stock between branches (Create Remittance)
 export async function POST(req: NextRequest) {
-  const result = await requirePermission('reports:view');
+  const result = await requireOperationalPermission(['inventory:transfer', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 

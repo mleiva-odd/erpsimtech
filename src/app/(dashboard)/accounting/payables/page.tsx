@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { format } from 'date-fns';
 import { CreditCard, RefreshCw, Plus, DollarSign, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
@@ -33,6 +34,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
 
 export default function PayablesPage() {
   const { toast } = useToast();
+  const { data: session } = useSession();
+  const canManageTreasury = session?.user?.role === 'SUPER_ADMIN' || session?.user?.permissions?.includes('treasury:manage');
 
   const [payables, setPayables] = useState<SupplierPayable[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -170,11 +173,13 @@ export default function PayablesPage() {
           </h1>
           <p className="text-sm text-slate-500">Crédito con proveedores</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setShowNewForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20">
-            <Plus className="w-4 h-4" /> Nueva Deuda
-          </button>
-        </div>
+        {canManageTreasury && (
+          <div className="flex gap-2">
+            <button onClick={() => setShowNewForm(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-600/20">
+              <Plus className="w-4 h-4" /> Nueva Deuda
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Total KPI */}
@@ -229,7 +234,7 @@ export default function PayablesPage() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase">Pendiente</p>
                       <p className="text-xl font-bold text-red-600">Q{remaining.toFixed(2)}</p>
                     </div>
-                    {p.status !== 'PAID' && (
+                    {canManageTreasury && p.status !== 'PAID' && (
                       <button onClick={() => { setPayingId(p.id); setPayAmount(''); }} className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-xl text-xs font-bold hover:bg-green-100 transition">
                         Abonar
                       </button>
@@ -250,7 +255,7 @@ export default function PayablesPage() {
                             </span>
                             {pmt.status === 'VOID' && <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[9px] font-bold">ANULADO</span>}
                           </div>
-                          {pmt.status !== 'VOID' && (
+                          {canManageTreasury && pmt.status !== 'VOID' && (
                             <button onClick={() => handleVoidPayment(pmt.id)} className="text-red-500 hover:text-red-700 font-medium underline">
                               Anular
                             </button>
@@ -267,7 +272,7 @@ export default function PayablesPage() {
       </div>
 
       {/* New Payable Modal */}
-      {showNewForm && (
+      {showNewForm && canManageTreasury && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
             <div className="p-6 border-b border-slate-100">
@@ -305,7 +310,7 @@ export default function PayablesPage() {
       )}
 
       {/* Payment Modal */}
-      {payingId && (
+      {payingId && canManageTreasury && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
             <div className="p-6 border-b border-slate-100"><h2 className="text-lg font-bold text-slate-800">Registrar Abono</h2></div>

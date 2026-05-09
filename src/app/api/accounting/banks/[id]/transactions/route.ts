@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireAnyPermission } from '@/lib/tenant';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireTenant();
+  const result = await requireAnyPermission(['treasury:view', 'treasury:manage']);
   if ('error' in result) return result.error;
+  const { tenant } = result;
 
   const { id } = await params;
   
@@ -18,6 +19,7 @@ export async function GET(
     const transactions = await prisma.bankTransaction.findMany({
       where: {
         bankAccountId: id,
+        bankAccount: { companyId: tenant.companyId },
       },
       orderBy: {
         createdAt: 'desc',

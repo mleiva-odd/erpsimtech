@@ -18,14 +18,16 @@ const isProd = process.env.NODE_ENV === "production";
 
 const cspDirectives = [
   "default-src 'self'",
-  // 'unsafe-inline' y 'unsafe-eval' solo en dev (Next/HMR los necesita).
-  // En prod scripts solo desde el mismo origen.
+  // 'unsafe-inline' es necesario para Next.js: el framework inyecta scripts
+  // inline (__NEXT_DATA__, hidratación de Server Components, self.__next_f).
+  // Sin esto la app no hidrata en el browser y se ven páginas estáticas vacías.
+  // 'unsafe-eval' solo en dev (HMR). El siguiente paso para cerrar más es
+  // mover a nonces por request — requiere middleware que setee un nonce y
+  // lo pase al <head>. TODO: Sprint 2.C.3.
   isProd
-    ? "script-src 'self'"
+    ? "script-src 'self' 'unsafe-inline'"
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   // 'unsafe-inline' en estilos: Tailwind/recharts inyectan estilos inline.
-  // Si querés cerrarlo más, se puede pasar a nonces, pero eso requiere cambios
-  // en el render de Next.
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://${supabaseHost}`,
   "font-src 'self' data:",

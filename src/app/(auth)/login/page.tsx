@@ -52,19 +52,29 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        // NextAuth devuelve el mensaje thrown desde authorize() en res.error
-        // (o el código "CredentialsSignin" como fallback). Mapeamos los casos
-        // conocidos al texto del usuario y caemos al genérico para todo lo
-        // demás, sin filtrar información técnica.
-        const raw = res.error.toLowerCase();
-        if (raw.includes("demasiados") || raw.includes("intentos")) {
+        // NextAuth v4 enmascara el mensaje real como "CredentialsSignin" en
+        // res.error. Para distinguir "credenciales incorrectas" de "rate
+        // limit activado", consultamos un endpoint dedicado que evalúa el
+        // estado actual de bloqueo para este (email, IP).
+        let blocked = false;
+        try {
+          const r = await fetch("/api/auth/check-block", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          if (r.ok) {
+            const data = (await r.json()) as { blocked?: boolean };
+            blocked = !!data.blocked;
+          }
+        } catch {
+          // Si el chequeo falla, mostramos el genérico igual.
+        }
+
+        if (blocked) {
           setError(
             "Demasiados intentos. Esperá unos minutos antes de volver a probar.",
           );
-        } else if (raw.includes("suspendida")) {
-          setError("La empresa está suspendida. Contactá al administrador.");
-        } else if (raw.includes("inactivo")) {
-          setError("Usuario inactivo. Contactá al administrador.");
         } else {
           setError("Credenciales incorrectas. Verificá y volvé a intentar.");
         }

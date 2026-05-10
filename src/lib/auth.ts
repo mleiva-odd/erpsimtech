@@ -3,6 +3,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/hashing";
 import { requireEnv } from "@/lib/env";
+import {
+  checkLoginRateLimit,
+  recordLoginAttempt,
+  getClientIp,
+} from "@/lib/rate-limit";
 
 const nextAuthSecret = requireEnv("NEXTAUTH_SECRET");
 
@@ -27,13 +32,25 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email", placeholder: "admin@example.com" },
         password: { label: "Contraseña", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           // Mensaje genérico — no filtra si el email existe o no.
           throw new Error("Credenciales inválidas");
         }
 
         const normalizedEmail = credentials.email.trim().toLowerCase();
+        const ipAddress = getClientIp(req);
+
+        // Rate limit antes de tocar la DB con verifyPassword (que es caro).
+        // Mensaje genérico para no filtrar si el email existe.
+        const limit = await checkLoginRateLimit(normalizedEmail, ipAddress);
+        if (limit.blocked) {
+          // No registramos este intento bloqueado para no inflar el contador
+          // y permitir que el legítimo recupere acceso pasada la ventana.
+          throw new Error(
+            "Demasiados intentos. Esperá unos minutos antes de volver a probar.",
+          );
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: normalizedEmail },
@@ -43,18 +60,28 @@ export const authOptions: NextAuthOptions = {
           },
         });
 
-        if (!user || !(await verifyPassword(credentials.password, user.password))) {
+        const passwordOk =
+          !!user && (await verifyPassword(credentials.password, user.password));
+
+        if (!user || !passwordOk) {
+          await recordLoginAttempt(normalizedEmail, ipAddress, false);
           throw new Error("Credenciales inválidas");
         }
 
         if (!user.active) {
+          // Cuenta como fallo: que un atacante no use cuentas desactivadas para evitar bloqueo.
+          await recordLoginAttempt(normalizedEmail, ipAddress, false);
           throw new Error("Usuario inactivo");
         }
 
         // Check if the company is active (skip for SUPER_ADMIN who has no company)
         if (user.company && !user.company.active) {
+          await recordLoginAttempt(normalizedEmail, ipAddress, false);
           throw new Error("La empresa está suspendida. Contacte al administrador.");
         }
+
+        // Login exitoso: registrar para auditoría y para liberar el contador.
+        await recordLoginAttempt(normalizedEmail, ipAddress, true);
 
         return {
           id: user.id,

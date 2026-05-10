@@ -996,3 +996,17 @@ enum LeaveStatus {
   APPROVED
   REJECTED
 }
+
+// Sprint 2.B.2 · Rate limit de login.
+// Cada intento se registra para contar fallos por (email, IP) en ventana móvil
+// de 15 minutos. NO contiene la contraseña intentada — solo el resultado.
+model LoginAttempt {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String
+  ipAddress String
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt(sort: Desc)])
+  @@index([ipAddress, createdAt(sort: Desc)])
+}

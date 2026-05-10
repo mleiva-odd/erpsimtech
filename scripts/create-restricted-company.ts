@@ -77,8 +77,9 @@ async function main() {
     },
   });
 
-  // Create the user
-  const user = await prisma.user.create({
+  // Create the user. No usamos el resultado, pero la creación tiene
+  // efecto en la DB; el _ prefix indica al linter que es intencional.
+  const _user = await prisma.user.create({
     data: {
       name: 'Admin Restringido',
       email: adminEmail,
@@ -89,6 +90,7 @@ async function main() {
       customRoleId: restrictedRole.id,
     },
   });
+  void _user;
 
   console.log('✅ Empresa y Usuario Restringido creados');
   console.log('📧 Email:', adminEmail);

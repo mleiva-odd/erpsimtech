@@ -26,17 +26,22 @@ const cspDirectives = [
   // 'unsafe-inline' es necesario porque Next.js inyecta scripts inline
   // (__NEXT_DATA__, hidratación de Server Components, self.__next_f).
   // 'unsafe-eval' solo en dev (HMR de React).
-  // va.vercel-scripts.com: Vercel Web Analytics / Speed Insights.
+  // Dominios externos permitidos:
+  //   - va.vercel-scripts.com: Vercel Web Analytics / Speed Insights.
+  //   - static.cloudflareinsights.com: beacon de Cloudflare Web Analytics
+  //     (Cloudflare lo auto-inyecta cuando el dominio está detrás de su CDN).
   isProd
-    ? "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
+    ? "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://static.cloudflareinsights.com"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com https://static.cloudflareinsights.com",
   // Tailwind y recharts inyectan estilos inline. Google Fonts permitido
   // para la fuente Inter cargada vía CSS @import.
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   `img-src 'self' data: blob: https://${supabaseHost}`,
-  // Vercel Analytics también necesita poder enviar telemetría (beacons).
-  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://vitals.vercel-insights.com https://va.vercel-scripts.com`,
+  // Beacons de telemetría:
+  //   - vitals.vercel-insights.com / va.vercel-scripts.com: Vercel Analytics.
+  //   - cloudflareinsights.com: Cloudflare Web Analytics.
+  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://vitals.vercel-insights.com https://va.vercel-scripts.com https://cloudflareinsights.com`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

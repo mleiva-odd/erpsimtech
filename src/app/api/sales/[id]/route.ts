@@ -72,7 +72,7 @@ export async function DELETE(
     if ('error' in branchResult) return branchResult.error;
     if (sale.status !== 'QUOTE') return NextResponse.json({ error: 'Solo puedes eliminar Cotizaciones.' }, { status: 400 });
 
-    await prisma.sale.delete({ where: { id: sale.id } });
+    await prisma.sale.delete({ where: { id: sale.id, companyId: tenant.companyId } });
 
     return NextResponse.json({ success: true });
   } catch (e) {
@@ -136,10 +136,10 @@ export async function PATCH(
         if (payment.method === 'CREDIT' && sale.customerId) {
           // A. Restar la deuda del balance del cliente
           await tx.customer.update({
-            where: { id: sale.customerId },
+            where: { id: sale.customerId, companyId: tenant.companyId },
             data: { balance: { decrement: Number(payment.amount) } },
           });
-        } 
+        }
         else if (payment.method === 'CASH' && sale.cashRegisterId) {
           // B. Extraer el efectivo de la Caja Registradora
           await tx.cashRegisterTransaction.create({
@@ -167,7 +167,7 @@ export async function PATCH(
           });
           
           await tx.bankAccount.update({
-            where: { id: payment.bankAccountId },
+            where: { id: payment.bankAccountId, companyId: tenant.companyId },
             data: { balance: { decrement: payment.amount } }
           });
         }
@@ -175,7 +175,7 @@ export async function PATCH(
 
       // 3. Marcar como anulada
       await tx.sale.update({
-        where: { id: sale.id },
+        where: { id: sale.id, companyId: tenant.companyId },
         data: { status: 'CANCELLED' },
       });
 

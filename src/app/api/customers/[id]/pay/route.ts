@@ -68,8 +68,8 @@ export async function POST(
         throw new Error('El saldo cambió mientras se procesaba el abono. Intenta de nuevo.');
       }
 
-      const updatedCustomer = await tx.customer.findUnique({
-        where: { id: resolvedParams.id },
+      const updatedCustomer = await tx.customer.findFirst({
+        where: { id: resolvedParams.id, companyId: tenant.companyId },
       });
       if (!updatedCustomer) {
         throw new Error('Cliente no encontrado tras aplicar el abono.');

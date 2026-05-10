@@ -39,14 +39,14 @@ export async function POST(
 
       // 2. Regresar la deuda al cliente
       await tx.customer.update({
-        where: { id: payment.customerId },
+        where: { id: payment.customerId, companyId: tenant.companyId },
         data: { balance: { increment: payment.amount } }
       });
 
       // 3. Extraer el dinero del Banco Destino (Reverso)
       if (payment.bankAccountId) {
         await tx.bankAccount.update({
-          where: { id: payment.bankAccountId },
+          where: { id: payment.bankAccountId, companyId: tenant.companyId },
           data: { balance: { decrement: payment.amount } }
         });
 

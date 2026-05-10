@@ -43,8 +43,8 @@ export async function POST(
       const newStatus = newPaidAmount <= 0 ? 'PENDING' : 'PARTIAL';
 
       await tx.supplierPayable.update({
-        where: { id: payable.id },
-        data: { 
+        where: { id: payable.id, companyId: tenant.companyId },
+        data: {
           paidAmount: newPaidAmount,
           status: newStatus
         }
@@ -53,7 +53,7 @@ export async function POST(
       // 3. Devolver el dinero al Banco Origen (Reverso)
       if (payment.bankAccountId) {
         await tx.bankAccount.update({
-          where: { id: payment.bankAccountId },
+          where: { id: payment.bankAccountId, companyId: tenant.companyId },
           data: { balance: { increment: payment.amount } }
         });
 

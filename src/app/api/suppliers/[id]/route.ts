@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!defaultSupplier) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
 
     const supplier = await prisma.supplier.update({
-      where: { id: resolvedParams.id },
+      where: { id: resolvedParams.id, companyId: result.tenant.companyId },
       data: {
         name: body.name,
         contactName: body.contactName,
@@ -46,7 +46,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     // Soft delete to preserve purchase records
     const supplier = await prisma.supplier.update({
-      where: { id: resolvedParams.id },
+      where: { id: resolvedParams.id, companyId: result.tenant.companyId },
       data: { active: false }
     });
     return NextResponse.json(supplier);

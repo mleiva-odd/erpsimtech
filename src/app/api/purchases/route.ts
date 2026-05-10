@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
         
         if (item.variantId) {
            existingStock = await tx.productStock.findFirst({
-             where: { variantId: item.variantId, branchId }
+             where: { productId: item.productId, variantId: item.variantId, branchId }
            });
         } else {
            existingStock = await tx.productStock.findFirst({
@@ -171,6 +171,9 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Persist the latest acquisition cost on the concrete SKU that was received.
+        // productVariant no tiene companyId directo (lo hereda via productId, que ya
+        // fue validado más arriba en el bloque de validación de productos).
+        // Para Product agregamos companyId al where como defense in depth.
         if (item.variantId) {
           await tx.productVariant.update({
             where: { id: item.variantId },
@@ -178,7 +181,7 @@ export async function POST(req: NextRequest) {
           });
         } else {
           await tx.product.update({
-            where: { id: item.productId },
+            where: { id: item.productId, companyId: result.tenant.companyId },
             data: { cost: item.unitCost }
           });
         }

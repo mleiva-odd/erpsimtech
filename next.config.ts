@@ -3,19 +3,17 @@ import type { NextConfig } from "next";
 /**
  * Headers de seguridad aplicados a TODAS las rutas.
  *
- * NOTA: el header Content-Security-Policy NO se setea acá; lo arma el proxy
- * (src/proxy.ts) con un nonce único por request. Esto permite cerrar
- * 'unsafe-inline' en script-src, que era el último vector de XSS abierto.
+ * Decisión Sprint 2.C.3: usamos CSP con 'unsafe-inline' en script-src.
+ * El plan de mover a nonces (vivo en docs/audits/phase-2c2-rls-policies.md
+ * como "futuro") requiere forzar dynamic rendering en todas las páginas
+ * (incluyendo /login que hoy es estática), lo que rompió producción
+ * cuando se intentó. Los nonces se pueden retomar cuando haya tiempo
+ * para refactor + testing en preview environment.
  *
- * Acá se mantienen solo headers ESTÁTICOS:
- * - HSTS: forzá HTTPS un año, incluyendo subdominios. Solo en producción.
- *   (Vercel impone su propio HSTS de 180 días en su edge; el nuestro
- *   queda como fallback si algún día se cambia de hosting.)
- * - X-Frame-Options DENY: anti-clickjacking (redundante con frame-ancestors
- *   'none' del CSP, pero algunos browsers viejos lo necesitan).
- * - X-Content-Type-Options nosniff: bloquea MIME sniffing.
- * - Referrer-Policy: limita info del referrer al cross-origin.
- * - Permissions-Policy: deshabilita features potentes que el ERP no usa.
+ * Mitigación del riesgo de XSS via 'unsafe-inline':
+ * - React auto-escapa output por default (sin dangerouslySetInnerHTML).
+ * - Validación Zod en endpoints (Sprint 2.B + 2.B.2 + Phase 4).
+ * - frame-ancestors 'none' bloquea clickjacking (XSS via iframe ya inutil).
  */
 const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
@@ -23,7 +21,29 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 const isProd = process.env.NODE_ENV === "production";
 
+const cspDirectives = [
+  "default-src 'self'",
+  // 'unsafe-inline' es necesario porque Next.js inyecta scripts inline
+  // (__NEXT_DATA__, hidratación de Server Components, self.__next_f).
+  // 'unsafe-eval' solo en dev (HMR de React).
+  isProd
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  // Tailwind y recharts inyectan estilos inline. Google Fonts permitido
+  // para la fuente Inter cargada vía CSS @import.
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  `img-src 'self' data: blob: https://${supabaseHost}`,
+  `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  ...(isProd ? ["upgrade-insecure-requests"] : []),
+].join("; ");
+
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: cspDirectives },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -42,7 +62,6 @@ if (isProd) {
 }
 
 const nextConfig: NextConfig = {
-  // poweredByHeader: false elimina `X-Powered-By: Next.js` (no le da pistas a atacantes).
   poweredByHeader: false,
 
   async headers() {
@@ -54,7 +73,6 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Para servir imágenes desde Supabase Storage usando <Image/>.
   images: {
     remotePatterns: [
       {

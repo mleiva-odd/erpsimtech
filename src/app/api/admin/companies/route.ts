@@ -2,19 +2,36 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/tenant';
 import { hashPassword, validatePasswordStrength } from '@/lib/hashing';
+import { PLANS, type PlanId } from '@/lib/plans';
 
+/**
+ * Calcula valores por defecto del Subscription a partir del catálogo
+ * canónico en `src/lib/plans.ts`. Usa precio FOUNDER por default
+ * (mientras estamos en fase 1 de Tecpán); cuando hagamos billing real
+ * se decide founder vs regular según `founderCapacity` restante.
+ */
 function getPlanDefaults(plan: string) {
-  switch (plan) {
-    case 'basic':
-      return { status: 'ACTIVE' as const, maxBranches: 1, maxUsersPerBranch: 3, price: 0 };
-    case 'professional':
-      return { status: 'ACTIVE' as const, maxBranches: 3, maxUsersPerBranch: 5, price: 0 };
-    case 'enterprise':
-      return { status: 'ACTIVE' as const, maxBranches: 10, maxUsersPerBranch: 15, price: 0 };
-    case 'trial':
-    default:
-      return { status: 'TRIAL' as const, maxBranches: 2, maxUsersPerBranch: 3, price: 0 };
-  }
+  const known: PlanId[] = ['trial', 'negocio', 'comercial', 'enterprise'];
+  const planId = (known.includes(plan as PlanId) ? plan : 'trial') as PlanId;
+  const def = PLANS[planId];
+
+  // Sucursales: -1 = ilimitado en el catálogo. En Subscription guardamos
+  // un número finito grande para compat con UI que asume número.
+  const maxBranches = def.quotas.branches === -1 ? 999 : def.quotas.branches;
+  // Usuarios totales del plan / sucursales = "usuarios por sucursal" (legacy field).
+  const totalUsers = def.quotas.users === -1 ? 999 : def.quotas.users;
+  const maxUsersPerBranch = Math.max(1, Math.ceil(totalUsers / Math.max(1, maxBranches)));
+
+  // Precio mensual founder por default. Si el plan no tiene precio
+  // (Empresarial = cotización), guardamos 0 y se ajusta al firmar contrato.
+  const price = def.pricing ? def.pricing.founderMonthly : 0;
+
+  return {
+    status: planId === 'trial' ? ('TRIAL' as const) : ('ACTIVE' as const),
+    maxBranches,
+    maxUsersPerBranch,
+    price,
+  };
 }
 
 // Super Admin: List all companies

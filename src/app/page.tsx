@@ -21,6 +21,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import Link from 'next/link';
 import Image from 'next/image';
 import { getWhatsAppUrl } from "@/lib/utils";
+import { PLANS, formatGtq } from "@/lib/plans";
 
 function CheckIcon({ className }: { className?: string }) {
   return <Check className={className} />;
@@ -74,8 +75,8 @@ export default function Home() {
               transition={{ delay: 0.4, duration: 0.8 }}
               className="text-6xl lg:text-7xl mb-6 text-white"
             >
-              Sistema ERP & POS
-              <span className="block text-blue-400 mt-2">Para Tu Negocio</span>
+              Sistema ERP completo
+              <span className="block text-blue-400 mt-2">para tu negocio</span>
             </motion.h1>
 
             <motion.p
@@ -109,7 +110,7 @@ export default function Home() {
                 className="bg-white/10 hover:bg-white/20 text-white border-white/30 px-8 py-6 text-lg backdrop-blur-sm w-full sm:w-auto"
               >
                 <a 
-                  href={getWhatsAppUrl("Hola, me gustaría solicitar una demo de SIMTECH POS.")}
+                  href={getWhatsAppUrl("Hola, me gustaría solicitar una demo de SIMTECH ERP.")}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -365,10 +366,12 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl lg:text-5xl mb-4 text-slate-900">
-              Inversión Inteligente
+              Precios honestos para comerciantes reales
             </h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Planes flexibles que se adaptan a tu ritmo de crecimiento.
+              Estamos arrancando en Tecpán. Los primeros clientes pagan precio
+              founder y mantienen su tarifa mientras estén con nosotros. Aparte
+              cobramos la implementación y la facturación electrónica.
             </p>
           </motion.div>
 
@@ -384,8 +387,8 @@ export default function Home() {
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                    <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm">
-                      Más Popular
+                    <span className="bg-amber-500 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
+                      Cupos founder limitados
                     </span>
                   </div>
                 )}
@@ -396,9 +399,28 @@ export default function Home() {
                     }`}
                 >
                   <h3 className="text-2xl mb-2">{plan.name}</h3>
-                  <div className="mb-6">
-                    <span className="text-4xl">{plan.price}</span>
+                  <div className="mb-2">
+                    <span className="text-4xl font-bold">{plan.priceFounder}</span>
                   </div>
+                  {plan.priceRegular && (
+                    <div className="mb-6 flex items-center gap-2">
+                      <span className={`text-xs ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
+                        Precio regular:
+                      </span>
+                      <span
+                        className={`text-sm line-through ${plan.popular ? "text-blue-200" : "text-slate-500"}`}
+                      >
+                        {plan.priceRegular}
+                      </span>
+                    </div>
+                  )}
+                  {!plan.priceRegular && plan.requiresQuote && (
+                    <div className="mb-6">
+                      <span className={`text-xs ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>
+                        Para cuentas con necesidades específicas
+                      </span>
+                    </div>
+                  )}
                   <p className={`mb-6 ${plan.popular ? "text-blue-100" : "text-slate-600"}`}>
                     {plan.description}
                   </p>
@@ -423,8 +445,8 @@ export default function Home() {
                       : "bg-blue-600 hover:bg-blue-700 text-white"
                       }`}
                   >
-                    <a 
-                      href={getWhatsAppUrl(`Hola, me interesa solicitar una cotización para el Plan ${plan.name} de SIMTECH POS.`)}
+                    <a
+                      href={getWhatsAppUrl(`Hola, me interesa el Plan ${plan.name} de SIMTECH ERP.`)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -497,7 +519,7 @@ export default function Home() {
                 className="bg-transparent hover:bg-white/10 text-white border-white/50 px-8 py-6 text-lg w-full sm:w-auto"
               >
                 <a 
-                  href={getWhatsAppUrl("Hola, me gustaría contactar con el equipo de ventas de SIMTECH POS.")}
+                  href={getWhatsAppUrl("Hola, me gustaría contactar con el equipo de ventas de SIMTECH ERP.")}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -683,50 +705,81 @@ const testimonials = [
   },
 ];
 
+/**
+ * Planes mostrados en la landing. Se construyen a partir del catálogo
+ * canónico en `src/lib/plans.ts` para que un cambio de precio en un solo
+ * lugar se refleje aquí automáticamente.
+ *
+ * Precios founder se muestran como precio principal; el regular queda
+ * tachado para reforzar urgencia y comunicar que el founder es promo.
+ */
 const pricingPlans = [
   {
-    name: "Básico",
-    price: "Consultar",
-    description: "Perfecto para emprendedores y negocios pequeños",
+    name: PLANS.negocio.name,
+    priceFounder: PLANS.negocio.pricing
+      ? `${formatGtq(PLANS.negocio.pricing.founderMonthly)}/mes`
+      : "Consultar",
+    priceRegular: PLANS.negocio.pricing
+      ? `${formatGtq(PLANS.negocio.pricing.regularMonthly)}/mes`
+      : null,
+    description:
+      "ERP completo para comercio chico de un local. POS, inventario, ventas, banco, contabilidad y planilla básica. Visita presencial al local incluida.",
     features: [
-      "1 Punto de Venta",
-      "Gestión de Inventario",
-      "Facturación Electrónica",
-      "Reportes Básicos",
-      "Soporte Local",
+      "1 sucursal · 1 usuario",
+      "Hasta 2.000 productos",
+      "Hasta 3.000 ventas/mes",
+      "Tesorería + contabilidad operativa",
+      "Planilla básica (5 empleados)",
+      "FEL incluida (cuota a definir)",
+      "Soporte WhatsApp",
+      "Visita presencial en Tecpán/Chimaltenango",
     ],
-    cta: "Solicitar Cotización",
-    popular: false,
-  },
-  {
-    name: "Profesional",
-    price: "Consultar",
-    description: "Ideal para negocios en crecimiento y multi-bodega",
-    features: [
-      "Puntos de Venta Ilimitados",
-      "Multi-bodega y Traslados",
-      "Reportes Avanzados",
-      "Modo Offline",
-      "Soporte Prioritario",
-      "App Web Responsiva",
-    ],
-    cta: "Solicitar Cotización",
+    cta: "Solicitar Información",
     popular: true,
+    requiresQuote: false,
   },
   {
-    name: "Empresarial",
-    price: "Consultar",
-    description: "Para cadenas de tiendas y operaciones complejas",
+    name: PLANS.comercial.name,
+    priceFounder: PLANS.comercial.pricing
+      ? `${formatGtq(PLANS.comercial.pricing.founderMonthly)}/mes`
+      : "Consultar",
+    priceRegular: PLANS.comercial.pricing
+      ? `${formatGtq(PLANS.comercial.pricing.regularMonthly)}/mes`
+      : null,
+    description:
+      "Para comercios que crecen. Equipo, segunda sucursal, multi-banco, planilla GT-compliant.",
     features: [
-      "Multi-sucursal Global",
-      "API de Integración",
-      "Módulo de Auditoría",
-      "Capacitación Personalizada",
-      "Gerente de Cuenta",
-      "Soporte 24/7",
+      "Hasta 2 sucursales · 5 usuarios",
+      "Hasta 5.000 productos",
+      "Hasta 10.000 ventas/mes",
+      "Multi-banco real",
+      "Planilla GT (ISR/IGSS/Bono14/Aguinaldo)",
+      "FEL incluida (cuota mayor)",
+      "WhatsApp prioritario",
+      "Acompañamiento primer cierre contable",
     ],
-    cta: "Hablar con Ventas",
+    cta: "Solicitar Información",
     popular: false,
+    requiresQuote: false,
+  },
+  {
+    name: PLANS.enterprise.name,
+    priceFounder: "Cotización",
+    priceRegular: null,
+    description:
+      "Para cuentas con 3+ sucursales, multi-empresa, API o requerimientos a medida.",
+    features: [
+      "Sucursales y usuarios ilimitados",
+      "Multi-empresa (hasta 5 razones sociales)",
+      "API de integración",
+      "Soporte prioritario + account manager",
+      "Migración desde sistema legacy",
+      "SLA 99.5% uptime",
+      "Setup desde Q12.000 según escala",
+    ],
+    cta: "Hablar por WhatsApp",
+    popular: false,
+    requiresQuote: true,
   },
 ];
 
@@ -759,6 +812,26 @@ const faqs = [
   {
     question: "¿Puedo gestionar varias bodegas?",
     answer:
-      "Correcto. Los planes Profesional y Empresarial permiten el control de múltiples bodegas y la realización de traslados de stock entre sucursales.",
+      "Sí. El plan Comercial permite hasta 2 sucursales con traslados de stock entre ellas. Para 3+ sucursales se cotiza el plan Empresarial a medida.",
+  },
+  {
+    question: "¿La facturación electrónica está incluida en el precio?",
+    answer:
+      "Cada plan pago incluye una cuota mensual de facturas FEL. Si la superás, las facturas adicionales se cobran a tarifa preferencial. La configuración inicial con el certificador autorizado por SAT ya viene incluida en el setup que pagás una sola vez al contratar.",
+  },
+  {
+    question: "¿La prueba gratis de 30 días incluye facturación electrónica?",
+    answer:
+      "No. El trial te permite probar el sistema completo (POS, inventario, ventas, contabilidad, planilla) pero NO emite FEL. Esto es porque cada nueva configuración con el certificador tiene un costo inicial que asumimos cuando ya firmaste un plan pago. Cuando contratés, configuramos FEL como parte del setup y empezás a facturar oficialmente.",
+  },
+  {
+    question: "¿En qué consiste la implementación?",
+    answer:
+      "Voy a tu local en Tecpán o región Chimaltenango, te enseño el sistema en vivo, importo tu catálogo de productos y configuro la facturación electrónica. Después seguimos por WhatsApp para cualquier duda los primeros días.",
+  },
+  {
+    question: "¿Qué pasa si después necesito más sucursales o usuarios?",
+    answer:
+      "Podés agregarlos como add-on (sucursal Q199/mes, usuario Q49/mes) o subir de plan. La data se conserva, no perdés información al cambiar de plan.",
   },
 ];

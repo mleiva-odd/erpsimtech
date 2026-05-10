@@ -1,284 +1,251 @@
-# Estrategia de precios — SIMTECH ERP (v3 · ERP completo, no POS)
+# Estrategia de precios — SIMTECH ERP (v4 · Tecpán/Chimaltenango focus)
 
-**Mercado:** Guatemala (PYMEs · 1 a 50 empleados).
-**Moneda principal:** GTQ (Quetzal). Referencia: 1 USD ≈ Q7.70 (mayo 2026).
+**Mercado inicial:** Tecpán Guatemala y región Chimaltenango.
+**Cliente target:** comerciantes pequeños con local físico, 1-3 empleados, ventas Q15.000-Q150.000/mes.
+**Moneda:** GTQ. Referencia 1 USD ≈ Q7.70.
 
-## Posicionamiento del producto
+## Cliente real (no comprador imaginario)
 
-SIMTECH **NO es un POS**. Es un ERP completo que incluye:
+El comprador típico de los primeros 6 meses:
 
-- POS (punto de venta) multi-sucursal con FEL integrable.
-- Inventario con variantes, combos, traslados entre sucursales.
-- Compras + cuentas por pagar a proveedores.
-- Ventas + cuentas por cobrar a clientes (crédito, abonos).
-- Tesorería: bancos, caja chica, conciliación, transferencias entre cuentas.
-- Contabilidad operativa: asientos automáticos, categorías, reportes.
-- RRHH: empleados, planilla con ISR/IGSS/Bono14/Aguinaldo, asistencia, vacaciones.
-- Multi-tenant SaaS con aislamiento real (RLS en Postgres).
-- Multi-empresa (multi-razón social) en planes superiores.
-- Auditoría completa de cambios.
-- API access en Enterprise.
+- **Es el dueño**, que también es el cajero, comprador y contador. Decisión inmediata, sin comité.
+- **Tiene 0-2 empleados**. Usa el sistema él mismo principalmente.
+- **1 sucursal**. A veces 2 cuando ya creció un poco.
+- **Factura Q15.000-Q150.000/mes**. Ya emite FEL formal o quiere empezar a emitirla.
+- **Sensibilidad de precio brutal**. Q200 vs Q400 mueve la decisión.
+- **Confianza baja a SaaS**. Quiere que vayas al local, le enseñes presencial, le respondas WhatsApp.
+- **Paga por transferencia o efectivo** en agencia bancaria. Tarjeta corporativa no es estándar.
 
-Esto NO es Sictel/Vendty/InVentas (POS-only ~Q300-800). Es comparable a:
-- **Alegra Premium** (~Q1.700-2.000/mes)
-- **Bind ERP Pro** (~Q2.460/mes)
-- **SAP Business One PYME** (~Q3.500-5.500/mes para 5 usuarios)
-- **Acontrol/Invex** (Q1.540-7.000/mes)
-- **Microsip** (~Q1.500-3.000/mes)
+**Lo que NO es tu cliente al inicio:**
 
-## Investigación de precios reales (validada 2026)
+- Cadenas con 5+ sucursales (no hay tantas en Tecpán).
+- Empresas con departamentos contables (compran SAP/Bind/Microsip).
+- Comercios capitalinos (los abordás en fase 2).
 
-| Producto | Tipo | Precio mensual | Notas |
-|---|---|---|---|
-| SDIG Web | POS+inventario básico | Q500 | NO ERP completo, sin RRHH, sin contabilidad real |
-| Alegra Plus | Contabilidad+POS | ~Q920 | 5 usuarios, 1.000 facturas, sin multi-sucursal real |
-| **Bind ERP Pro** | **ERP completo** | **Q2.460** | 5 usuarios, sin FEL, multi-sucursal limitada |
-| Acontrol mid | ERP medio | Q1.540 | $200 USD |
-| Acontrol high | ERP alto | Q6.000-7.000 | $850-900 USD |
-| **SAP B1 Cloud Limitada** | **ERP completo** | **Q693/usuario** | 5 usuarios = Q3.465/mes |
-| **SAP B1 Cloud Profesional** | **ERP completo** | **Q1.117/usuario** | 5 usuarios = Q5.585/mes |
-| Microsip | ERP tradicional | Q1.500-3.000 | On-premise, complejo |
+## Posicionamiento
 
-**Lectura definitiva:**
+SIMTECH es un **ERP completo** (no solo POS) para PYMEs muy chicas. Te diferencia de la competencia local así:
 
-1. **Banda baja real para ERP completo en GT: Q900-Q1.500/mes.** Por debajo de eso solo hay POS+inventario o soluciones agnósticas (Alegra) que se quedan cortas en RRHH/multi-sucursal.
-2. **Banda media (PYME establecida): Q1.500-Q3.500/mes**. Acá juega Bind, Acontrol, SAP B1 chico.
-3. **Banda alta (cadena, alto volumen): Q3.500-Q8.000+/mes**. SAP B1 Profesional, Acontrol Enterprise, soluciones a medida.
-4. **Implementación: 30-60% del costo anual de licencia** (estándar regional).
+| | Sictel POS | SDIG Web | Loyverse | **SIMTECH Negocio** |
+|---|---|---|---|---|
+| Precio | Q300-800 | Q500 | Q160 | **Q399 (founder) / Q599 (regular)** |
+| POS | ✅ | ✅ | ✅ | ✅ |
+| Inventario | ✅ | ✅ | Limitado | ✅ |
+| Tesorería + bancos | ❌ | Limitado | ❌ | ✅ |
+| Contabilidad | ❌ | ❌ | ❌ | ✅ |
+| Planilla GT (ISR/IGSS/Bono14) | ❌ | ❌ | ❌ | ✅ |
+| FEL incluida (mensual) | Variable | Sí | Add-on | **Cuota incluida** |
+| **Visita presencial al local** | ❌ | ❌ | ❌ | **✅** |
+| Soporte WhatsApp directo founder | ❌ | ❌ | ❌ | **✅** |
 
-## Cambios respecto a v2
+**Mensaje pegador:** *"Por menos que un POS-only completo, llevás todo: ventas, inventario, banco, contabilidad y planilla. Y voy yo a tu local a enseñarte."*
 
-| Decisión | v2 (POS-style) | v3 (ERP completo) |
+## Estrategia de fases (geográfica)
+
+| Fase | Cuándo | Geografía | Cap | Pricing |
+|---|---|---|---|---|
+| **1. Tecpán** | Mes 1-6 | Tecpán + alrededores | 25 founders Negocio + 10 founders Comercial | Founder Q399/Q999 |
+| **2. Regional** | Mes 6-12 | + Chimaltenango ciudad, Antigua, Sacatepéquez | Total ~50 clientes | Cap founder cumplido → nuevos a regular Q599/Q1.299 |
+| **3. Capital** | Mes 12-24 | + Guatemala capital | 100+ | Activamos plan Empresarial con cotización a medida (3+ sucursales) |
+| **4. Multi-país** | Año 2+ | El Salvador, Honduras | 200+ | Estructura completa multi-tenant |
+
+**Fase 1 es la más crítica.** Sin esos 25-35 clientes founder, no hay marca, no hay testimonios, no hay tracción.
+
+## Tabla de planes
+
+### 🟢 Negocio — el caballo de batalla en Tecpán
+
+| | Founder (cap 25) | Regular (post-cap) |
 |---|---|---|
-| Starter mensual | Q399 | **Q899** |
-| Professional mensual | Q899 | **Q1.999** |
-| Enterprise mensual | Q1.999 | **Q4.499** |
-| Setup Express | Q2.500 | **Q4.500** |
-| Setup Pro | Q6.500 | **Q12.500** |
-| Setup Enterprise | Q15.000+ | **Q30.000+** |
+| **Mensual** | **Q399** | Q599 |
+| **Anual** (16% off) | Q3.990 | Q5.990 |
+| Sucursales | 1 | 1 |
+| Usuarios | 1 (extra Q49/mes) | 1 |
+| Productos | 2.000 | 2.000 |
+| Ventas/mes | 3.000 | 3.000 |
+| Storage | 500 MB | 500 MB |
+| Empleados en planilla | 5 | 5 |
+| Soporte | WhatsApp directo (vos) | WhatsApp horario |
+| FEL incluida | Cuota mínima 1.000/mes (TBD certificador) | Mismo |
+| **Setup** | **TBD** (depende certificador FEL) | TBD |
 
-## Tabla de planes — v3
+**A quién venderle:** tienda de barrio, panadería, ferretería chica, salón de belleza, lavandería, comedor familiar, repuestos para moto, distribuidora chica de Tecpán/Chimaltenango.
 
-### 🟢 Starter — Q899/mes
+**Mensaje de venta:** *"Por Q399 al mes resolvés todo el back office. Yo voy a tu local 1-2 horas, te enseño, dejo el sistema andando, y quedamos por WhatsApp para cualquier duda."*
 
-**Para:** PYME chica que necesita el ERP completo desde el inicio (no solo POS). Comercio único, 1-3 empleados, contabilidad simple.
+### 🔵 Comercial — para el cliente que crece
 
-| Recurso | Límite |
-|---|---|
-| Sucursales | 1 |
-| Usuarios | 5 |
-| Productos | 3.000 |
-| Ventas/mes | 5.000 |
-| Almacenamiento imágenes | 1 GB |
-| Razones sociales | 1 |
-| FEL | Add-on (BYO o gestionada) |
-| Soporte | Email 24-48h |
-| Reportes contables | Sí |
-| RRHH + planilla | Básico (hasta 10 empleados) |
+| | Founder (cap 10) | Regular |
+|---|---|---|
+| **Mensual** | **Q999** | Q1.299 |
+| **Anual** (16% off) | Q9.990 | Q12.990 |
+| Sucursales | 2 (extra Q199/mes) | 2 |
+| Usuarios | 5 (extra Q49/mes) | 5 |
+| Productos | 5.000 | 5.000 |
+| Ventas/mes | 10.000 | 10.000 |
+| Storage | 2 GB | 2 GB |
+| Empleados en planilla | 30 | 30 |
+| Soporte | WhatsApp prioritario | WhatsApp horario |
+| FEL incluida | Cuota mayor (TBD) | Mismo |
+| **Setup** | **TBD** (depende certificador) | TBD |
 
-**Anual:** Q8.990/año (paga 10 meses, recibe 12 — 16% off).
+**A quién venderle:** comercio que abrió segundo local, distribuidora con 4-5 empleados, ferretería que se volvió mid-size, restaurante que abrió sucursal, cooperativa pequeña.
 
-### 🔵 Professional — Q1.999/mes ⭐ MÁS POPULAR
+**Path natural de upsell:** cliente Negocio que abre segundo local → migra a Comercial. La diferencia (Q399 vs Q999) está justificada por: 2da sucursal real + 5 usuarios + planilla 30 empleados + multi-banco + WhatsApp prioritario.
 
-**Para:** PYME establecida con varias sucursales o alto volumen. 5-25 empleados. 100K-1M GTQ/mes en facturación.
+### 🟣 Empresarial — cotización a medida
 
-| Recurso | Límite |
-|---|---|
-| Sucursales | 5 |
-| Usuarios | 20 |
-| Productos | 15.000 |
-| Ventas/mes | 30.000 |
-| Almacenamiento imágenes | 5 GB |
-| Razones sociales | 1 |
-| FEL gestionada | Disponible add-on |
-| Soporte | WhatsApp horario GT (8-18h) |
-| Reportes contables completos | Sí |
-| Tesorería multi-banco | Sí |
-| RRHH + planilla completa | Sí (hasta 50 empleados) |
-| Backup diario | Incluido |
+**Sin precio público.** Para cuentas que se salen del estándar:
+- 3+ sucursales.
+- 10+ usuarios concurrentes.
+- Multi-empresa (varias razones sociales).
+- Migración de sistema legacy compleja.
+- Integraciones con sistemas externos (e-commerce, contabilidad externa).
 
-**Anual:** Q19.990/año (16% off).
+**Cómo funciona:** card en la landing sin precio, botón "Solicitar cotización" → formulario corto o WhatsApp directo. Vos cotizás caso por caso.
 
-### 🟣 Enterprise — Q4.499/mes
+**Piso interno mental:** Q2.000/mes según escala. Setup desde Q12.000.
 
-**Para:** cadena con varias sucursales y razones sociales, alto volumen, equipo robusto. 25+ empleados. 1M+ GTQ/mes.
+**Cuándo te aparecen estos:** poco al inicio. Tal vez una cooperativa de Sololá, una distribuidora de Chimaltenango ciudad, una farmacia con 4-5 sucursales en Antigua. **No diseñes tu marca alrededor de ellos** — son ingreso adicional cuando aparecen, no son el target.
 
-| Recurso | Límite |
-|---|---|
-| Sucursales | 20 |
-| Usuarios | 60 |
-| Productos | Ilimitado |
-| Ventas/mes | 200.000 |
-| Almacenamiento imágenes | 25 GB |
-| Razones sociales | 5 (multi-empresa) |
-| FEL incluida | 1.000 facturas/mes + Q0.79 c/u después |
-| Soporte | WhatsApp prioritario + onboarding incluido |
-| API access | Sí (read-only) |
-| RRHH + planilla | Ilimitado |
-| Backup diario + restore on-demand | Incluido |
-| SLA | 99.5% uptime |
-| Cuenta gerente (account manager) | Sí, primer año |
+## Setup / Implementación — TBD
 
-**Anual:** Q44.990/año (16% off).
+**Pendiente de definir** cuando tengas tarifa real con Infile/Digifact. Variables que entran en juego:
 
-### ⚪ Trial — Gratis 30 días
+1. **Costo del certificador por cliente nuevo** (mencionaste Q1.500 de implementación FEL en Infile). Asumimos que esto se paga UNA vez al certificador por cada empresa nueva.
+2. **Tu tiempo** de implementación: visita presencial, capacitación, certificación FEL, atender dudas las primeras semanas.
+3. **Costo unitario por factura** que negocies con el certificador a tu volumen agregado.
 
-Funciones equivalentes a Professional pero limitadas a 30 días, sin tarjeta. Al vencer, modo lectura por 30 días más para que el cliente recupere data si decidió no contratar.
+### Estimación tentativa (a confirmar con datos reales)
 
-## Implementación / Setup (one-time, OBLIGATORIA)
-
-Sin setup profesional, las PYMEs guatemaltecas no extraen valor real de un ERP completo y churnean en mes 2-3.
-
-| Tier | Precio | Horas | Recomendado para |
+| Tier | Founder estimado | Regular estimado | Horas tuyas |
 |---|---|---|---|
-| **Express** | **Q4.500** | 5h | Starter — comercio chico que arranca |
-| **Pro** | **Q12.500** | 15h | Professional — PYME con multi-sucursal y contabilidad operativa real |
-| **Enterprise** | **Q30.000+** | 35h+ | Enterprise — migración legacy, integraciones, multi-empresa |
+| Setup Negocio | Q1.500-2.500 | Q2.500-3.500 | 3h |
+| Setup Comercial | Q4.500-5.500 | Q6.500-7.500 | 8h |
+| Setup Empresarial | desde Q12.000 | a cotización | 25h+ |
 
-**Express incluye** (5h):
-- Capacitación remota 3h
-- Importación de catálogo (productos, clientes, proveedores) vía CSV
-- Configuración fiscal NIT/régimen + setup FEL si aplica
-- Setup sucursal principal + 1 cuenta bancaria
-- Seguimiento por WhatsApp primera semana
+**Para llenar estos números necesitás:**
 
-**Pro incluye** (15h):
-- Capacitación presencial GT capital o remoto extenso (8h)
-- Importación legacy completa (productos, clientes, proveedores, saldos abiertos)
-- Configuración multi-sucursal con permisos por usuario
-- Setup completo de FEL (gestionada o BYO)
-- Acompañamiento del primer cierre de caja en vivo
-- Acompañamiento del primer cierre contable mensual
-- 1 mes de soporte premium gratis (WhatsApp 8-20h)
+- Cotización formal con Infile o Digifact con: tarifa base mensual, costo por implementación de cliente nuevo, tarifa por factura a tu volumen estimado.
+- Decidir tu tarifa por hora interna (sugerencia: Q500-700/h).
+- Aplicar margen sobre costos directos (sugerencia: 50-70%).
 
-**Enterprise incluye** (35h+):
-- Plan de migración personalizado
-- Migración de datos desde sistema legacy (productos, clientes, saldos abiertos, histórico de ventas si aplica)
-- Integraciones con sistemas externos (e-commerce, contabilidad externa, banca electrónica)
-- Capacitación a múltiples usuarios y sucursales en cascada
-- Acompañamiento del primer mes operativo completo
-- Documentación operativa interna a medida
-- Línea directa con el implementador durante onboarding
+Cuando tengas eso, los actualizamos en `setup_tiers` de `src/lib/plans.ts`.
 
-**Política**: el setup es **obligatorio** salvo "self-onboarding waiver" firmado. El waiver te ahorra el setup pero pierdes:
-- Garantía de uptime los primeros 30 días.
-- Soporte prioritario los primeros 90 días (queda en email best-effort).
-- Free re-implementation si tenés que rehacer datos por error de carga.
+## FEL — modelo definido, números TBD
 
-## FEL — modelo separado (no incluida en planes salvo Enterprise)
+### Opción A — BYO (cliente contrata directo a Infile/Digifact)
 
-Razón: los certificadores (Infile, Digifact) cobran por volumen (Q0.25-1.50/factura) + cuota base. Empaquetarla a precio fijo en el plan es perdedor para el proveedor o caro para el cliente, depende del volumen.
+Sin costo SIMTECH. Útil si el cliente ya tiene contrato. Disponible en todos los planes.
 
-### Opción A — BYO (Bring Your Own)
-Cliente contrata Infile/Digifact directo. SIMTECH integra. **Costo SIMTECH: Q0**.
+### Opción B — Gestionada por SIMTECH (recomendada para Negocio/Comercial)
 
-### Opción B — FEL gestionada por SIMTECH
-SIMTECH es reseller con margen ~50% sobre costo del certificador.
+SIMTECH es intermediario con el certificador.
 
-| Volumen mensual | Cuota base | Por factura | Total ejemplo |
-|---|---|---|---|
-| 1-100 facturas | Q199/mes | Q1.49 c/u | 50 facturas = Q273 |
-| 101-500 | Q199/mes | Q1.19 c/u | 300 facturas = Q556 |
-| 501-2.000 | Q299/mes | Q0.89 c/u | 1.000 facturas = Q1.189 |
-| 2.001+ | Q399/mes | Q0.69 c/u | 3.000 facturas = Q2.469 |
+- **Cuota mensual incluida** en el plan (Negocio mínimo 1.000 facturas/mes; Comercial cuota mayor).
+- **Excedente cobrable** por factura cuando supera la cuota.
+- **Margen** sobre costo del certificador.
 
-### Opción C — FEL incluida en Enterprise
-1.000 facturas/mes incluidas en el plan. Excedente Q0.79 c/u.
+Cuotas exactas y excedentes pendientes de definir cuando se confirme tarifa con Infile/Digifact.
 
-## Add-ons (sobre cualquier plan compatible)
+## Add-ons disponibles
 
 | Add-on | Precio | Disponible en |
 |---|---|---|
-| Sucursal extra | **Q299/mes** c/u | Pro, Enterprise |
-| Usuario extra | **Q79/mes** c/u | Pro, Enterprise |
-| Razón social extra | **Q499/mes** c/u | Enterprise |
-| Soporte 24/7 | **Q899/mes** | Enterprise |
-| Backup horario (no diario) | **Q399/mes** | Pro, Enterprise |
-| Reporte contable a medida | **Q2.500** one-time | Pro, Enterprise |
-| Capacitación adicional | **Q700/h** | Todos |
-| Integración API custom | **Q8.000+** one-time | Enterprise |
-| Capacitación in situ fuera GT capital | **Q1.500/día + viáticos** | Pro, Enterprise |
+| Usuario adicional | Q49/mes | Todos los planes pagos |
+| Sucursal adicional | Q199/mes | Comercial, Empresarial |
+| Capacitación adicional | Q500/h | Todos |
+| Visita presencial extra | Q500 una vez | Todos (en Tecpán/Chimaltenango) |
+| Reporte a medida | Q1.500 una vez | Comercial, Empresarial |
 
-## Comparación cabeza a cabeza (mercado real)
+## Unit economics — fase 1 Tecpán (estimado)
 
-| Producto | Mensual | Setup | Sucursales | Usuarios | RRHH/Planilla | Multi-empresa |
-|---|---|---|---|---|---|---|
-| Alegra Plus | Q920 | bajo | 5 | 5 | ❌ | ❌ |
-| Bind ERP Pro | Q2.460 | medio | 3 | 5 | Limitado | ❌ |
-| SAP B1 Cloud Limitada (5u) | Q3.465 | alto | Sí | 5 | Sí | ✅ |
-| Acontrol mid | Q1.540 | medio | Sí | Variable | Sí | Limitado |
-| **SIMTECH Pro** | **Q1.999** | **Q12.500** | **5** | **20** | **✅ completo** | ❌ |
-| **SIMTECH Enterprise** | **Q4.499** | **Q30.000+** | **20** | **60** | **✅ completo** | **✅ (5)** |
+Suponiendo Negocio founder Q399 con FEL gestionada:
 
-**Mensaje pegador (Pro):** *"Por menos que Bind y un cuarto del precio de SAP B1, tenés un ERP completo con 4× los usuarios de Bind, soporte en horario guatemalteco y planilla GT-compliant (ISR, IGSS, Bono 14, Aguinaldo)."*
+- Ingreso licencia: Q399/mes
+- FEL absorbida (1.000 facturas × Q0.20): Q200/mes (asumiendo costo certificador real cercano a público)
+- Costos infra: Q30/mes
+- **Margen bruto: ~Q169/mes** por cliente Negocio founder
+- Setup primer mes: +Q1.500-2.500 cash inmediato (TBD)
 
-**Mensaje pegador (Enterprise):** *"Multi-empresa real (5 razones sociales), 60 usuarios, 20 sucursales, FEL incluida (1.000 facturas), API. SAP Business One para el mismo escenario te cuesta Q15.000+/mes solo licencia."*
+Suponiendo Comercial founder Q999:
 
-## Estrategia comercial
+- Ingreso licencia: Q999/mes
+- FEL absorbida (3.000 × Q0.20): Q600/mes
+- Costos infra: Q40/mes
+- **Margen bruto: ~Q359/mes** por cliente Comercial founder
 
-### Beta cerrada (mes 1-2)
+**Mes 6 con 15 Negocio + 5 Comercial (escenario realista):**
 
-- 5 clientes invitados, Pro a Q999/mes los primeros 12 meses (descuento 50%) a cambio de:
-  - Testimonio escrito + foto + autorización para usar logo en landing.
-  - Uso real continuado (no para parquearlo).
-  - Feedback estructurado mensual primer trimestre.
-- Setup gratis para esos 5 (vale Q62.500 distribuido — costo de oportunidad acotado).
+- MRR licencias: Q5.985 + Q4.995 = **Q10.980/mes**
+- Setup acumulado: ~Q22.500 + ~Q22.500 = **Q45.000** (TBD según costos reales)
+- **Margen operativo aproximado:** Q2.535 + Q1.795 = ~Q4.330/mes después de FEL e infra
 
-### Lanzamiento público (mes 3+)
+Suficiente para cubrir tus costos fijos como freelancer trabajando solo y empezar a ahorrar para contratar soporte cuando llegues a 30+ clientes.
 
-- Precios públicos según tabla.
-- Trial 30 días sin tarjeta.
-- Setup obligatorio (con waiver para los que insistan).
-- Demo personalizada de 30 min antes de cerrar (la objeción mayor: "¿realmente me sirve?").
+## Por qué estos precios sí justifican tu trabajo
 
-### Escalado de captación
+Comparativa que usás cuando un cliente diga "está caro":
 
-- Demo en vivo via Zoom/Meet a leads tibios.
-- WhatsApp Business para leads que prefieren ese canal (mayoría de PYME GT).
-- Pago por transferencia bancaria aceptado además de tarjeta — muchas PYMEs GT no usan tarjeta corporativa para SaaS.
-- Casos de éxito por industria publicados en landing (tienda, ferretería, salón, lavandería, restaurante).
+1. **Vs Sictel POS Q300+** (POS-only): tu Q399 incluye contabilidad, tesorería, planilla, multi-banco. Q100 más por **3-4 módulos extra**.
+2. **Vs SDIG Q500** (POS+inventario+FEL): tu Q399 founder está **Q100 abajo** y tiene contabilidad y planilla GT-compliant que SDIG no tiene en el plan publicado.
+3. **Vs Loyverse Q160** (POS-only sin FEL): no es comparable. Loyverse es POS internacional, no entiende régimen GT, no factura FEL, no lleva planilla con ISR/IGSS.
+4. **Vs Alegra Plus Q920**: tu Comercial founder Q999 ofrece producto similar pero con **soporte presencial en Tecpán** que ningún competidor tiene.
 
-## Unit economics (con números v3)
+## Estrategia de captación fase 1
 
-Suponiendo cliente promedio en Pro a Q1.999/mes:
+### Mes 1-2: lanzamiento beta cerrada (5 clientes)
 
-- **Ingreso licencia/mes:** Q1.999
-- **Setup primer mes:** Q12.500 cash inmediato.
-- **Costos directos infra:** ~Q80/mes
-- **FEL gestionada (si optan, ~300 facturas/mes):** +Q357/mes margen para SIMTECH
-- **Margen bruto recurrente:** ~Q1.920/mes (96%) sin FEL, ~Q2.275/mes con FEL gestionada.
+5 clientes invitados conocidos personalmente (por relación o referencia). Plan Negocio founder Q299/mes (descuento extra por ser primeros 5) durante 12 meses + setup gratis. A cambio:
 
-Punto de equilibrio:
-- **Costos fijos infra base:** ~Q1.000/mes (Vercel Pro + Supabase Pro + dominio + Stripe fees fijos).
-- **1 cliente Pro estable** = costos cubiertos.
-- **5 clientes Pro estables** = Q9.995 MRR + Q62.500 setup acumulado primeros meses.
-- **15 clientes Pro estables** = Q29.985 MRR ≈ ingreso de equipo de 2 personas senior.
-- **30 clientes Pro estables** = Q59.970 MRR + setups recurrentes = momento de contratar implementador full-time.
+- Testimonio escrito + foto del local.
+- Autorización para usar nombre y logo en landing.
+- Feedback estructurado mensual primer trimestre.
 
-Con setup obligatorio (Q12.500 promedio), **3 clientes nuevos Pro** = Q37.500 cash inmediato + Q5.997 MRR adicional. Esto financia tu trimestre completo.
+Costo: ~Q12.000 descuento + Q15.000 setup × 5 = **Q27.500 invertido en validación**.
 
-## Decisiones clave
+### Mes 3-4: 10 clientes adicionales en Tecpán
 
-1. ✅ **Precios v3** alineados a ERP completo. Starter Q899, Pro Q1.999, Enterprise Q4.499.
-2. ✅ **Setup obligatorio** Q4.500 / Q12.500 / Q30.000+.
-3. ✅ **FEL separada** con tres modelos (BYO / Gestionada / Incluida en Enterprise).
-4. ✅ **Beta paga cerrada** primero (Q999/mes para 5 clientes durante 12 meses).
-5. **¿Cobro mensual y anual desde el día 1?** Sí, anual al 16% off.
-6. **¿Pago por transferencia + tarjeta?** Sí, ambos.
+Boca a boca + WhatsApp targeted + visitas presenciales en mercado/zona comercial. Precio founder normal Q399/Q999.
+
+### Mes 5-6: cerrar primeros 25 founders Negocio + primeros 5 Comercial
+
+Programa de referidos activo: cada cliente activo que traiga otro recibe 2 meses gratis. Costo bajo, fidelización alta.
+
+## Métricas a vigilar fase 1
+
+| Métrica | Meta mes 6 | Acción si falla |
+|---|---|---|
+| Clientes founder Negocio | 15-25 | < 10: ajustar marketing local, ofrecer trial extendido |
+| Clientes founder Comercial | 3-5 | < 2: revisar si el segmento existe en Tecpán |
+| Conversión Trial → Pago | > 25% | < 15%: revisar onboarding, no llegás a "aha moment" |
+| Churn mensual | < 5% | > 8%: feature missing crítica o onboarding pobre |
+| MRR mes 6 | ≥ Q10.000 | Por debajo: extender fase 1, no expandir todavía |
+| NPS de founders | > 40 | Por debajo: producto necesita mejorar antes de escalar |
+
+## Decisiones que necesitás tomar después
+
+1. **Cotizar con Infile y Digifact** para tener tarifa real:
+   - Costo por implementación FEL por cliente nuevo (mencionaste Q1.500).
+   - Cuota mensual base si la tienen.
+   - Costo por factura a tu volumen estimado (público dice Q0.20 a 1.000+).
+   - Si ofrecen plan agregado para reseller (vos como integrador con varios clientes).
+
+2. **Confirmar precios de setup** (Negocio Q1.500-Q2.500 / Comercial Q4.500-Q5.500) basados en lo que el certificador te cobre.
+
+3. **Cuotas de FEL incluidas** definitivas (Negocio 1.000+ / Comercial 3.000+) basadas en costo real.
+
+4. **Excedente FEL** cobrable cuando se pasen de la cuota (sugerido: Q0.50-Q0.79/factura según plan, con margen sobre costo del certificador).
 
 ## Fuentes
 
-- [SAP Business One Cloud — precios FCS Consultores GT](https://www.tusap.com.gt/precio-sap-business-one/)
-- [SAP Business One — guía de precios actualizada](https://noeldcosta.com/es/sap-business-one-price-guide/)
+- [SDIG ERP Guatemala](https://sdigweb.com/)
+- [ComparaSoftware Guatemala](https://www.comparasoftware.gt/software-erp-para-pymes)
+- [SIAC ERP Guatemala (sidgt.com)](https://sidgt.com/)
+- [SAP Business One — FCS Consultores GT](https://www.tusap.com.gt/precio-sap-business-one/)
 - [Bind ERP en ComparaSoftware GT](https://www.comparasoftware.gt/bind-erp)
 - [Alegra precios](https://www.alegra.com/mexico/contabilidad/precios/)
-- [SDIG ERP Guatemala](https://sdigweb.com/)
-- [SIAC ERP Guatemala (sidgt.com)](https://sidgt.com/)
-- [Smartbit ERP Guatemala](https://www.smartbiterp.com/gt/)
-- [Solaria ERP](https://www.procom.cr/solaria-erp/)
-- [Virtual Books Guatemala](https://virtualbooks.com.gt/)
-- [PlanillaRRHH Guatemala](https://www.planillarrhh.com/)
+- [Sictel POS Guatemala](https://sictel.com.gt/)
 - [Infile Guatemala](https://infile.com.gt/)
 - [Digifact Guatemala](https://www.digifact.com.gt/)
-- [ComparaSoftware Guatemala — ERP PYMEs](https://www.comparasoftware.gt/software-erp-para-pymes)
-- [Click & Cargo — Precio ERP 2026](https://clickandcargo.com/precio-erp/)
+- [Recurrente — FEL Guatemala](https://www.recurrente.com/blog/factura-electronica-fel-guatemala)

@@ -1,196 +1,173 @@
-# Tácticas comerciales para mercado price-sensitive (Guatemala)
+# Tácticas comerciales — fase 1 Tecpán
 
-Complemento de [`pricing-strategy.md`](./pricing-strategy.md). Este documento NO baja los precios públicos — eso erosiona valor percibido y dificulta subirlos después. Lo que hace es **agregar palancas laterales** que dan margen de cierre sin canibalizar el producto.
+Complemento de [`pricing-strategy.md`](./pricing-strategy.md). Aquí están las palancas de cierre, programa de referidos, garantías y cheat sheet de ventas para el mercado real.
 
-## Principio guía
+## Diferenciador #1: vos vas al local
 
-**El precio público es ancla, no oferta final.**
+Tu única ventaja contra Sictel/SDIG/Alegra que arranca de día 1 es que **vos podés estar en el local del cliente en menos de 1 hora**. Tecpán es chico, los comercios están concentrados. Esto es un competitive moat que hay que **cobrar y comunicar**.
 
-El cliente guatemalteco PYME negocia. Si tu precio público ya fuera el "precio de cierre", no tenés con qué jugar en la conversación. Por eso publicamos a precio firme (Q899 / Q1.999 / Q4.499) y tenemos una caja de herramientas para usar en el momento de cerrar.
+**Cómo se traduce en venta:**
 
-Cuatro mandamientos:
+- En la propuesta: el setup founder Q1.500-2.500 incluye visita presencial al local. Para el cliente eso es valor real porque ningún SaaS lo da.
+- En la ejecución: vos vas, te tomás un café con el dueño, le enseñás. Cuando el cliente se siente acompañado, no se va.
+- En el marketing: en la landing y WhatsApp Business, una de las primeras frases es **"Voy yo a tu local en Tecpán o región Chimaltenango"**.
 
-1. **Nunca bajes el sticker price recurrente** sin una palanca explícita justificable (compromiso, referido, migración).
-2. **Preferí "regalar setup" antes que "bajar mensualidad"** — el setup es one-time, la mensualidad es para siempre.
-3. **Atá descuentos a comportamientos** (cierre rápido, anual, referido). El cliente siente que "se ganó" el descuento.
-4. **Limitá el descuento manual** a sales con autorización. Si todos pueden dar 20% off, es el nuevo precio público.
+**Importante:** mantenelo limitado geográficamente. Visita en Tecpán y radio 30 km incluida. Más lejos: tarifa + viáticos como add-on. Esto evita que un cliente de la capital te haga ir 3 horas en carro por Q1.500 de setup.
 
-## Plan Lite — punto de entrada psicológico
+## Cap de founders y reglas
 
-Para atacar al cliente que dice "está caro" o "solo quiero POS", agregamos un plan **Lite** debajo de Starter:
-
-| | Lite | Starter |
-|---|---|---|
-| **Precio** | **Q599/mes** | Q899/mes |
-| Sucursales | 1 | 1 |
-| Usuarios | 3 | 5 |
-| Productos | 1.500 | 3.000 |
-| Ventas/mes | 2.000 | 5.000 |
-| POS + inventario + ventas | ✅ | ✅ |
-| Reportes básicos | ✅ | ✅ |
-| **Tesorería multi-banco** | ❌ | ✅ |
-| **Contabilidad operativa** | ❌ | ✅ |
-| **RRHH + planilla** | ❌ | ✅ Básico |
-| Setup recomendado | Express Q4.500 | Express Q4.500 |
-
-**Por qué funciona:**
-- Compite con SDIG (Q500 POS-only) sin canibalizar Starter (Q899 ERP completo).
-- Ruta natural de upgrade: cuando el cliente Lite necesita controlar bancos o pagar planilla, paga Q300 más al mes y queda en Starter.
-- Si el comprador es muy chico, Lite es honestamente lo que necesita. No le vendés más de lo que usa.
-
-**Riesgo a vigilar:** si > 60% de clientes nuevos eligen Lite, tu producto Starter está mal diferenciado. Ajustar features que pasan a Starter+.
+- **25 cupos founder Negocio** + **10 cupos founder Comercial** = **35 cupos founders totales**.
+- Una vez completado el cap, los nuevos clientes pagan precio regular.
+- **Grandfathering**: los founders mantienen su precio mientras estén activos. Si cancelan y vuelven, vuelven a precio regular.
+- **No prorrogás el cap**: cuando llegues a 25/10, subís precios para nuevos. Esto crea urgencia real y refuerza el mensaje "soy startup".
+- **Comunicación pública**: en la landing, contador visible "Quedan X cupos founder en Negocio / Comercial". Genera FOMO real.
 
 ## Catálogo de descuentos (cuándo usar cada uno)
 
-### Automáticos (sin negociación)
+### Automáticos
 
 | Descuento | Trigger | Valor | Cuándo aplicarlo |
 |---|---|---|---|
-| **Anual prepay** | Elige plan anual | 16% off (≈ 2 meses gratis) | Siempre disponible. Default en checkout. |
-| **2 años commit** | Firma 24 meses prepago | 22% off | Cliente ya está convencido, querés cashflow |
-| **3 años commit** | Firma 36 meses prepago | 28% off + setup tier inferior gratis | Cuenta estratégica, cierre largo |
+| **Anual prepay** | Cliente elige plan anual | 16% off (paga 10 meses, recibe 12) | Default. Empujarlo desde la primera conversación. Mejora cashflow tuyo y compromete al cliente. |
+| **2 años commit** | Firma 24 meses prepago | 22% off | Cliente convencido que ya tomó decisión. Te asegura cashflow para el año |
+| **3 años commit** | Firma 36 meses prepago | 28% off + setup tier inferior gratis | Para cuenta clave (cooperativa, distribuidora regional) |
 
-### Cierre rápido (urgencia)
-
-| Descuento | Trigger | Valor | Cuándo aplicarlo |
-|---|---|---|---|
-| **Setup -25%** | Firma en 7 días desde demo | 25% off del setup | Lead caliente que duda |
-| **Primer mes 50%** | Firma en 7 días | 50% off solo primer mes | Reduce sticker shock inicial |
-
-### Referidos (CAC bajo)
-
-| Descuento | Trigger | Valor | Notas |
-|---|---|---|---|
-| **Mes gratis al referente** | Cliente activo refiere y referido firma | 1 mes gratis aplicado a próxima factura | Aplicar después de que el referido pague mes 1 |
-| **Setup -50% al nuevo** | Llega vía referido | 50% off setup | Combinable con anual prepay |
-
-**ROI de un referido**: si Pro recurrente Q1.999 y LTV = 18 meses, el referido vale ~Q36.000. Pagás 1 mes (Q1.999) al referente + 50% setup (Q6.250). Costo total Q8.249 vs valor Q36.000 = ROI 4.4×.
-
-### Migración desde competidor (captura churn)
+### Cierre rápido
 
 | Descuento | Trigger | Valor |
 |---|---|---|
-| **3 meses al 50%** | Migra desde Bind/Alegra/SIAC/SDIG/Microsip/etc. | 50% off primeros 3 meses + migración básica gratis (productos + clientes) |
+| **Setup -25%** | Firma en 7 días desde demo | 25% off del setup |
+| **Primer mes 50%** | Firma en 7 días | 50% off solo primer mes |
 
-**Cuándo usar:** lead que tiene contrato vigente con otro vendor pero está insatisfecho. La migración técnica le da una excusa para cambiar y el descuento le suaviza el cambio. Pedile screenshot del contrato actual para validar.
+### Referidos (esencial en Tecpán)
 
-### Beta cerrada (primeros 5 clientes)
-
-| | Detalle |
-|---|---|
-| Plan | Professional a **Q999/mes** durante 12 meses (50% off) |
-| Setup | **Gratis** (vale Q12.500) |
-| A cambio | Testimonio escrito + foto + uso de logo + uso real continuado + feedback estructurado mensual |
-| Cupos | 5 clientes |
-| Costo total | Q60.000 descuento + Q62.500 setup = **Q122.500 invertido en validación** |
-
-**Por qué vale la pena:** sin testimonios reales, los precios públicos son difíciles de defender en frío. 5 testimonios filmados/escritos con foto = catalizador de ventas durante años.
-
-### Manuales (sales con autorización)
-
-| Código | Off | Cuándo |
+| Descuento | Para quién | Valor |
 |---|---|---|
-| `CIERRE10` | 10% | Cuando no hay otra palanca y el lead está casi |
-| `CIERRE15` | 15% | Cuentas estratégicas con plan anual. Doble autorización |
+| **2 meses gratis al referente** | Cliente activo que refiere | 2 meses sumados a su próxima factura cuando el referido firme |
+| **Setup -50% al nuevo** | Cliente que llega referido | 50% off del setup |
 
-**Regla de oro:** si todos los leads requieren `CIERRE15` para cerrar, el precio público está alto. Reportar al gerente.
+**Por qué 2 meses (no 1) en Tecpán:** la red boca a boca es chica pero potente. El referente que pasa una recomendación recibe Q798 (2 meses Negocio) o Q1.998 (2 meses Comercial), suficiente como incentivo concreto. **El ROI a vos**: si el referido se queda 12 meses (Q4.788 de Negocio), pagás Q798 de incentivo + Q750 setup descuento = Q1.548 invertido para captar Q4.788. ROI 3.1×.
 
-## Garantía de satisfacción (mecanismo de cierre)
+### Migración desde competidor
 
-> **30 días de devolución 100%.** Si en el primer mes el sistema no cumple lo prometido durante la demo, devolvemos la licencia Y el setup pagado. Sin preguntas.
+Cliente que viene de Sictel, SDIG, Loyverse u otro POS local: **3 meses al 50% + migración de productos básica gratis**. Funciona muy bien en Tecpán porque hay clientes que pagaron Sictel hace 2 años y ya están descontentos.
 
-**Por qué:**
-- Reduce fricción de cierre. Convierte "no estoy seguro" en "probemos".
-- Costo real bajo: la mayoría que pide refund se va igual sin pedirlo. La garantía solo influye en la decisión de compra.
-- Genera confianza vs vendors locales que no la ofrecen.
+### Cierre por sales
+
+Cuando ninguna palanca anterior aplica y el cliente todavía duda:
+
+- `CIERRE10`: 10% off recurrente. Usar moderadamente.
+- `CIERRE15`: 15% off, solo con plan anual.
+
+**Regla:** si más del 30% de leads requieren `CIERRE10/15`, el precio público está alto. Reportar y ajustar.
+
+## Garantía de cierre — 30 días
+
+> **30 días de devolución 100%.** Si en el primer mes el sistema no cumple lo prometido durante la demo o la visita inicial, devolvemos la licencia Y el setup pagado. Sin preguntas.
+
+**Por qué funciona en Tecpán:**
+
+- Reduce drásticamente la objeción "¿y si no me funciona?".
+- Genera confianza vs vendors que cobran y desaparecen (queja común).
+- Costo real bajo: la mayoría que pide refund se va igual sin pedirlo. La garantía solo influye en la decisión de compra inicial.
+- Te diferencia: Sictel/SDIG no la dan.
 
 **Excepciones:**
-- Setup Enterprise (Q30.000+) NO entra en garantía total (riesgo migración legacy ya consumió costo). Sí se reembolsa la licencia.
 
-## Pago facilitado
+- Setup Empresarial (cotización a medida) NO entra en garantía total — riesgo migración legacy ya consumió costo. Sí se reembolsa licencia.
 
-### Métodos aceptados
+## Métodos de pago aceptados
 
-1. **Tarjeta de crédito/débito** (Stripe).
-2. **Transferencia bancaria** GTQ (esencial para PYME GT — muchos no usan tarjeta corporativa).
-3. **Efectivo** en agencias bancarias mediante boleta de pago (alternativa para clientes muy tradicionales).
+Crítico para Tecpán: **no obligues a tarjeta**.
 
-### Cuotas para setup
+1. **Transferencia bancaria GTQ** — método principal en mercado pueblo. Estándar.
+2. **Efectivo en agencia bancaria** (depósito a tu cuenta con boleta) — alternativa para clientes muy tradicionales.
+3. **Tarjeta de crédito/débito** vía Stripe — opcional. Algunos clientes la usan.
 
-Setup grande puede ser sticker shock. Permitir cuotas:
+Mostrar los tres métodos al checkout. Si el cliente prefiere transferencia, generar factura con instrucciones bancarias y dar 7 días para pagar antes de activar.
 
-- Express Q4.500 → 2 cuotas de Q2.250 (firma + 30 días).
-- Pro Q12.500 → 3 cuotas de Q4.500 + saldo (firma + 30 + 60 días).
-- Enterprise Q30.000+ → cronograma personalizado, hasta 6 cuotas.
+## Cuotas de setup — cuando no puede pagar todo de una
+
+Setup grande puede ser sticker shock. Permite cuotas:
+
+- Setup Negocio Q1.500-2.500 → 2 cuotas (firma + 30 días).
+- Setup Comercial Q4.500-7.500 → 3 cuotas (firma + 30 + 60 días).
+- Setup Empresarial Q12.000+ → cronograma personalizado, hasta 6 cuotas.
 
 **Importante:** la implementación arranca con primera cuota pagada, no antes. Protege contra default.
 
-## Precios públicos vs. precios negociados (qué decir y qué no)
+## Cómo manejar las objeciones más comunes en Tecpán
 
-### En la landing (precios públicos)
+### "Está caro vs lo que cobra Sictel/SDIG"
 
-Mostrar **precios firmes** sin "desde Q...". Cliente ve compromiso de calidad.
+**Respuesta**: *"El precio que ves de ellos es solo POS. Lo mío es el sistema completo: ventas, inventario, banco, planilla con ISR/IGSS, contabilidad. Si vas a llevar todo eso aparte (Excel, contador externo, otro programa para planilla), te sale más caro. Y yo voy a tu local a enseñarte. Sictel y SDIG no van."*
 
-### En la demo
+### "No tengo tiempo de aprender otro sistema"
 
-- Mostrar valor primero (lo que el cliente puede hacer con el sistema).
-- **Solo al final** mencionar precio.
-- Si el lead dice "está caro", NO bajes precio en la primera objeción. Preguntá: *"¿Comparado con qué?"* Esto desnuda si está comparando con un POS o con un ERP.
-- Si compara con POS: educá sobre la diferencia. Mostrá Lite como alternativa.
-- Si compara con otro ERP: preguntá qué le falta a ese y mostrá cómo SIMTECH lo cubre.
+**Respuesta**: *"Por eso voy yo a tu local. Una hora y te dejo andando. Después por WhatsApp aclaramos cualquier duda."*
 
-### Al cierre
+### "¿Y si no me funciona?"
 
-Negociación con palancas en orden:
+**Respuesta**: *"Tenés 30 días de garantía. Si no te sirve, te devuelvo el dinero completo: la mensualidad y la implementación. Sin preguntas."*
 
-1. **Anual prepay** (16% off automático).
-2. **Setup -25%** si firma en 7 días.
-3. **Migración 3 meses 50%** si viene de competidor.
-4. **Manual CIERRE10/15** si nada del catálogo aplica.
+### "Solo quiero un POS, no necesito tanto"
 
-Nunca dar más de UNA palanca acumulable a la vez sin justificar (excepto las naturalmente independientes: anual + setup -25% son ejes distintos).
+**Respuesta** (importante): *"Te recomiendo entonces algo más chico que mi sistema. Tengo amigos que venden POS-only que te puedo recomendar."* O si tenés un POS aparte: *"Te ofrezco mi POS a Q200 al mes. Si en algún momento querés llevar ya inventario, banco y planilla, migrás a SIMTECH ERP sin perder data."*
+
+**Por qué responder así:** no querés vender un ERP a alguien que solo necesita POS. Va a churnear, deja mala reseña, y te quita ancho de banda de soporte. Mejor referirlo o tener producto separado.
+
+### "Está bien pero pago Q299, no Q399"
+
+**Respuesta**: *"Te ofrezco anualidad Q3.354 (Q279.5/mes equivalente, 30% off). O si firmás 2 años, Q3.110/año equivalente (Q259/mes). Mejor que bajar Q100 hoy es darte ese precio para 1-2 años fijo."*
+
+**Por qué**: convertís discount-pressure en compromiso largo, mejorando tu cashflow y retención.
 
 ## Programa de referidos formal
 
-Para sistematizar la palanca de referidos:
+Para sistematizar boca a boca en Tecpán:
 
-1. Cada cliente activo recibe un **código único** al firmar (e.g. `MARIA-A8F2`).
-2. Cuando un nuevo lead lo usa al checkout, ambos lados reciben el descuento.
+1. Cada cliente activo recibe **código único** al firmar (e.g. `MARIA-A8F2`).
+2. Cuando un nuevo lead lo usa al onboarding, ambos lados reciben el descuento.
 3. El bono se aplica automáticamente en la próxima facturación del referente.
-4. Dashboard del cliente muestra: cuántos referidos llevó, cuánto ahorró, links para compartir por WhatsApp.
+4. WhatsApp de los dos clientes recibe confirmación: *"Don Pedro, recibiste 2 meses gratis por traerme a Doña María. Tu próxima factura es de Q[X]"*.
+5. Dashboard del cliente muestra: cuántos referidos llevó, cuánto ahorró, link directo para compartir por WhatsApp.
 
-**Implementación técnica:**
-- Tabla `ReferralCode` con `userId` (referente), `code`, `redemptions[]`.
-- Al onboarding nuevo cliente, opción "¿Te recomendó alguien?" con campo de código.
-- Webhook al activar primera factura: suma 1 mes gratis al referente.
-
-(Esto es Sprint 7 cuando hagamos billing — el catálogo `discounts.ts` ya tiene los descuentos definidos para enchufar.)
-
-## Métricas a vigilar
+## Métricas a vigilar fase 1
 
 Cada 30 días después del lanzamiento:
 
-| Métrica | Meta | Acción si falla |
+| Métrica | Meta mes 6 | Acción si falla |
 |---|---|---|
-| Conversión Trial → Pago | 15-25% | < 15%: producto no convence en 30d. Revisar onboarding |
-| % Lite vs Starter+ | < 50% Lite | > 60% Lite: Starter mal diferenciado, mover features a Lite |
+| Clientes founder Negocio | 15-25 | < 10: ajustar marketing local, extender trial |
+| Clientes founder Comercial | 3-5 | < 2: revisar si el segmento existe en Tecpán |
+| Conversión Trial → Pago | > 25% | < 15%: revisar onboarding, no llegás al "aha moment" |
+| Churn mensual | < 5% | > 8%: feature missing crítica o onboarding pobre |
+| MRR mes 6 | ≥ Q10.000 | Por debajo: extender fase 1, no expandir todavía |
+| NPS de founders | > 40 | Por debajo: producto necesita mejorar antes de escalar |
 | % usando descuentos manuales (CIERRE10/15) | < 30% | > 40%: precio público alto |
-| Churn mensual | < 5% | > 8%: feature missing crítica o problema UX |
-| MRR mes 3 | ≥ Q15.000 | Por debajo: ajustar marketing y captación |
-| LTV / CAC | > 3 | < 2: estás regalando descuentos sin recuperar |
+| Tasa de referidos | > 25% (1 de cada 4 trae a otro) | < 10%: el producto no genera entusiasmo, mejorar UX |
 
-## Resumen de palancas (cheat sheet para sales)
+## Cheat sheet de cierre
 
 ```
-DEFAULT  → Anual prepay (16% off automático)
-LEAD CALIENTE QUE DUDA  → Setup -25% si firma 7d
-STICKER SHOCK  → Primer mes 50% off
-VIENE DE OTRO VENDOR  → 3 meses 50% + migración gratis
-CIERRA EN 24M  → 22% off licencia
-CIERRA EN 36M  → 28% off + setup tier inferior gratis
-LO REFERIDO  → Setup -50% (referente recibe 1 mes gratis)
-NADA FUNCIONA  → CIERRE10 (10%) o CIERRE15 (15% con autorización)
-PRIMEROS 5 CLIENTES  → Beta program: Pro Q999/mes 12 meses + setup gratis a cambio de testimonio
+DEFAULT  →  Anual prepay (16% off automático)
+LEAD CALIENTE QUE DUDA  →  Setup -25% si firma 7d
+STICKER SHOCK  →  Primer mes 50% off
+VIENE DE SICTEL/SDIG/LOYVERSE  →  3 meses 50% + migración gratis
+CIERRA EN 24M  →  22% off licencia
+CIERRA EN 36M  →  28% off + setup tier inferior gratis
+LO REFERIDO  →  Setup -50% (referente recibe 2 meses gratis)
+NADA FUNCIONA  →  CIERRE10 (10%) o CIERRE15 (15% con autorización)
+PRIMEROS 5 BETA TECPÁN  →  Negocio Q299 12 meses + setup gratis a cambio de testimonio
 ```
 
-**Recordá:** mejor regalar setup (one-time) que mensualidad (recurrente).
+**Recordá:** mejor regalar setup (one-time) que mensualidad (recurrente). El setup recupera el costo en 5 meses; bajar mensualidad te acompaña 3-5 años.
+
+## Roadmap de pricing por fase
+
+| Fase | Cuándo | Acción |
+|---|---|---|
+| **Fase 1** | Mes 1-6 | Founder Q399/Q999. Cap 25/10. Foco Tecpán |
+| **Fase 2** | Mes 6-12 | Cap completo → nuevos clientes a regular Q599/Q1.299. Expansión a Chimaltenango ciudad, Antigua |
+| **Fase 3** | Mes 12-24 | Activación tier Empresarial (cotización pública con piso "desde Q2.500/mes"). Captura cuentas con 3+ sucursales. Expansión capital |
+| **Fase 4** | Año 2+ | Estructura completa multi-país. Posibles ajustes de precio según inflación y posicionamiento de marca |

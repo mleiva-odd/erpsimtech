@@ -101,10 +101,13 @@ export async function POST(req: NextRequest) {
           },
           subscription: {
             create: {
+              // Trial inicial — al expirar el cliente debe elegir Negocio o Comercial
+              // según su tamaño. Cuotas matchean PLANS.trial en src/lib/plans.ts.
               plan: 'trial',
               status: 'TRIAL',
               maxBranches: 2,
               maxUsersPerBranch: 3,
+              price: 0,
               currentPeriodStart: new Date(),
               currentPeriodEnd: trialEnd,
               trialEndsAt: trialEnd,

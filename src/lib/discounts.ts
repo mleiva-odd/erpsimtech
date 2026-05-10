@@ -172,7 +172,7 @@ export const DISCOUNTS: Record<string, Discount> = {
     trigger: 'beta_program',
     value: 1000, // Q1.000 off del precio Pro mensual (Q1.999 → Q999)
     months: 12,
-    applicablePlans: ['professional'],
+    applicablePlans: ['comercial'],
     newCustomersOnly: true,
     maxRedemptions: 5,
     estimatedCostNote:

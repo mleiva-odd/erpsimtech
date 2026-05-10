@@ -52,7 +52,22 @@ export default function LoginPage() {
       });
 
       if (res?.error) {
-        setError("Credenciales incorrectas. Verifica y vuelve a intentar.");
+        // NextAuth devuelve el mensaje thrown desde authorize() en res.error
+        // (o el código "CredentialsSignin" como fallback). Mapeamos los casos
+        // conocidos al texto del usuario y caemos al genérico para todo lo
+        // demás, sin filtrar información técnica.
+        const raw = res.error.toLowerCase();
+        if (raw.includes("demasiados") || raw.includes("intentos")) {
+          setError(
+            "Demasiados intentos. Esperá unos minutos antes de volver a probar.",
+          );
+        } else if (raw.includes("suspendida")) {
+          setError("La empresa está suspendida. Contactá al administrador.");
+        } else if (raw.includes("inactivo")) {
+          setError("Usuario inactivo. Contactá al administrador.");
+        } else {
+          setError("Credenciales incorrectas. Verificá y volvé a intentar.");
+        }
         setIsLoading(false);
       } else {
         router.push("/apps");

@@ -366,12 +366,12 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl lg:text-5xl mb-4 text-slate-900">
-              Precios honestos para comerciantes reales
+              Planes claros, sin letra chica
             </h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Estamos arrancando en Tecpán. Los primeros clientes pagan precio
-              founder y mantienen su tarifa mientras estén con nosotros. Aparte
-              cobramos la implementación y la facturación electrónica.
+              Elegí el plan que se ajusta al tamaño de tu negocio. La
+              implementación y la facturación electrónica se cotizan según
+              el volumen y se pagan por separado.
             </p>
           </motion.div>
 
@@ -387,60 +387,66 @@ export default function Home() {
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                    <span className="bg-amber-500 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
-                      Cupos founder limitados
+                    <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-semibold tracking-wide shadow-lg">
+                      Recomendado
                     </span>
                   </div>
                 )}
                 <div
                   className={`p-8 rounded-2xl h-full flex flex-col ${plan.popular
-                    ? "bg-blue-600 text-white shadow-2xl scale-105"
+                    ? "bg-blue-600 text-white shadow-2xl lg:scale-105"
                     : "bg-slate-50 text-slate-900 border border-slate-200"
                     }`}
                 >
-                  <h3 className="text-2xl mb-2">{plan.name}</h3>
-                  <div className="mb-2">
-                    <span className="text-4xl font-bold">{plan.priceFounder}</span>
-                  </div>
-                  {plan.priceRegular && (
-                    <div className="mb-6 flex items-center gap-2">
-                      <span className={`text-xs ${plan.popular ? "text-blue-200" : "text-slate-500"}`}>
-                        Precio regular:
-                      </span>
-                      <span
-                        className={`text-sm line-through ${plan.popular ? "text-blue-200" : "text-slate-500"}`}
-                      >
-                        {plan.priceRegular}
-                      </span>
-                    </div>
-                  )}
-                  {!plan.priceRegular && plan.requiresQuote && (
-                    <div className="mb-6">
-                      <span className={`text-xs ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>
-                        Para cuentas con necesidades específicas
-                      </span>
-                    </div>
-                  )}
-                  <p className={`mb-6 ${plan.popular ? "text-blue-100" : "text-slate-600"}`}>
+                  <h3 className="text-2xl font-semibold mb-1">{plan.name}</h3>
+                  <p className={`text-sm mb-6 min-h-[40px] ${plan.popular ? "text-blue-100" : "text-slate-600"}`}>
                     {plan.description}
                   </p>
+
+                  <div className="mb-6 min-h-[80px]">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-4xl font-bold tracking-tight">{plan.priceMain}</span>
+                      {plan.priceUnit && (
+                        <span className={`text-base ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>
+                          {plan.priceUnit}
+                        </span>
+                      )}
+                    </div>
+                    {plan.priceLabel && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <span
+                          className={`text-xs font-medium uppercase tracking-wide ${plan.popular ? "text-blue-100" : "text-blue-700"}`}
+                        >
+                          {plan.priceLabel}
+                        </span>
+                        {plan.priceStrike && (
+                          <span
+                            className={`text-xs line-through ${plan.popular ? "text-blue-200" : "text-slate-400"}`}
+                          >
+                            {plan.priceStrike}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <ul className="space-y-3 mb-8 flex-grow">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3">
                         <CheckIcon
-                          className={`h-5 w-5 flex-shrink-0 mt-0.5 ${plan.popular ? "text-blue-200" : "text-blue-600"
-                            }`}
+                          className={`h-5 w-5 flex-shrink-0 mt-0.5 ${plan.popular ? "text-blue-200" : "text-blue-600"}`}
                         />
-                        <span className={plan.popular ? "text-blue-50" : "text-slate-700"}>
+                        <span className={`text-sm ${plan.popular ? "text-blue-50" : "text-slate-700"}`}>
                           {feature}
                         </span>
                       </li>
                     ))}
                   </ul>
+
                   <Button
                     asChild
                     size="lg"
-                    className={`w-full mt-4 ${plan.popular
+                    className={`w-full mt-2 ${plan.popular
                       ? "bg-white hover:bg-blue-50 text-blue-600"
                       : "bg-blue-600 hover:bg-blue-700 text-white"
                       }`}
@@ -709,30 +715,36 @@ const testimonials = [
  * Planes mostrados en la landing. Se construyen a partir del catálogo
  * canónico en `src/lib/plans.ts` para que un cambio de precio en un solo
  * lugar se refleje aquí automáticamente.
- *
- * Precios founder se muestran como precio principal; el regular queda
- * tachado para reforzar urgencia y comunicar que el founder es promo.
  */
-const pricingPlans = [
+type LandingPlan = {
+  name: string;
+  priceMain: string;
+  priceUnit?: string;
+  priceStrike?: string;
+  priceLabel?: string;
+  description: string;
+  features: string[];
+  cta: string;
+  popular: boolean;
+  requiresQuote: boolean;
+};
+
+const pricingPlans: LandingPlan[] = [
   {
     name: PLANS.negocio.name,
-    priceFounder: PLANS.negocio.pricing
-      ? `${formatGtq(PLANS.negocio.pricing.founderMonthly)}/mes`
-      : "Consultar",
-    priceRegular: PLANS.negocio.pricing
-      ? `${formatGtq(PLANS.negocio.pricing.regularMonthly)}/mes`
-      : null,
+    priceMain: PLANS.negocio.pricing ? formatGtq(PLANS.negocio.pricing.founderMonthly) : "Consultar",
+    priceUnit: "/mes",
+    priceStrike: PLANS.negocio.pricing ? `${formatGtq(PLANS.negocio.pricing.regularMonthly)} normal` : undefined,
+    priceLabel: "Tarifa de lanzamiento",
     description:
-      "ERP completo para comercio chico de un local. POS, inventario, ventas, banco, contabilidad y planilla básica. Visita presencial al local incluida.",
+      "ERP completo para un local. POS, inventario, ventas, tesorería, contabilidad y planilla básica.",
     features: [
       "1 sucursal · 1 usuario",
       "Hasta 2.000 productos",
-      "Hasta 3.000 ventas/mes",
-      "Tesorería + contabilidad operativa",
-      "Planilla básica (5 empleados)",
-      "FEL incluida (cuota a definir)",
-      "Soporte WhatsApp",
-      "Visita presencial en Tecpán/Chimaltenango",
+      "Hasta 3.000 ventas / mes",
+      "Tesorería y contabilidad operativa",
+      "Planilla GT básica (hasta 5 empleados)",
+      "Soporte por WhatsApp",
     ],
     cta: "Solicitar Información",
     popular: true,
@@ -740,23 +752,19 @@ const pricingPlans = [
   },
   {
     name: PLANS.comercial.name,
-    priceFounder: PLANS.comercial.pricing
-      ? `${formatGtq(PLANS.comercial.pricing.founderMonthly)}/mes`
-      : "Consultar",
-    priceRegular: PLANS.comercial.pricing
-      ? `${formatGtq(PLANS.comercial.pricing.regularMonthly)}/mes`
-      : null,
+    priceMain: PLANS.comercial.pricing ? formatGtq(PLANS.comercial.pricing.founderMonthly) : "Consultar",
+    priceUnit: "/mes",
+    priceStrike: PLANS.comercial.pricing ? `${formatGtq(PLANS.comercial.pricing.regularMonthly)} normal` : undefined,
+    priceLabel: "Tarifa de lanzamiento",
     description:
-      "Para comercios que crecen. Equipo, segunda sucursal, multi-banco, planilla GT-compliant.",
+      "Para comercios que crecen. Multi-sucursal, multi-banco y planilla completa GT-compliant.",
     features: [
       "Hasta 2 sucursales · 5 usuarios",
       "Hasta 5.000 productos",
-      "Hasta 10.000 ventas/mes",
-      "Multi-banco real",
-      "Planilla GT (ISR/IGSS/Bono14/Aguinaldo)",
-      "FEL incluida (cuota mayor)",
+      "Hasta 10.000 ventas / mes",
+      "Multi-banco y conciliación",
+      "Planilla GT (ISR, IGSS, Bono 14, Aguinaldo)",
       "WhatsApp prioritario",
-      "Acompañamiento primer cierre contable",
     ],
     cta: "Solicitar Información",
     popular: false,
@@ -764,18 +772,17 @@ const pricingPlans = [
   },
   {
     name: PLANS.enterprise.name,
-    priceFounder: "Cotización",
-    priceRegular: null,
+    priceMain: "A medida",
+    priceLabel: "Cotización personalizada",
     description:
-      "Para cuentas con 3+ sucursales, multi-empresa, API o requerimientos a medida.",
+      "Para cadenas con varias sucursales, multi-empresa, API o necesidades específicas.",
     features: [
-      "Sucursales y usuarios ilimitados",
+      "Sucursales y usuarios sin tope",
       "Multi-empresa (hasta 5 razones sociales)",
       "API de integración",
-      "Soporte prioritario + account manager",
+      "Account manager dedicado",
       "Migración desde sistema legacy",
       "SLA 99.5% uptime",
-      "Setup desde Q12.000 según escala",
     ],
     cta: "Hablar por WhatsApp",
     popular: false,

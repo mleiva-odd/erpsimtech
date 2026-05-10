@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
+import { handleApiError } from '@/lib/api-error';
+
+const CreateBankSchema = z.object({
+  name: z.string().trim().min(2, 'Nombre requerido').max(120),
+  type: z.enum(['CASH_BOX', 'BANK_ACCOUNT', 'CREDIT_CARD', 'DIGITAL_WALLET']),
+  accountNumber: z.string().trim().max(80).optional().nullable(),
+  currency: z.string().trim().length(3, 'Currency ISO de 3 letras').default('GTQ'),
+  isActive: z.boolean().default(true),
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +22,7 @@ export async function GET(request: NextRequest) {
     const active = searchParams.get('active');
 
     const banks = await prisma.bankAccount.findMany({
-      where: { 
+      where: {
         companyId: tenant.companyId,
         ...(active !== null ? { isActive: active === 'true' } : {})
       },
@@ -24,7 +34,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // To serialize Decimal
+    // Serializar Decimal a Number
     const safeBanks = banks.map(b => ({
       ...b,
       balance: Number(b.balance)
@@ -32,8 +42,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(safeBanks);
   } catch (error) {
-    console.error('GET /api/accounting/banks error:', error);
-    return NextResponse.json({ error: 'Error al obtener cuentas bancarias' }, { status: 500 });
+    return handleApiError(error, '/api/accounting/banks GET');
   }
 }
 
@@ -43,27 +52,22 @@ export async function POST(request: NextRequest) {
     if ('error' in result) return result.error;
     const { tenant } = result;
 
-    const body = await request.json();
-    const { name, type, accountNumber, currency, isActive } = body;
-
-    if (!name || !type) {
-      return NextResponse.json({ error: 'El nombre y tipo son requeridos' }, { status: 400 });
-    }
+    const body = await request.json().catch(() => ({}));
+    const data = CreateBankSchema.parse(body);
 
     const newBank = await prisma.bankAccount.create({
       data: {
         companyId: tenant.companyId,
-        name,
-        type,
-        accountNumber: accountNumber || null,
-        currency: currency || 'GTQ',
-        isActive: isActive ?? true
+        name: data.name,
+        type: data.type,
+        accountNumber: data.accountNumber ?? null,
+        currency: data.currency,
+        isActive: data.isActive,
       }
     });
 
     return NextResponse.json({ ...newBank, balance: Number(newBank.balance) });
   } catch (error) {
-    console.error('POST /api/accounting/banks error:', error);
-    return NextResponse.json({ error: 'Error al crear la cuenta bancaria' }, { status: 500 });
+    return handleApiError(error, '/api/accounting/banks POST');
   }
 }

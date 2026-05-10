@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireCompanyTenant } from '@/lib/tenant';
+import { handleApiError } from '@/lib/api-error';
 // Re-export para compatibilidad con código existente que importa
 // `createNotification` desde este módulo. La lógica vive en `@/lib/notifications`.
 export { createNotification } from '@/lib/notifications';
+
+const UpdateNotificationSchema = z.object({
+  // Si id está presente, marcamos esa sola; si no, marcamos todas como leídas.
+  id: z.string().uuid().optional(),
+});
 
 export async function GET(req: NextRequest) {
   const result = await requireCompanyTenant();
@@ -36,9 +43,9 @@ export async function PUT(req: NextRequest) {
   const { tenant } = result;
 
   try {
-    // Mark a specific notification or all notifications as read
-    const body = await req.json();
-    const { id } = body;
+    // Mark a specific notification or all notifications as read.
+    const body = await req.json().catch(() => ({}));
+    const { id } = UpdateNotificationSchema.parse(body);
 
     if (id) {
       await prisma.notification.updateMany({
@@ -55,7 +62,7 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: 'Error updating notifications' }, { status: 500 });
+    return handleApiError(error, '/api/notifications PUT');
   }
 }
 

@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+# Cancelar runs en progreso si hay nuevo push al mismo branch (ahorra minutos).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ───────── Lint + Typecheck (rápido, falla rápido) ─────────
+  lint-typecheck:
+    name: Lint + Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+  # ───────── Build (más lento, valida runtime) ─────────
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    env:
+      # Stub values para que `next build` pueda parsear configs sin
+      # conectarse a recursos reales. NUNCA usar estos en producción.
+      NEXTAUTH_SECRET: ci-stub-secret-32-chars-long-min
+      NEXTAUTH_URL: http://localhost:3000
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db?schema=public
+      DIRECT_URL: postgresql://user:pass@localhost:5432/db?schema=public
+      NEXT_PUBLIC_SUPABASE_URL: https://stub.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: stub_anon_key
+      SUPABASE_SERVICE_ROLE_KEY: stub_service_role_key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+
+  # ───────── Tests E2E (Playwright) ─────────
+  # Disabled por default. Habilitarlo cuando los tests cross-tenant estén
+  # estables y se tenga DB de testing dedicada (usar Supabase branch o
+  # un Postgres local en GitHub Actions).
+  # e2e:
+  #   name: E2E Tests
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   services:
+  #     postgres:
+  #       image: postgres:17
+  #       env:
+  #         POSTGRES_PASSWORD: postgres
+  #         POSTGRES_DB: erp_test
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #       ports:
+  #         - 5432:5432
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #     - run: npm ci
+  #     - run: npx playwright install --with-deps chromium
+  #     - name: Apply Prisma migrations
+  #       env:
+  #         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/erp_test
+  #       run: npx prisma db push
+  #     - name: Seed test data
+  #       env:
+  #         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/erp_test
+  #         SEED_SUPERADMIN_PASSWORD: TestAdmin12345!
+  #         SEED_COMPANY_ADMIN_PASSWORD: TestAdmin12345!
+  #         SEED_MANAGER_PASSWORD: TestAdmin12345!
+  #         SEED_CASHIER_PASSWORD: TestAdmin12345!
+  #       run: npm run seed
+  #     - name: Run Playwright tests
+  #       env:
+  #         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/erp_test
+  #         NEXTAUTH_SECRET: ci-test-secret
+  #         NEXTAUTH_URL: http://localhost:3000
+  #       run: npm run test:e2e
+  #     - if: always()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: playwright-report
+  #         path: playwright-report/

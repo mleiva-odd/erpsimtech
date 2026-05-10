@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { createNotification } from '@/lib/notifications';
-import { createAccountingEntryAsync } from '@/lib/accounting';
+import { createAccountingEntry } from '@/lib/accounting';
 import { z } from 'zod';
 
 const SaleItemSchema = z.object({
@@ -394,6 +394,25 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Asiento contable automático DENTRO de la transacción.
+      // Si el asiento falla, la venta se rollbackea entera (consistencia).
+      // Antes este bloque corría fuera del $transaction y dejaba ventas
+      // sin asiento si la lambda moría — ver Phase 4 audit M-1.
+      if (status === 'COMPLETED') {
+        const categoryName = channel === 'REMOTE' ? 'Ventas Remotas' : 'Ventas POS';
+        await createAccountingEntry(tx, {
+          companyId: tenant.companyId,
+          branchId,
+          type: 'INCOME',
+          categoryName,
+          description: `Venta #${completedSale.id.split('-')[0].toUpperCase()} — ${items.length} producto(s)`,
+          amount: Number(completedSale.total),
+          referenceType: 'SALE',
+          referenceId: completedSale.id,
+          userId: tenant.userId,
+        });
+      }
+
     return { newSale: completedSale, updatedStocks };
     });
 
@@ -425,22 +444,6 @@ export async function POST(req: NextRequest) {
       entityId: sale.id,
       details: { total: sale.total, items: items.length, payments: payments.length },
     });
-
-    // Automatic accounting entry for completed sales
-    if (status === 'COMPLETED') {
-      const categoryName = channel === 'REMOTE' ? 'Ventas Remotas' : 'Ventas POS';
-      await createAccountingEntryAsync(prisma, {
-        companyId: tenant.companyId,
-        branchId,
-        type: 'INCOME',
-        categoryName,
-        description: `Venta #${sale.id.split('-')[0].toUpperCase()} — ${sale.items?.length || items.length} producto(s)`,
-        amount: Number(sale.total),
-        referenceType: 'SALE',
-        referenceId: sale.id,
-        userId: tenant.userId,
-      });
-    }
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error: unknown) {

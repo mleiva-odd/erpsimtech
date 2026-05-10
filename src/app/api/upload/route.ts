@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
       });
 
     if (uploadError) {
-      console.error('Error subiendo a Supabase:', uploadError);
+      // Solo el mensaje, no el objeto entero (puede traer keys/headers).
+      console.error('upload supabase error:', uploadError?.message ?? 'unknown');
       return NextResponse.json({ error: 'Error al subir la imagen a la nube' }, { status: 500 });
     }
 
@@ -67,7 +68,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: publicUrl });
   } catch (error) {
-    console.error('Error procesando la imagen:', error);
+    console.error(
+      'upload processing error:',
+      error instanceof Error ? error.message : 'unknown',
+    );
     return NextResponse.json({ error: 'Fallo al procesar o subir la imagen' }, { status: 500 });
   }
 }

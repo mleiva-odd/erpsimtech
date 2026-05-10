@@ -28,7 +28,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.bankAccount.update({
-      where: { id: bankId },
+      where: { id: bankId, companyId: tenant.companyId },
       data: {
         ...(name !== undefined && { name }),
         ...(accountNumber !== undefined && { accountNumber }),
@@ -77,7 +77,7 @@ export async function DELETE(
     }
 
     await prisma.bankAccount.delete({
-      where: { id: bankId }
+      where: { id: bankId, companyId: tenant.companyId }
     });
 
     return NextResponse.json({ success: true });

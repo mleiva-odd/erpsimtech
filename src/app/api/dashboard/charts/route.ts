@@ -101,10 +101,13 @@ export async function GET(req: Request) {
       }
     });
 
-    // Fetch product names for top products
+    // Fetch product names for top products.
+    // Defense in depth: aunque productIds vienen de saleItem ya scoped al tenant,
+    // forzamos el filtro de companyId también acá para no depender del orden
+    // de los queries y robustecer contra cambios futuros.
     const productIds = topProducts.map(tp => tp.productId);
     const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
+      where: { id: { in: productIds }, companyId: tenant.companyId },
       select: { id: true, name: true },
     });
     const productMap = Object.fromEntries(products.map(p => [p.id, p.name]));
@@ -114,7 +117,7 @@ export async function GET(req: Request) {
     if (Array.isArray(salesByBranch) && salesByBranch.length > 0) {
       const branchIds = salesByBranch.map((b) => b.branchId);
       const branches = await prisma.branch.findMany({
-        where: { id: { in: branchIds } },
+        where: { id: { in: branchIds }, companyId: tenant.companyId },
         select: { id: true, name: true },
       });
       const branchMap = Object.fromEntries(branches.map(b => [b.id, b.name]));

@@ -93,7 +93,7 @@ export async function PUT(
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.product.update({
-        where: { id: resolvedParams.id },
+        where: { id: resolvedParams.id, companyId: tenant.companyId },
         data: {
           name: body.name,
           sku: body.sku,
@@ -193,8 +193,8 @@ export async function PUT(
          }
       }
 
-      return tx.product.findUnique({
-        where: { id: resolvedParams.id },
+      return tx.product.findFirst({
+        where: { id: resolvedParams.id, companyId: tenant.companyId },
         include: { category: { select: { name: true } } }
       });
     });
@@ -226,7 +226,7 @@ export async function DELETE(
     }
 
     const product = await prisma.product.update({
-      where: { id: resolvedParams.id },
+      where: { id: resolvedParams.id, companyId: tenant.companyId },
       data: { active: false },
     });
     return NextResponse.json(product);

@@ -1,56 +1,83 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireOperationalPermission } from '@/lib/tenant';
+import { ApiError, handleApiError } from '@/lib/api-error';
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+const UpdateSupplierSchema = z.object({
+  name: z.string().trim().min(2, 'El nombre es obligatorio').max(200).optional(),
+  contactName: z.string().trim().max(200).optional().nullable().or(z.literal('')),
+  email: z.string().trim().email('Email inválido').optional().nullable().or(z.literal('')),
+  phone: z.string().trim().max(40).optional().nullable().or(z.literal('')),
+  nit: z.string().trim().max(40).optional().nullable().or(z.literal('')),
+  address: z.string().trim().max(500).optional().nullable().or(z.literal('')),
+  active: z.boolean().optional(),
+});
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const result = await requireOperationalPermission(['suppliers:manage', 'settings:manage']);
   if ('error' in result) return result.error;
-  
-  const resolvedParams = await params;
-  const body = await req.json();
+
+  const { id } = await params;
 
   try {
-    const defaultSupplier = await prisma.supplier.findFirst({
-      where: { id: resolvedParams.id, companyId: result.tenant.companyId }
+    const body = await req.json().catch(() => ({}));
+    const data = UpdateSupplierSchema.parse(body);
+
+    const existing = await prisma.supplier.findFirst({
+      where: { id, companyId: result.tenant.companyId },
+      select: { id: true },
     });
-    if (!defaultSupplier) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+    if (!existing) throw new ApiError(404, 'Proveedor no encontrado');
+
+    const updateData: Record<string, unknown> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.contactName !== undefined) updateData.contactName = data.contactName || null;
+    if (data.email !== undefined) updateData.email = data.email || null;
+    if (data.phone !== undefined) updateData.phone = data.phone || null;
+    if (data.nit !== undefined) updateData.nit = data.nit || null;
+    if (data.address !== undefined) updateData.address = data.address || null;
+    if (data.active !== undefined) updateData.active = data.active;
 
     const supplier = await prisma.supplier.update({
-      where: { id: resolvedParams.id, companyId: result.tenant.companyId },
-      data: {
-        name: body.name,
-        contactName: body.contactName,
-        email: body.email,
-        phone: body.phone,
-        nit: body.nit,
-        address: body.address,
-      }
+      where: { id, companyId: result.tenant.companyId },
+      data: updateData,
     });
     return NextResponse.json(supplier);
   } catch (error) {
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+    return handleApiError(error, '/api/suppliers/[id] PUT');
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const result = await requireOperationalPermission(['suppliers:manage', 'settings:manage']);
   if ('error' in result) return result.error;
-  const resolvedParams = await params;
+
+  const { id } = await params;
 
   try {
     const existing = await prisma.supplier.findFirst({
-      where: { id: resolvedParams.id, companyId: result.tenant.companyId },
-      select: { id: true },
+      where: { id, companyId: result.tenant.companyId },
+      select: { id: true, active: true },
     });
-    if (!existing) return NextResponse.json({ error: 'Proveedor no encontrado' }, { status: 404 });
+    if (!existing) throw new ApiError(404, 'Proveedor no encontrado');
+    if (!existing.active) {
+      throw new ApiError(400, 'El proveedor ya está inactivo');
+    }
 
     // Soft delete to preserve purchase records
     const supplier = await prisma.supplier.update({
-      where: { id: resolvedParams.id, companyId: result.tenant.companyId },
-      data: { active: false }
+      where: { id, companyId: result.tenant.companyId },
+      data: { active: false },
     });
     return NextResponse.json(supplier);
   } catch (error) {
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+    return handleApiError(error, '/api/suppliers/[id] DELETE');
   }
 }

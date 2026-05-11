@@ -1,19 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAccountingEntryAsync } from '@/lib/accounting';
+import { handleApiError } from '@/lib/api-error';
 
-function isPositiveNumber(value: unknown) {
-  return Number.isFinite(Number(value)) && Number(value) > 0;
-}
+const PurchaseItemSchema = z.object({
+  productId: z.string().uuid('productId inválido'),
+  variantId: z.string().uuid().optional().nullable(),
+  quantity: z.coerce.number().positive('quantity debe ser positiva'),
+  cost: z.coerce.number().positive('cost debe ser positivo'),
+});
 
-interface PurchaseItemInput {
-  productId: string;
-  variantId?: string | null;
-  quantity: number;
-  cost: number;
-}
+const CreatePurchaseSchema = z.object({
+  supplierId: z.string().uuid('supplierId requerido'),
+  reference: z.string().trim().max(120).optional().nullable(),
+  items: z.array(PurchaseItemSchema).min(1, 'La compra debe tener al menos un ítem'),
+});
+
+type PurchaseItemInput = z.infer<typeof PurchaseItemSchema>;
 
 export async function GET(req: NextRequest) {
   const result = await requireAnyPermission(['purchases:view', 'purchases:create', 'settings:manage']);
@@ -42,22 +47,11 @@ export async function POST(req: NextRequest) {
   const result = await requireOperationalPermission(['purchases:create', 'settings:manage']);
   if ('error' in result) return result.error;
 
-  const body = await req.json();
-  const { supplierId, reference, items } = body;
-
-  if (!supplierId || !items || !items.length) {
-    return NextResponse.json({ error: 'Faltan datos logísticos (proveedor o items).' }, { status: 400 });
-  }
-
-  const purchaseItems = items as PurchaseItemInput[];
-
-  for (const item of purchaseItems) {
-    if (!item?.productId || !isPositiveNumber(item.quantity) || !isPositiveNumber(item.cost)) {
-      return NextResponse.json({ error: 'Cada línea de compra debe tener producto, cantidad y costo válidos.' }, { status: 400 });
-    }
-  }
-
   try {
+    const body = await req.json().catch(() => ({}));
+    const parsed = CreatePurchaseSchema.parse(body);
+    const { supplierId, reference } = parsed;
+    const purchaseItems: PurchaseItemInput[] = parsed.items;
     const supplier = await prisma.supplier.findFirst({
       where: { id: supplierId, companyId: result.tenant.companyId, active: true },
       select: { id: true },
@@ -221,11 +215,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(purchase, { status: 201 });
-  } catch (error: unknown) {
-    console.error(error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      return NextResponse.json({ error: 'Error de persistencia procesando el ingreso a bodega' }, { status: 500 });
-    }
-    return NextResponse.json({ error: 'Error sistémico procesando el ingreso a bodega' }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error, '/api/purchases POST');
   }
 }

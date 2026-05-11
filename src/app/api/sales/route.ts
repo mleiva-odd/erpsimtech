@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
-import { checkSubscription } from '@/lib/subscription';
-import { createNotification } from '@/app/api/notifications/route';
+import { createNotification } from '@/lib/notifications';
+import { createAccountingEntry } from '@/lib/accounting';
 import { z } from 'zod';
 
 const SaleItemSchema = z.object({
@@ -18,6 +18,7 @@ const PaymentSchema = z.object({
   method: z.enum(['CASH', 'CARD', 'TRANSFER', 'CREDIT']),
   amount: z.number().positive(),
   reference: z.string().optional().nullable(),
+  bankAccountId: z.string().uuid().optional().nullable(),
 });
 
 const CreateSaleSchema = z.object({
@@ -27,6 +28,7 @@ const CreateSaleSchema = z.object({
   discount: z.number().min(0).max(100).default(0),
   customerId: z.string().uuid().optional().nullable(),
   status: z.enum(['COMPLETED', 'QUOTE']).default('COMPLETED'),
+  channel: z.enum(['POS', 'REMOTE', 'WEB']).default('POS'),
 });
 
 const saleResponseInclude = {
@@ -34,19 +36,13 @@ const saleResponseInclude = {
   payments: true,
   user: { select: { id: true, name: true } },
   customer: { select: { id: true, name: true } },
+  returns: { select: { id: true, amount: true, reason: true, createdAt: true } },
 } as const;
 
 export async function POST(req: NextRequest) {
-  console.log('--- SOLICITUD DE VENTA RECIBIDA ---');
-  const result = await requireTenant();
+  const result = await requireOperationalPermission(['pos:access', 'sales:view', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
-
-  // Check subscription before allowing sale
-  const subError = await checkSubscription(tenant.companyId);
-  if (subError) {
-    return NextResponse.json({ error: subError }, { status: 403 });
-  }
 
   const body = await req.json();
   const parsed = CreateSaleSchema.safeParse(body);
@@ -55,7 +51,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { clientRequestId, items, payments = [], discount, customerId, status } = parsed.data;
+  const { clientRequestId, items, payments = [], discount, customerId, status, channel } = parsed.data;
 
   if (clientRequestId) {
     const existingSale = await prisma.sale.findFirst({
@@ -130,7 +126,8 @@ export async function POST(req: NextRequest) {
 
   try {
     let activeRegisterId = null;
-    if (status === 'COMPLETED') {
+    // Solo requerir caja abierta para ventas POS completadas (no remotas ni cotizaciones)
+    if (status === 'COMPLETED' && channel === 'POS') {
       const activeRegister = await prisma.cashRegister.findFirst({
         where: { userId: tenant.userId, branchId, status: 'OPEN' },
       });
@@ -254,6 +251,7 @@ export async function POST(req: NextRequest) {
           tax: 0,
           total,
           status,
+          channel,
           items: {
             create: items.map((item) => {
               const product = products.find((p) => p.id === item.productId);
@@ -276,17 +274,63 @@ export async function POST(req: NextRequest) {
               };
             }),
           },
-          ...(status === 'COMPLETED' ? {
-            payments: {
-              create: payments.map((p) => ({
-                method: p.method,
-                amount: p.amount,
-                reference: p.reference || null,
-              })),
-            }
-          } : {})
         },
-        include: saleResponseInclude,
+      });
+
+      // Handle Payments manually within transaction to capture bank IDs
+      const finalPayments = [];
+      if (status === 'COMPLETED') {
+         // Resolve default bank account for company if missing
+         let defaultBankAccount = null;
+         if (payments.some(p => ['CARD', 'TRANSFER'].includes(p.method))) {
+             defaultBankAccount = await tx.bankAccount.findFirst({
+                 where: { companyId: tenant.companyId, type: 'BANK_ACCOUNT', isActive: true }
+             });
+             if (!defaultBankAccount) {
+                 defaultBankAccount = await tx.bankAccount.create({
+                     data: { companyId: tenant.companyId, name: 'Cuenta de Integración Base', type: 'BANK_ACCOUNT', currency: 'GTQ' }
+                 });
+             }
+         }
+
+         for (const p of payments) {
+             let resolvedBankId = null;
+             if (['CARD', 'TRANSFER'].includes(p.method)) {
+                 resolvedBankId = p.bankAccountId || defaultBankAccount?.id;
+             }
+             
+             const createdPayment = await tx.payment.create({
+                 data: {
+                     saleId: newSale.id,
+                     method: p.method,
+                     amount: p.amount,
+                     reference: p.reference || null,
+                      bankAccountId: resolvedBankId,
+                 }
+             });
+             finalPayments.push(createdPayment);
+
+             // Create BankTransaction if applicable
+             if (resolvedBankId) {
+                 await tx.bankTransaction.create({
+                     data: {
+                         bankAccountId: resolvedBankId,
+                         userId: tenant.userId,
+                         type: 'INCOME',
+                         amount: p.amount,
+                         reference: `Venta POS #${newSale.id.split('-')[0].toUpperCase()} - ${p.reference || ''}`,
+                         description: 'Ingreso automatizado por venta facturada',
+                         reconciled: false
+                     }
+                 });
+             }
+         }
+      }
+
+      // Re-fetch sale to include new payments
+      const completedSale = await tx.sale.findUniqueOrThrow({
+         where: { id: newSale.id },
+         include: saleResponseInclude
       });
 
       // 6. Decrement stock in this branch and capture new stock data ONLY IF COMPLETED
@@ -350,27 +394,49 @@ export async function POST(req: NextRequest) {
         }
       }
 
-    return { newSale, updatedStocks };
+      // Asiento contable automático DENTRO de la transacción.
+      // Si el asiento falla, la venta se rollbackea entera (consistencia).
+      // Antes este bloque corría fuera del $transaction y dejaba ventas
+      // sin asiento si la lambda moría — ver Phase 4 audit M-1.
+      if (status === 'COMPLETED') {
+        const categoryName = channel === 'REMOTE' ? 'Ventas Remotas' : 'Ventas POS';
+        await createAccountingEntry(tx, {
+          companyId: tenant.companyId,
+          branchId,
+          type: 'INCOME',
+          categoryName,
+          description: `Venta #${completedSale.id.split('-')[0].toUpperCase()} — ${items.length} producto(s)`,
+          amount: Number(completedSale.total),
+          referenceType: 'SALE',
+          referenceId: completedSale.id,
+          userId: tenant.userId,
+        });
+      }
+
+    return { newSale: completedSale, updatedStocks };
     });
 
     const { newSale: sale, updatedStocks } = transactionResult;
 
     // Async tasks post-transaction
-    
-    // Low stock notifications
-    updatedStocks.forEach(stock => {
-      if (stock.quantity <= stock.minStock) {
-        createNotification(
-          tenant.companyId,
-          'Alerta de Inventario',
-          `El producto "${stock.product.name}" ha llegado a nivel bajo en inventario (${stock.quantity} unidades restantes).`,
-          'WARNING'
-        );
-      }
-    });
 
-    // Audit log
-    createAuditLog({
+    // Low stock notifications — esperamos para garantizar flush antes de devolver respuesta.
+    await Promise.all(
+      updatedStocks
+        .filter((stock) => stock.quantity <= stock.minStock)
+        .map((stock) =>
+          createNotification(
+            tenant.companyId,
+            'Alerta de Inventario',
+            `El producto "${stock.product.name}" ha llegado a nivel bajo en inventario (${stock.quantity} unidades restantes).`,
+            'WARNING',
+          ),
+        ),
+    );
+
+    // Audit log — `createAuditLog` ya captura sus errores internos pero
+    // esperamos a que termine para garantizar persistencia antes de cerrar la lambda.
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       action: 'SALE_CREATED',
@@ -412,7 +478,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const result = await requireTenant();
+  const result = await requireAnyPermission(['sales:view', 'reports:view', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -420,36 +486,105 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') ?? '1');
   const limit = parseInt(searchParams.get('limit') ?? '20');
   const requestedBranchId = searchParams.get('branchId');
-  const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+  const isAdmin = tenant.role === 'SUPER_ADMIN' || tenant.permissions?.includes('settings:manage');
 
   const targetBranchId = (!isAdmin || !requestedBranchId || requestedBranchId === 'null')
     ? tenant.branchId
     : requestedBranchId;
 
+  // Filtros avanzados
   const status = searchParams.get('status');
+  const channel = searchParams.get('channel');
+  const dateFrom = searchParams.get('dateFrom');
+  const dateTo = searchParams.get('dateTo');
+  const userId = searchParams.get('userId');
+  const customerId = searchParams.get('customerId');
+  const paymentMethod = searchParams.get('paymentMethod');
+  const search = searchParams.get('search');
 
   const where: Prisma.SaleWhereInput = { companyId: tenant.companyId };
-  if (status === 'COMPLETED' || status === 'QUOTE') {
-    where.status = status;
+
+  // Status filter (supports multiple comma-separated)
+  if (status) {
+    const statuses = status.split(',').filter(s => ['COMPLETED', 'PENDING', 'CANCELLED', 'QUOTE'].includes(s));
+    if (statuses.length === 1) {
+      where.status = statuses[0] as Prisma.EnumSaleStatusFilter;
+    } else if (statuses.length > 1) {
+      where.status = { in: statuses as Array<'COMPLETED' | 'PENDING' | 'CANCELLED' | 'QUOTE'> };
+    }
   }
 
+  // Channel filter
+  if (channel && ['POS', 'REMOTE', 'WEB'].includes(channel)) {
+    where.channel = channel as Prisma.EnumSaleChannelFilter;
+  }
+
+  // Branch filter
   if (targetBranchId) {
     where.branchId = targetBranchId;
   }
 
-  const sales = await prisma.sale.findMany({
-    where,
-    include: {
-      user: { select: { name: true } },
-      customer: { select: { id: true, name: true } },
-      branch: { select: { name: true } },
-      items: { include: { product: { select: { name: true } } } },
-      payments: true,
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-    skip: (page - 1) * limit,
-  });
+  // Date range filter
+  if (dateFrom || dateTo) {
+    where.createdAt = {};
+    if (dateFrom) {
+      (where.createdAt as Prisma.DateTimeFilter).gte = new Date(dateFrom);
+    }
+    if (dateTo) {
+      const endDate = new Date(dateTo);
+      endDate.setHours(23, 59, 59, 999);
+      (where.createdAt as Prisma.DateTimeFilter).lte = endDate;
+    }
+  }
 
-  return NextResponse.json(sales);
+  // User (seller) filter
+  if (userId) {
+    where.userId = userId;
+  }
+
+  // Customer filter
+  if (customerId) {
+    where.customerId = customerId;
+  }
+
+  // Payment method filter
+  if (paymentMethod && ['CASH', 'CARD', 'TRANSFER', 'CREDIT'].includes(paymentMethod)) {
+    where.payments = { some: { method: paymentMethod as 'CASH' | 'CARD' | 'TRANSFER' | 'CREDIT' } };
+  }
+
+  // Text search (ticket ID or customer name)
+  if (search && search.trim()) {
+    const term = search.trim();
+    where.OR = [
+      { id: { startsWith: term.toLowerCase() } },
+      { invoiceNumber: { contains: term, mode: 'insensitive' } },
+      { customer: { name: { contains: term, mode: 'insensitive' } } },
+    ];
+  }
+
+  const [sales, total] = await Promise.all([
+    prisma.sale.findMany({
+      where,
+      include: {
+        user: { select: { id: true, name: true } },
+        customer: { select: { id: true, name: true } },
+        branch: { select: { id: true, name: true } },
+        items: { include: { product: { select: { name: true, sku: true } }, variant: { select: { name: true } } } },
+        payments: true,
+        returns: { select: { id: true, amount: true, createdAt: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: (page - 1) * limit,
+    }),
+    prisma.sale.count({ where }),
+  ]);
+
+  return NextResponse.json({
+    data: sales,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  });
 }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
-import bcrypt from 'bcryptjs';
+import { requirePermission } from '@/lib/tenant';
+import { hashPassword, validatePasswordStrength } from '@/lib/hashing';
 
 interface UserUpdateData extends Prisma.UserUpdateInput {
   branchAccess?: {
@@ -15,7 +15,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('users:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -57,7 +57,8 @@ export async function PUT(
     const dataToUpdate: UserUpdateData = {
       name: body.name,
       email: body.email,
-      role: body.role,
+      role: 'USER',
+      customRole: body.customRoleId ? { connect: { id: body.customRoleId } } : { disconnect: true },
       active: body.active,
       branch: body.branchId ? { connect: { id: body.branchId } } : { disconnect: true },
     };
@@ -70,7 +71,14 @@ export async function PUT(
     }
 
     if (body.password) {
-      dataToUpdate.password = await bcrypt.hash(body.password, 10);
+      const strength = validatePasswordStrength(body.password);
+      if (!strength.ok) {
+        return NextResponse.json(
+          { error: 'Contraseña débil', details: strength.errors },
+          { status: 400 },
+        );
+      }
+      dataToUpdate.password = await hashPassword(body.password);
     }
 
     const updated = await prisma.user.update({
@@ -81,6 +89,8 @@ export async function PUT(
         name: true,
         email: true,
         role: true,
+        customRoleId: true,
+        customRole: { select: { name: true } },
         active: true,
         branch: { select: { id: true, name: true } },
         branchAccess: { select: { branch: { select: { id: true, name: true } } } },
@@ -97,7 +107,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('users:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

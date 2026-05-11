@@ -32,6 +32,7 @@ function cartItemKey(productId: string, variantId?: string) {
 
 export default function StockTransfersPage() {
   const { data: session } = useSession();
+  const permissions = session?.user?.permissions ?? [];
   const [activeTab, setActiveTab] = useState<'NEW' | 'HISTORY'>('NEW');
 
   // New Transfer State
@@ -227,7 +228,11 @@ export default function StockTransfersPage() {
     : [];
 
   const role = session?.user?.role;
-  const isGlobalAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const canManageTransfers =
+    role === 'SUPER_ADMIN' ||
+    permissions.includes('settings:manage') ||
+    permissions.includes('inventory:transfer');
+  const isGlobalAdmin = role === 'SUPER_ADMIN' || permissions.includes('settings:manage');
 
   // Si no es admin global, pre-seleccionar y bloquear su origen
   useEffect(() => {
@@ -236,7 +241,7 @@ export default function StockTransfersPage() {
     }
   }, [isGlobalAdmin, branches, session?.user?.branchId]);
 
-  if (role !== 'ADMIN' && role !== 'SUPERVISOR' && role !== 'SUPER_ADMIN') {
+  if (!canManageTransfers) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-10 text-slate-500">
         <ArrowRightLeft className="w-12 h-12 mb-4 opacity-50" />

@@ -9,6 +9,7 @@ interface UserModalProps {
     name: string;
     email: string;
     role: string;
+    customRoleId?: string;
     active: boolean;
     branch?: { id: string; name: string } | null;
     branchAccess?: { branch: { id: string; name: string } }[];
@@ -27,6 +28,7 @@ interface UserPayload {
   name: string;
   email: string;
   role: string;
+  customRoleId: string;
   active: boolean;
   branchId: string | null;
   branchAccess: string[];
@@ -38,22 +40,33 @@ export function UserModal({ user, onClose, onSuccess }: UserModalProps) {
     name: user?.name || '',
     email: user?.email || '',
     password: '',
-    role: user?.role || 'CASHIER',
+    role: user?.role || 'USER',
+    customRoleId: user?.customRoleId || '',
     active: user?.active ?? true,
     branchId: user?.branch?.id || '',
     branchAccess: user?.branchAccess ? user.branchAccess.map(ba => ba.branch.id) : [] as string[],
   });
   
   const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [customRoles, setCustomRoles] = useState<{ id: string; name: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Fetch branches for assignment
   useEffect(() => {
+    // Fetch branches
     fetch('/api/branches')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setBranches(data);
+      })
+      .catch(console.error);
+
+    // Fetch custom roles
+    fetch('/api/settings/roles')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setCustomRoles(data);
       })
       .catch(console.error);
   }, []);
@@ -80,6 +93,7 @@ export function UserModal({ user, onClose, onSuccess }: UserModalProps) {
         name: formData.name,
         email: formData.email,
         role: formData.role,
+        customRoleId: formData.customRoleId,
         active: formData.active,
         branchId: formData.branchId || null,
         branchAccess: formData.branchAccess
@@ -173,11 +187,15 @@ export function UserModal({ user, onClose, onSuccess }: UserModalProps) {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Rol en el Sistema *</label>
-                  <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full px-3 py-2 border border-slate-200 bg-slate-50 text-slate-800 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none font-medium">
-                    <option value="CASHIER">Cajero (Operador)</option>
-                    <option value="SUPERVISOR">Supervisor</option>
-                    <option value="ADMIN">Administrador</option>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Rol / Puesto *</label>
+                  <select 
+                    required
+                    value={formData.customRoleId} 
+                    onChange={e => setFormData({...formData, customRoleId: e.target.value})} 
+                    className="w-full px-3 py-2 border border-slate-200 bg-slate-50 text-slate-800 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none font-medium"
+                  >
+                    <option value="">Selecciona rol...</option>
+                    {customRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>
                 </div>
 

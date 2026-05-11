@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
-import bcrypt from 'bcryptjs';
+import { requirePermission } from '@/lib/tenant';
+import { hashPassword, PASSWORD_MIN_LENGTH } from '@/lib/hashing';
 import { z } from 'zod';
 
 const CreateUserSchema = z.object({
-  name: z.string().min(2, 'Name is required'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password min 6 characters'),
-  role: z.enum(['ADMIN', 'SUPERVISOR', 'CASHIER']),
+  name: z.string().trim().min(2, 'Nombre requerido'),
+  email: z.string().trim().toLowerCase().email('Email inválido'),
+  password: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres`)
+    .regex(/[a-z]/, 'Debe incluir al menos una minúscula')
+    .regex(/[A-Z]/, 'Debe incluir al menos una mayúscula')
+    .regex(/[0-9]/, 'Debe incluir al menos un dígito')
+    .regex(/[^A-Za-z0-9]/, 'Debe incluir al menos un símbolo'),
+  customRoleId: z.string().uuid('Rol requerido'),
   branchId: z.string().uuid().optional().nullable(),
   branchAccess: z.array(z.string().uuid()).optional(),
 });
 
 export async function GET(req: NextRequest) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('users:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -26,6 +32,7 @@ export async function GET(req: NextRequest) {
         name: true,
         email: true,
         role: true,
+        customRole: { select: { name: true } },
         active: true,
         createdAt: true,
         branch: { select: { id: true, name: true } },
@@ -40,7 +47,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('users:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -97,7 +104,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
+    const hashedPassword = await hashPassword(parsed.data.password);
 
     const newUser = await prisma.user.create({
       data: {
@@ -106,7 +113,8 @@ export async function POST(req: NextRequest) {
         name: parsed.data.name,
         email: parsed.data.email,
         password: hashedPassword,
-        role: parsed.data.role,
+        role: 'USER',
+        customRoleId: parsed.data.customRoleId,
         branchAccess: parsed.data.branchAccess?.length ? {
           create: parsed.data.branchAccess.map(id => ({ branchId: id }))
         } : undefined

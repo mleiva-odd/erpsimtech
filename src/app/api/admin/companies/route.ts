@@ -1,25 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
-import bcrypt from 'bcryptjs';
+import { requirePermission } from '@/lib/tenant';
+import { hashPassword, validatePasswordStrength } from '@/lib/hashing';
+import { PLANS, type PlanId } from '@/lib/plans';
 
+/**
+ * Calcula valores por defecto del Subscription a partir del catálogo
+ * canónico en `src/lib/plans.ts`. Usa precio FOUNDER por default
+ * (mientras estamos en fase 1 de Tecpán); cuando hagamos billing real
+ * se decide founder vs regular según `founderCapacity` restante.
+ */
 function getPlanDefaults(plan: string) {
-  switch (plan) {
-    case 'basic':
-      return { status: 'ACTIVE' as const, maxBranches: 1, maxUsersPerBranch: 3, price: 0 };
-    case 'professional':
-      return { status: 'ACTIVE' as const, maxBranches: 3, maxUsersPerBranch: 5, price: 0 };
-    case 'enterprise':
-      return { status: 'ACTIVE' as const, maxBranches: 10, maxUsersPerBranch: 15, price: 0 };
-    case 'trial':
-    default:
-      return { status: 'TRIAL' as const, maxBranches: 2, maxUsersPerBranch: 3, price: 0 };
-  }
+  const known: PlanId[] = ['trial', 'negocio', 'comercial', 'enterprise'];
+  const planId = (known.includes(plan as PlanId) ? plan : 'trial') as PlanId;
+  const def = PLANS[planId];
+
+  // Sucursales: -1 = ilimitado en el catálogo. En Subscription guardamos
+  // un número finito grande para compat con UI que asume número.
+  const maxBranches = def.quotas.branches === -1 ? 999 : def.quotas.branches;
+  // Usuarios totales del plan / sucursales = "usuarios por sucursal" (legacy field).
+  const totalUsers = def.quotas.users === -1 ? 999 : def.quotas.users;
+  const maxUsersPerBranch = Math.max(1, Math.ceil(totalUsers / Math.max(1, maxBranches)));
+
+  // Precio mensual founder por default. Si el plan no tiene precio
+  // (Empresarial = cotización), guardamos 0 y se ajusta al firmar contrato.
+  const price = def.pricing ? def.pricing.founderMonthly : 0;
+
+  return {
+    status: planId === 'trial' ? ('TRIAL' as const) : ('ACTIVE' as const),
+    maxBranches,
+    maxUsersPerBranch,
+    price,
+  };
 }
 
 // Super Admin: List all companies
 export async function GET(req: NextRequest) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   try {
@@ -30,7 +47,7 @@ export async function GET(req: NextRequest) {
           select: { plan: true, status: true, currentPeriodEnd: true, maxBranches: true, maxUsersPerBranch: true, price: true },
         },
         users: {
-          where: { role: 'ADMIN' },
+          where: { customRole: { name: 'Administrador' } },
           orderBy: { createdAt: 'asc' },
           take: 1,
           select: { id: true, name: true, email: true },
@@ -46,7 +63,7 @@ export async function GET(req: NextRequest) {
 
 // Super Admin: Create a new company
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   try {
@@ -57,16 +74,25 @@ export async function POST(req: NextRequest) {
 
     // Validación estricta de campos obligatorios
     if (!name || !slug || !email || !adminName || !adminEmail || !adminPassword) {
-      return NextResponse.json({ 
-        error: 'Los datos de la empresa y del administrador son obligatorios' 
+      return NextResponse.json({
+        error: 'Los datos de la empresa y del administrador son obligatorios'
       }, { status: 400 });
+    }
+
+    // Política de contraseña centralizada (12+ chars, complejidad).
+    const strength = validatePasswordStrength(adminPassword);
+    if (!strength.ok) {
+      return NextResponse.json(
+        { error: 'Contraseña de admin débil', details: strength.errors },
+        { status: 400 },
+      );
     }
 
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + 30);
 
-    // 1. Hash the password
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    // 1. Hash the password (rounds centralizados en lib/hashing).
+    const hashedPassword = await hashPassword(adminPassword);
 
     // 2. Create company ecosystem (Transaction)
     const company = await prisma.$transaction(async (tx) => {
@@ -112,14 +138,35 @@ export async function POST(req: NextRequest) {
       // 3. Create the Administrator User with their own access email
       const mainBranchId = newCompany.branches[0].id;
 
+      // Create or get the Administrador CustomRole for this company
+      const adminRole = await tx.customRole.create({
+        data: {
+          companyId: newCompany.id,
+          name: 'Administrador',
+          description: 'Administrador de la empresa con acceso total',
+          permissions: [
+            'pos:access', 'pos:discount', 'sales:view', 'sales:void',
+            'inventory:view', 'inventory:adjust', 'inventory:transfer',
+            'purchases:view', 'purchases:create',
+            'treasury:view', 'treasury:manage',
+            'reports:view', 'reports:export',
+            'customers:view', 'customers:manage',
+            'suppliers:view', 'suppliers:manage',
+            'settings:manage', 'users:manage',
+            'hr:manage', 'payroll:manage',
+          ],
+        },
+      });
+
       await tx.user.create({
         data: {
           name: adminName,
-          email: adminEmail, // Correo de ACCESO del administrador
+          email: adminEmail,
           password: hashedPassword,
-          role: 'ADMIN',
+          role: 'USER',
           companyId: newCompany.id,
           branchId: mainBranchId,
+          customRoleId: adminRole.id,
         }
       });
 

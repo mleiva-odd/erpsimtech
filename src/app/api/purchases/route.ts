@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
+import { createAccountingEntryAsync } from '@/lib/accounting';
+import { handleApiError } from '@/lib/api-error';
 
-function isPositiveNumber(value: unknown) {
-  return Number.isFinite(Number(value)) && Number(value) > 0;
-}
+const PurchaseItemSchema = z.object({
+  productId: z.string().uuid('productId inválido'),
+  variantId: z.string().uuid().optional().nullable(),
+  quantity: z.coerce.number().positive('quantity debe ser positiva'),
+  cost: z.coerce.number().positive('cost debe ser positivo'),
+});
 
-interface PurchaseItemInput {
-  productId: string;
-  variantId?: string | null;
-  quantity: number;
-  cost: number;
-}
+const CreatePurchaseSchema = z.object({
+  supplierId: z.string().uuid('supplierId requerido'),
+  reference: z.string().trim().max(120).optional().nullable(),
+  items: z.array(PurchaseItemSchema).min(1, 'La compra debe tener al menos un ítem'),
+});
+
+type PurchaseItemInput = z.infer<typeof PurchaseItemSchema>;
 
 export async function GET(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requireAnyPermission(['purchases:view', 'purchases:create', 'settings:manage']);
   if ('error' in result) return result.error;
   
   // Get recent purchases for the tenant's branch
@@ -38,25 +44,14 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requireOperationalPermission(['purchases:create', 'settings:manage']);
   if ('error' in result) return result.error;
 
-  const body = await req.json();
-  const { supplierId, reference, items } = body;
-
-  if (!supplierId || !items || !items.length) {
-    return NextResponse.json({ error: 'Faltan datos logísticos (proveedor o items).' }, { status: 400 });
-  }
-
-  const purchaseItems = items as PurchaseItemInput[];
-
-  for (const item of purchaseItems) {
-    if (!item?.productId || !isPositiveNumber(item.quantity) || !isPositiveNumber(item.cost)) {
-      return NextResponse.json({ error: 'Cada línea de compra debe tener producto, cantidad y costo válidos.' }, { status: 400 });
-    }
-  }
-
   try {
+    const body = await req.json().catch(() => ({}));
+    const parsed = CreatePurchaseSchema.parse(body);
+    const { supplierId, reference } = parsed;
+    const purchaseItems: PurchaseItemInput[] = parsed.items;
     const supplier = await prisma.supplier.findFirst({
       where: { id: supplierId, companyId: result.tenant.companyId, active: true },
       select: { id: true },
@@ -144,7 +139,7 @@ export async function POST(req: NextRequest) {
         
         if (item.variantId) {
            existingStock = await tx.productStock.findFirst({
-             where: { variantId: item.variantId, branchId }
+             where: { productId: item.productId, variantId: item.variantId, branchId }
            });
         } else {
            existingStock = await tx.productStock.findFirst({
@@ -169,7 +164,10 @@ export async function POST(req: NextRequest) {
            });
         }
 
-        // Persist the latest acquisition cost on the concrete SKU that was received.
+        // 3. Persist the latest acquisition cost on the concrete SKU that was received.
+        // productVariant no tiene companyId directo (lo hereda via productId, que ya
+        // fue validado más arriba en el bloque de validación de productos).
+        // Para Product agregamos companyId al where como defense in depth.
         if (item.variantId) {
           await tx.productVariant.update({
             where: { id: item.variantId },
@@ -177,21 +175,47 @@ export async function POST(req: NextRequest) {
           });
         } else {
           await tx.product.update({
-            where: { id: item.productId },
+            where: { id: item.productId, companyId: result.tenant.companyId },
             data: { cost: item.unitCost }
           });
         }
       }
 
+      // 4. Create Supplier Payable (Debt)
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30); // Default 30 net days
+
+      await tx.supplierPayable.create({
+        data: {
+          companyId: result.tenant.companyId,
+          supplierId,
+          purchaseId: po.id,
+          userId: result.tenant.userId,
+          description: `Compra Ref: ${reference || po.id.split('-')[0]}`,
+          totalAmount: totalAmount,
+          paidAmount: 0,
+          status: 'PENDING',
+          dueDate: dueDate,
+        }
+      });
+
       return po;
+    });
+    // Automatic accounting entry for purchase expense
+    await createAccountingEntryAsync(prisma, {
+      companyId: result.tenant.companyId,
+      branchId: branchId || undefined,
+      type: 'EXPENSE',
+      categoryName: 'Compras de Inventario',
+      description: `Compra a proveedor ${reference ? `(Ref: ${reference})` : ''} — ${purchaseItems.length} producto(s)`,
+      amount: totalAmount,
+      referenceType: 'PURCHASE',
+      referenceId: purchase.id,
+      userId: result.tenant.userId,
     });
 
     return NextResponse.json(purchase, { status: 201 });
-  } catch (error: unknown) {
-    console.error(error);
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      return NextResponse.json({ error: 'Error de persistencia procesando el ingreso a bodega' }, { status: 500 });
-    }
-    return NextResponse.json({ error: 'Error sistémico procesando el ingreso a bodega' }, { status: 500 });
+  } catch (error) {
+    return handleApiError(error, '/api/purchases POST');
   }
 }

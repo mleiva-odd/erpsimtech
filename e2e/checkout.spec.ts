@@ -1,18 +1,22 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Flujo Crítico de Ventas POS (E2E) - Prevención de Doble Cobro', () => {
+  const loginEmail = process.env.E2E_LOGIN_EMAIL;
+  const loginPassword = process.env.E2E_LOGIN_PASSWORD;
 
   // Autenticación precondición (suponiendo entorno base con db seed):
   // Se requiere tener el servidor Next.js corriendo en el puerto 3000.
   // Nota: Estas pruebas corren sobre datos predecibles.
 
   test('Validar que el login y el checkout NO permitan dobles peticiones simultáneas', async ({ page }) => {
+    test.skip(!loginEmail || !loginPassword, 'Define E2E_LOGIN_EMAIL y E2E_LOGIN_PASSWORD para ejecutar esta prueba.');
+
     // 1. Acceder al inicio de sesión
     await page.goto('/login');
     
-    // Iniciar como un admin existente de la DB demo (creado por el seed.ts)
-    await page.fill('input[type="email"]', 'admin@tiendademo.com');
-    await page.fill('input[type="password"]', 'admin123');
+    // Iniciar como un usuario real del entorno de pruebas
+    await page.fill('input[type="email"]', loginEmail!);
+    await page.fill('input[type="password"]', loginPassword!);
     await page.click('button[type="submit"]');
 
     // 2. Comprobar que redirigió al panel general

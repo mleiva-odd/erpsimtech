@@ -6,6 +6,10 @@ import { requireEnv } from '@/lib/env';
 const PUBLIC_PATHS = ['/login', '/api/auth', '/_next', '/favicon.ico', '/logo.png'];
 const nextAuthSecret = requireEnv('NEXTAUTH_SECRET');
 
+function hasAnyPermission(permissions: string[], allowed: string[]) {
+  return permissions.includes('admin:all') || allowed.some((permission) => permissions.includes(permission));
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -30,30 +34,36 @@ export async function proxy(request: NextRequest) {
   }
 
   const role = token.role as string;
+  const permissions = (token.permissions as string[]) || [];
 
+  // SUPER_ADMIN bypasses all route checks
   if (role === 'SUPER_ADMIN') {
     return NextResponse.next();
   }
 
+  // Admin-only paths (Super Admin platform management)
   const adminPaths = ['/admin', '/onboarding', '/api/onboarding'];
   if (adminPaths.some((path) => pathname.startsWith(path))) {
-    if (role !== 'SUPER_ADMIN') {
-      return NextResponse.redirect(new URL('/apps', request.url));
-    }
+    return NextResponse.redirect(new URL('/apps', request.url));
   }
 
-  const companyPaths = ['/branches', '/users', '/settings', '/audit'];
-  if (companyPaths.some((path) => pathname.startsWith(path))) {
-    if (role !== 'ADMIN') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-  }
+  const routePermissions: Array<{ paths: string[]; permissions: string[]; fallback: string }> = [
+    { paths: ['/branches', '/settings', '/audit'], permissions: ['settings:manage'], fallback: '/dashboard' },
+    { paths: ['/users'], permissions: ['users:manage', 'settings:manage'], fallback: '/dashboard' },
+    { paths: ['/accounting'], permissions: ['treasury:view', 'treasury:manage'], fallback: '/dashboard' },
+    { paths: ['/stock-transfers'], permissions: ['inventory:transfer', 'settings:manage'], fallback: '/dashboard' },
+    { paths: ['/inventory'], permissions: ['inventory:view', 'settings:manage'], fallback: '/dashboard' },
+    { paths: ['/purchases'], permissions: ['purchases:view', 'purchases:create', 'settings:manage'], fallback: '/dashboard' },
+    { paths: ['/suppliers'], permissions: ['suppliers:view', 'suppliers:manage', 'settings:manage'], fallback: '/dashboard' },
+    { paths: ['/reports', '/dashboard'], permissions: ['reports:view'], fallback: '/pos' },
+    { paths: ['/sales'], permissions: ['sales:view', 'reports:view'], fallback: '/pos' },
+    { paths: ['/customers'], permissions: ['customers:view', 'customers:manage', 'pos:access'], fallback: '/pos' },
+    { paths: ['/hr'], permissions: ['hr:manage', 'payroll:manage', 'settings:manage'], fallback: '/dashboard' },
+  ];
 
-  const operationsPaths = ['/stock-transfers', '/inventory', '/purchases', '/suppliers', '/reports', '/dashboard'];
-  if (operationsPaths.some((path) => pathname.startsWith(path))) {
-    if (role !== 'ADMIN' && role !== 'SUPERVISOR') {
-      return NextResponse.redirect(new URL('/pos', request.url));
-    }
+  const rule = routePermissions.find(({ paths }) => paths.some((path) => pathname.startsWith(path)));
+  if (rule && !hasAnyPermission(permissions, rule.permissions)) {
+    return NextResponse.redirect(new URL(rule.fallback, request.url));
   }
 
   return NextResponse.next();

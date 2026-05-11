@@ -10,23 +10,28 @@
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
 2. Confirma backup reciente de la base.
-3. Revisa si el cambio toca esquema.
-4. Si toca esquema, aplica primero el SQL manual correspondiente:
+3. Si la base objetivo está vacía, crea la estructura base con `npm run prisma:push`.
+4. Si la base objetivo está vacía, crea el primer `SUPER_ADMIN` con `npm run bootstrap:superadmin`.
+5. Revisa si el cambio toca esquema.
+6. Si toca esquema, aplica primero el SQL manual correspondiente:
    - `prisma/manual_migrations/20260415_sales_idempotency_and_returns.sql`
    - `prisma/manual_migrations/20260415_account_payment_cash_register.sql`
    - `prisma/manual_migrations/20260415_sale_item_unit_cost.sql`
-5. Valida localmente:
+   - `prisma/manual_migrations/20260417_company_settings_alignment.sql`
+7. Valida localmente:
    - `npm run prisma:validate`
    - `npm run check:preprod`
 
 ## Orden correcto
 
 1. Backup DB.
-2. Aplicar SQL manual en la base objetivo.
-3. Verificar columnas/tablas nuevas.
-4. Desplegar código.
-5. Esperar deploy exitoso.
-6. Ejecutar humo funcional.
+2. Si la base está vacía, ejecutar `npm run prisma:push`.
+3. Si la base está vacía, ejecutar `npm run bootstrap:superadmin`.
+4. Aplicar SQL manual en la base objetivo.
+5. Verificar columnas/tablas nuevas.
+6. Desplegar código.
+7. Esperar deploy exitoso.
+8. Ejecutar humo funcional.
 
 ## Humo funcional post-deploy
 

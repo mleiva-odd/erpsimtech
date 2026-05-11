@@ -1,29 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createAuditLog } from '@/lib/audit';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
+import { hashPassword, PASSWORD_MIN_LENGTH } from '@/lib/hashing';
 
 const OnboardingSchema = z.object({
   // Company info
-  companyName: z.string().min(2, 'Nombre de empresa requerido'),
-  companySlug: z.string().min(2).regex(/^[a-z0-9-]+$/, 'Solo letras minúsculas, números y guiones'),
-  companyEmail: z.string().email('Email inválido'),
+  companyName: z.string().trim().min(2, 'Nombre de empresa requerido'),
+  companySlug: z
+    .string()
+    .trim()
+    .min(2)
+    .regex(/^[a-z0-9-]+$/, 'Solo letras minúsculas, números y guiones'),
+  companyEmail: z.string().trim().toLowerCase().email('Email inválido'),
   companyPhone: z.string().optional().or(z.literal('')),
   companyNit: z.string().optional().or(z.literal('')),
   // Admin user
-  adminName: z.string().min(2, 'Nombre del administrador requerido'),
-  adminEmail: z.string().email('Email del admin inválido'),
-  adminPassword: z.string().min(6, 'Mínimo 6 caracteres'),
+  adminName: z.string().trim().min(2, 'Nombre del administrador requerido'),
+  adminEmail: z.string().trim().toLowerCase().email('Email del admin inválido'),
+  adminPassword: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, `Mínimo ${PASSWORD_MIN_LENGTH} caracteres`)
+    .regex(/[a-z]/, 'Debe incluir al menos una minúscula')
+    .regex(/[A-Z]/, 'Debe incluir al menos una mayúscula')
+    .regex(/[0-9]/, 'Debe incluir al menos un dígito')
+    .regex(/[^A-Za-z0-9]/, 'Debe incluir al menos un símbolo'),
   // First branch
-  branchName: z.string().min(2, 'Nombre de sucursal requerido').default('Sucursal Central'),
-  branchCode: z.string().min(2).default('SUC-01'),
+  branchName: z.string().trim().min(2, 'Nombre de sucursal requerido').default('Sucursal Central'),
+  branchCode: z.string().trim().min(2).default('SUC-01'),
   branchAddress: z.string().optional().or(z.literal('')),
 });
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   try {
@@ -55,8 +65,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ya existe un usuario con ese correo electrónico' }, { status: 409 });
     }
 
-    // Hash admin password
-    const hashedPassword = await bcrypt.hash(data.adminPassword, 12);
+    // Hash admin password (rounds centralizados en lib/hashing)
+    const hashedPassword = await hashPassword(data.adminPassword);
 
     // Trial period: 30 days
     const trialEnd = new Date();
@@ -91,10 +101,13 @@ export async function POST(req: NextRequest) {
           },
           subscription: {
             create: {
+              // Trial inicial — al expirar el cliente debe elegir Negocio o Comercial
+              // según su tamaño. Cuotas matchean PLANS.trial en src/lib/plans.ts.
               plan: 'trial',
               status: 'TRIAL',
               maxBranches: 2,
               maxUsersPerBranch: 3,
+              price: 0,
               currentPeriodStart: new Date(),
               currentPeriodEnd: trialEnd,
               trialEndsAt: trialEnd,
@@ -104,24 +117,44 @@ export async function POST(req: NextRequest) {
         include: { branches: true },
       });
 
-      // 2. Create admin user assigned to main branch
+      // 2. Create Administrador CustomRole and admin user
       const mainBranch = newCompany.branches[0];
+      const adminRole = await tx.customRole.create({
+        data: {
+          companyId: newCompany.id,
+          name: 'Administrador',
+          description: 'Administrador de la empresa con acceso total',
+          permissions: [
+            'pos:access', 'pos:discount', 'sales:view', 'sales:void',
+            'inventory:view', 'inventory:adjust', 'inventory:transfer',
+            'purchases:view', 'purchases:create',
+            'treasury:view', 'treasury:manage',
+            'reports:view', 'reports:export',
+            'customers:view', 'customers:manage',
+            'suppliers:view', 'suppliers:manage',
+            'settings:manage', 'users:manage',
+            'hr:manage', 'payroll:manage',
+          ],
+        },
+      });
+
       await tx.user.create({
         data: {
           name: data.adminName,
           email: data.adminEmail,
           password: hashedPassword,
-          role: 'ADMIN',
+          role: 'USER',
           companyId: newCompany.id,
           branchId: mainBranch.id,
+          customRoleId: adminRole.id,
         },
       });
 
       return newCompany;
     });
 
-    // Audit log (fire and forget)
-    createAuditLog({
+    // Audit log — esperamos para garantizar persistencia antes de cerrar la lambda.
+    await createAuditLog({
       companyId: company.id,
       userId: 'system',
       action: 'COMPANY_CREATED',

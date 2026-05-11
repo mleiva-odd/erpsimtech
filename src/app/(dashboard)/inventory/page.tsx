@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Package, Search, Plus, Edit2, ShieldAlert, FileSpreadsheet, Printer, Layers } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -30,6 +31,7 @@ interface ProductData {
 }
 
 export default function InventoryPage() {
+  const { data: session } = useSession();
   const [products, setProducts] = useState<ProductData[]>([]);
   const [query, setQuery] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
@@ -44,6 +46,8 @@ export default function InventoryPage() {
 
   const debouncedQuery = useDebounce(query, 500);
   const { selectedBranchId } = useBranchStore();
+  const permissions = session?.user?.permissions ?? [];
+  const canManageCatalog = session?.user?.role === 'SUPER_ADMIN' || permissions.includes('settings:manage');
 
   useEffect(() => {
     let active = true;
@@ -88,6 +92,7 @@ export default function InventoryPage() {
   };
 
   const handleEdit = (product: ProductData) => {
+    if (!canManageCatalog) return;
     setSelectedProduct(product);
     if (product.isBundle) {
        setIsBundleModalOpen(true);
@@ -102,6 +107,7 @@ export default function InventoryPage() {
   };
 
   const handleNew = () => {
+    if (!canManageCatalog) return;
     setSelectedProduct(null);
     setIsModalOpen(true);
   };
@@ -123,28 +129,32 @@ export default function InventoryPage() {
           <p className="text-[13px] text-slate-500 font-medium mt-1">Gestión integral del catálogo de productos y existencias</p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setIsImportModalOpen(true)}
-            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Carga Masiva
-          </button>
-          <button 
-            onClick={() => setIsCategoryModalOpen(true)}
-            className="bg-white border text-slate-600 border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Categoría
-          </button>
-          <button onClick={() => { setSelectedProduct(null); setIsBundleModalOpen(true); }} className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 active:scale-95">
-            <Layers className="w-4 h-4 text-slate-400" />
-            Nuevo Combo
-          </button>
-          <button onClick={handleNew} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-xl shadow-blue-500/10 transition-all flex items-center gap-2 active:scale-95">
-            <Plus className="w-4 h-4" />
-            Nuevo Producto
-          </button>
+          {canManageCatalog && (
+            <>
+              <button 
+                onClick={() => setIsImportModalOpen(true)}
+                className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Carga Masiva
+              </button>
+              <button 
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="bg-white border text-slate-600 border-slate-200 hover:bg-slate-50 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Categoría
+              </button>
+              <button onClick={() => { setSelectedProduct(null); setIsBundleModalOpen(true); }} className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 active:scale-95">
+                <Layers className="w-4 h-4 text-slate-400" />
+                Nuevo Combo
+              </button>
+              <button onClick={handleNew} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-xl shadow-blue-500/10 transition-all flex items-center gap-2 active:scale-95">
+                <Plus className="w-4 h-4" />
+                Nuevo Producto
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -229,9 +239,11 @@ export default function InventoryPage() {
                            <button onClick={() => handlePrintBarcode(product)} title="Etiqueta" className="p-3 bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-2xl transition-all shadow-sm hover:shadow-xl hover:shadow-slate-900/10 active:scale-90">
                              <Printer className="w-4 h-4" />
                            </button>
-                           <button onClick={() => handleEdit(product)} title="Configuración" className="p-3 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-sm hover:shadow-xl hover:shadow-blue-500/10 active:scale-90">
-                             <Edit2 className="w-4 h-4" />
-                           </button>
+                           {canManageCatalog && (
+                             <button onClick={() => handleEdit(product)} title="Configuración" className="p-3 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-sm hover:shadow-xl hover:shadow-blue-500/10 active:scale-90">
+                               <Edit2 className="w-4 h-4" />
+                             </button>
+                           )}
                         </div>
                       </td>
                     </tr>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma, UnitOfMeasure } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 
 interface ImportedProductRow {
   name?: string;
@@ -58,7 +58,7 @@ async function upsertBaseStock(tx: Prisma.TransactionClient, input: {
 }
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

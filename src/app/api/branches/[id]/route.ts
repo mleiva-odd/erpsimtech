@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -30,7 +30,7 @@ export async function PUT(
     }
 
     const updated = await prisma.branch.update({
-      where: { id: resolvedParams.id },
+      where: { id: resolvedParams.id, companyId: tenant.companyId },
       data: {
         name: body.name,
         code: body.code,
@@ -55,7 +55,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -73,18 +73,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'No puedes eliminar la sucursal principal' }, { status: 400 });
     }
 
-    // Check for active sales/registers
-    const activeSales = await prisma.sale.count({ where: { branchId: resolvedParams.id } });
+    // Check for active sales/registers (filtrado por companyId también)
+    const activeSales = await prisma.sale.count({
+      where: { branchId: resolvedParams.id, companyId: tenant.companyId },
+    });
     if (activeSales > 0) {
       // Soft delete - deactivate
       await prisma.branch.update({
-        where: { id: resolvedParams.id },
+        where: { id: resolvedParams.id, companyId: tenant.companyId },
         data: { active: false },
       });
       return NextResponse.json({ message: 'Sucursal desactivada (tiene ventas asociadas)' });
     }
 
-    await prisma.branch.delete({ where: { id: resolvedParams.id } });
+    await prisma.branch.delete({
+      where: { id: resolvedParams.id, companyId: tenant.companyId },
+    });
     return NextResponse.json({ message: 'Sucursal eliminada' });
   } catch (error) {
     return NextResponse.json({ error: 'Error al eliminar sucursal' }, { status: 500 });

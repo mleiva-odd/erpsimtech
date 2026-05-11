@@ -21,6 +21,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import Link from 'next/link';
 import Image from 'next/image';
 import { getWhatsAppUrl } from "@/lib/utils";
+import { PLANS, formatGtq } from "@/lib/plans";
 
 function CheckIcon({ className }: { className?: string }) {
   return <Check className={className} />;
@@ -74,8 +75,8 @@ export default function Home() {
               transition={{ delay: 0.4, duration: 0.8 }}
               className="text-6xl lg:text-7xl mb-6 text-white"
             >
-              Sistema ERP & POS
-              <span className="block text-blue-400 mt-2">Para Tu Negocio</span>
+              Sistema ERP completo
+              <span className="block text-blue-400 mt-2">para tu negocio</span>
             </motion.h1>
 
             <motion.p
@@ -109,7 +110,7 @@ export default function Home() {
                 className="bg-white/10 hover:bg-white/20 text-white border-white/30 px-8 py-6 text-lg backdrop-blur-sm w-full sm:w-auto"
               >
                 <a 
-                  href={getWhatsAppUrl("Hola, me gustaría solicitar una demo de SIMTECH POS.")}
+                  href={getWhatsAppUrl("Hola, me gustaría solicitar una demo de SIMTECH ERP.")}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -365,10 +366,12 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl lg:text-5xl mb-4 text-slate-900">
-              Inversión Inteligente
+              Planes claros, sin letra chica
             </h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Planes flexibles que se adaptan a tu ritmo de crecimiento.
+              Elegí el plan que se ajusta al tamaño de tu negocio. La
+              implementación y la facturación electrónica se cotizan según
+              el volumen y se pagan por separado.
             </p>
           </motion.div>
 
@@ -384,47 +387,72 @@ export default function Home() {
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-                    <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm">
-                      Más Popular
+                    <span className="bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-semibold tracking-wide shadow-lg">
+                      Recomendado
                     </span>
                   </div>
                 )}
                 <div
                   className={`p-8 rounded-2xl h-full flex flex-col ${plan.popular
-                    ? "bg-blue-600 text-white shadow-2xl scale-105"
+                    ? "bg-blue-600 text-white shadow-2xl lg:scale-105"
                     : "bg-slate-50 text-slate-900 border border-slate-200"
                     }`}
                 >
-                  <h3 className="text-2xl mb-2">{plan.name}</h3>
-                  <div className="mb-6">
-                    <span className="text-4xl">{plan.price}</span>
-                  </div>
-                  <p className={`mb-6 ${plan.popular ? "text-blue-100" : "text-slate-600"}`}>
+                  <h3 className="text-2xl font-semibold mb-1">{plan.name}</h3>
+                  <p className={`text-sm mb-6 min-h-[40px] ${plan.popular ? "text-blue-100" : "text-slate-600"}`}>
                     {plan.description}
                   </p>
+
+                  <div className="mb-6 min-h-[80px]">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-4xl font-bold tracking-tight">{plan.priceMain}</span>
+                      {plan.priceUnit && (
+                        <span className={`text-base ${plan.popular ? "text-blue-100" : "text-slate-500"}`}>
+                          {plan.priceUnit}
+                        </span>
+                      )}
+                    </div>
+                    {plan.priceLabel && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <span
+                          className={`text-xs font-medium uppercase tracking-wide ${plan.popular ? "text-blue-100" : "text-blue-700"}`}
+                        >
+                          {plan.priceLabel}
+                        </span>
+                        {plan.priceStrike && (
+                          <span
+                            className={`text-xs line-through ${plan.popular ? "text-blue-200" : "text-slate-400"}`}
+                          >
+                            {plan.priceStrike}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <ul className="space-y-3 mb-8 flex-grow">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-3">
                         <CheckIcon
-                          className={`h-5 w-5 flex-shrink-0 mt-0.5 ${plan.popular ? "text-blue-200" : "text-blue-600"
-                            }`}
+                          className={`h-5 w-5 flex-shrink-0 mt-0.5 ${plan.popular ? "text-blue-200" : "text-blue-600"}`}
                         />
-                        <span className={plan.popular ? "text-blue-50" : "text-slate-700"}>
+                        <span className={`text-sm ${plan.popular ? "text-blue-50" : "text-slate-700"}`}>
                           {feature}
                         </span>
                       </li>
                     ))}
                   </ul>
+
                   <Button
                     asChild
                     size="lg"
-                    className={`w-full mt-4 ${plan.popular
+                    className={`w-full mt-2 ${plan.popular
                       ? "bg-white hover:bg-blue-50 text-blue-600"
                       : "bg-blue-600 hover:bg-blue-700 text-white"
                       }`}
                   >
-                    <a 
-                      href={getWhatsAppUrl(`Hola, me interesa solicitar una cotización para el Plan ${plan.name} de SIMTECH POS.`)}
+                    <a
+                      href={getWhatsAppUrl(`Hola, me interesa el Plan ${plan.name} de SIMTECH ERP.`)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -497,7 +525,7 @@ export default function Home() {
                 className="bg-transparent hover:bg-white/10 text-white border-white/50 px-8 py-6 text-lg w-full sm:w-auto"
               >
                 <a 
-                  href={getWhatsAppUrl("Hola, me gustaría contactar con el equipo de ventas de SIMTECH POS.")}
+                  href={getWhatsAppUrl("Hola, me gustaría contactar con el equipo de ventas de SIMTECH ERP.")}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -683,50 +711,82 @@ const testimonials = [
   },
 ];
 
-const pricingPlans = [
+/**
+ * Planes mostrados en la landing. Se construyen a partir del catálogo
+ * canónico en `src/lib/plans.ts` para que un cambio de precio en un solo
+ * lugar se refleje aquí automáticamente.
+ */
+type LandingPlan = {
+  name: string;
+  priceMain: string;
+  priceUnit?: string;
+  priceStrike?: string;
+  priceLabel?: string;
+  description: string;
+  features: string[];
+  cta: string;
+  popular: boolean;
+  requiresQuote: boolean;
+};
+
+const pricingPlans: LandingPlan[] = [
   {
-    name: "Básico",
-    price: "Consultar",
-    description: "Perfecto para emprendedores y negocios pequeños",
+    name: PLANS.negocio.name,
+    priceMain: PLANS.negocio.pricing ? formatGtq(PLANS.negocio.pricing.founderMonthly) : "Consultar",
+    priceUnit: "/mes",
+    priceStrike: PLANS.negocio.pricing ? `${formatGtq(PLANS.negocio.pricing.regularMonthly)} normal` : undefined,
+    priceLabel: "Tarifa de lanzamiento",
+    description:
+      "ERP completo para un local. POS, inventario, ventas, tesorería, contabilidad y planilla básica.",
     features: [
-      "1 Punto de Venta",
-      "Gestión de Inventario",
-      "Facturación Electrónica",
-      "Reportes Básicos",
-      "Soporte Local",
+      "1 sucursal · 1 usuario",
+      "Hasta 2.000 productos",
+      "Hasta 3.000 ventas / mes",
+      "Tesorería y contabilidad operativa",
+      "Planilla GT básica (hasta 5 empleados)",
+      "Soporte por WhatsApp",
     ],
-    cta: "Solicitar Cotización",
-    popular: false,
-  },
-  {
-    name: "Profesional",
-    price: "Consultar",
-    description: "Ideal para negocios en crecimiento y multi-bodega",
-    features: [
-      "Puntos de Venta Ilimitados",
-      "Multi-bodega y Traslados",
-      "Reportes Avanzados",
-      "Modo Offline",
-      "Soporte Prioritario",
-      "App Web Responsiva",
-    ],
-    cta: "Solicitar Cotización",
+    cta: "Solicitar Información",
     popular: true,
+    requiresQuote: false,
   },
   {
-    name: "Empresarial",
-    price: "Consultar",
-    description: "Para cadenas de tiendas y operaciones complejas",
+    name: PLANS.comercial.name,
+    priceMain: PLANS.comercial.pricing ? formatGtq(PLANS.comercial.pricing.founderMonthly) : "Consultar",
+    priceUnit: "/mes",
+    priceStrike: PLANS.comercial.pricing ? `${formatGtq(PLANS.comercial.pricing.regularMonthly)} normal` : undefined,
+    priceLabel: "Tarifa de lanzamiento",
+    description:
+      "Para comercios que crecen. Multi-sucursal, multi-banco y planilla completa GT-compliant.",
     features: [
-      "Multi-sucursal Global",
-      "API de Integración",
-      "Módulo de Auditoría",
-      "Capacitación Personalizada",
-      "Gerente de Cuenta",
-      "Soporte 24/7",
+      "Hasta 2 sucursales · 5 usuarios",
+      "Hasta 5.000 productos",
+      "Hasta 10.000 ventas / mes",
+      "Multi-banco y conciliación",
+      "Planilla GT (ISR, IGSS, Bono 14, Aguinaldo)",
+      "WhatsApp prioritario",
     ],
-    cta: "Hablar con Ventas",
+    cta: "Solicitar Información",
     popular: false,
+    requiresQuote: false,
+  },
+  {
+    name: PLANS.enterprise.name,
+    priceMain: "A medida",
+    priceLabel: "Cotización personalizada",
+    description:
+      "Para cadenas con varias sucursales, multi-empresa, API o necesidades específicas.",
+    features: [
+      "Sucursales y usuarios sin tope",
+      "Multi-empresa (hasta 5 razones sociales)",
+      "API de integración",
+      "Account manager dedicado",
+      "Migración desde sistema legacy",
+      "SLA 99.5% uptime",
+    ],
+    cta: "Hablar por WhatsApp",
+    popular: false,
+    requiresQuote: true,
   },
 ];
 
@@ -759,6 +819,26 @@ const faqs = [
   {
     question: "¿Puedo gestionar varias bodegas?",
     answer:
-      "Correcto. Los planes Profesional y Empresarial permiten el control de múltiples bodegas y la realización de traslados de stock entre sucursales.",
+      "Sí. El plan Comercial permite hasta 2 sucursales con traslados de stock entre ellas. Para 3+ sucursales se cotiza el plan Empresarial a medida.",
+  },
+  {
+    question: "¿La facturación electrónica está incluida en el precio?",
+    answer:
+      "Cada plan pago incluye una cuota mensual de facturas FEL. Si la superás, las facturas adicionales se cobran a tarifa preferencial. La configuración inicial con el certificador autorizado por SAT ya viene incluida en el setup que pagás una sola vez al contratar.",
+  },
+  {
+    question: "¿La prueba gratis de 30 días incluye facturación electrónica?",
+    answer:
+      "No. El trial te permite probar el sistema completo (POS, inventario, ventas, contabilidad, planilla) pero NO emite FEL. Esto es porque cada nueva configuración con el certificador tiene un costo inicial que asumimos cuando ya firmaste un plan pago. Cuando contratés, configuramos FEL como parte del setup y empezás a facturar oficialmente.",
+  },
+  {
+    question: "¿En qué consiste la implementación?",
+    answer:
+      "Voy a tu local en Tecpán o región Chimaltenango, te enseño el sistema en vivo, importo tu catálogo de productos y configuro la facturación electrónica. Después seguimos por WhatsApp para cualquier duda los primeros días.",
+  },
+  {
+    question: "¿Qué pasa si después necesito más sucursales o usuarios?",
+    answer:
+      "Podés agregarlos como add-on (sucursal Q199/mes, usuario Q49/mes) o subir de plan. La data se conserva, no perdés información al cambiar de plan.",
   },
 ];

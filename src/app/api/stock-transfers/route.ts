@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { z } from 'zod';
 
@@ -20,12 +20,12 @@ const TransferBatchSchema = z.object({
 
 // List stock transfers (with logistical status)
 export async function GET(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requireAnyPermission(['inventory:transfer', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
   try {
-    const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+    const isAdmin = tenant.role === 'SUPER_ADMIN' || tenant.permissions?.includes('settings:manage');
     
     const transfers = await prisma.stockTransfer.findMany({
       where: {
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
 
 // Transfer stock between branches (Create Remittance)
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requireOperationalPermission(['inventory:transfer', 'settings:manage']);
   if ('error' in result) return result.error;
   const { tenant } = result;
 
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   const { fromBranchId, toBranchId, items, notes } = parsed.data;
 
   // SEGURIDAD: Cada supervisor se hace cargo de su tienda
-  const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+  const isAdmin = tenant.role === 'SUPER_ADMIN' || tenant.permissions?.includes('settings:manage');
   if (!isAdmin && fromBranchId !== tenant.branchId) {
     return NextResponse.json({ 
       error: 'No tienes permiso para enviar mercadería desde una sucursal que no es la tuya.' 
@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       action: 'STOCK_TRANSFER_SENT',

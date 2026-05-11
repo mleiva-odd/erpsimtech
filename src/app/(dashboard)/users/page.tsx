@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { UserPlus, Edit2, Shield, ShieldOff, Loader2, CheckCircle } from 'lucide-react';
+import { UserPlus, Edit2, Shield, ShieldOff, Loader2, CheckCircle, Key } from 'lucide-react';
 import { UserModal } from '@/components/users/UserModal';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -12,6 +12,7 @@ interface UserData {
   name: string;
   email: string;
   role: string;
+  customRole?: { name: string } | null;
   active: boolean;
   createdAt: string;
   branch?: { id: string; name: string } | null;
@@ -20,6 +21,9 @@ interface UserData {
 
 export default function UsersPage() {
   const { data: session } = useSession();
+  const canManageUsers = session?.user?.role === 'SUPER_ADMIN'
+    || session?.user?.permissions?.includes('users:manage')
+    || session?.user?.permissions?.includes('settings:manage');
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
@@ -41,10 +45,10 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    if (session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') fetchUsers();
-  }, [session]);
+    if (canManageUsers) fetchUsers();
+  }, [canManageUsers]);
 
-  if (session?.user?.role !== 'ADMIN' && session?.user?.role !== 'SUPER_ADMIN') {
+  if (!canManageUsers) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-10 bg-red-50 text-red-600 rounded-3xl m-8">
         <ShieldOff className="w-16 h-16 mb-4 opacity-50" />
@@ -64,12 +68,20 @@ export default function UsersPage() {
           </h1>
           <p className="text-[13px] text-slate-500 font-medium mt-1">Gestión administrativa de roles y acceso a sucursales</p>
         </div>
-        <button
-          onClick={() => { setSelectedUser(null); setIsModalOpen(true); }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-blue-500/10 flex items-center gap-2.5 transition-all active:scale-95"
-        >
-          <UserPlus className="w-4 h-4" /> Nuevo Integrante
-        </button>
+        <div className="flex items-center gap-3">
+          <a
+            href="/users/roles"
+            className="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 px-6 py-3 rounded-xl font-bold text-sm shadow-sm flex items-center gap-2.5 transition-all active:scale-95"
+          >
+            <Key className="w-4 h-4 text-blue-500" /> Gestionar Roles
+          </a>
+          <button
+            onClick={() => { setSelectedUser(null); setIsModalOpen(true); }}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-blue-500/10 flex items-center gap-2.5 transition-all active:scale-95"
+          >
+            <UserPlus className="w-4 h-4" /> Nuevo Integrante
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm flex-1 overflow-hidden">
@@ -108,11 +120,11 @@ export default function UsersPage() {
                     <td className="px-6 py-5 text-slate-500 font-medium">{user.email}</td>
                     <td className="px-6 py-5 text-center">
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase border ${
-                        user.role === 'ADMIN' ? 'bg-purple-50 text-purple-600 border-purple-100' :
-                        user.role === 'SUPERVISOR' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                        user.role === 'SUPER_ADMIN' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                        (user.customRole?.name === 'Administrador' || user.customRole?.name === 'Admin') ? 'bg-blue-50 text-blue-600 border-blue-100' :
                         'bg-slate-50 text-slate-500 border-slate-100'
                       }`}>
-                        {user.role}
+                        {user.customRole?.name || user.role}
                       </span>
                     </td>
                     <td className="px-6 py-5 text-center">

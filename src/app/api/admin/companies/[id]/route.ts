@@ -1,26 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
-import bcrypt from 'bcryptjs';
+import { requirePermission } from '@/lib/tenant';
+import { hashPassword, validatePasswordStrength } from '@/lib/hashing';
 
 // Super Admin: Update company
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   const resolvedParams = await params;
   const body = await req.json();
+
+  // Validar fuerza de contraseña ANTES de entrar a la transacción
+  // para no devolver 500 cuando lo correcto es 400.
+  if (typeof body?.admin?.password === 'string' && body.admin.password.trim()) {
+    const strength = validatePasswordStrength(body.admin.password.trim());
+    if (!strength.ok) {
+      return NextResponse.json(
+        { error: 'Contraseña de admin débil', details: strength.errors },
+        { status: 400 },
+      );
+    }
+  }
 
   try {
     const updated = await prisma.$transaction(async (tx) => {
       const primaryAdmin = await tx.user.findFirst({
         where: {
           companyId: resolvedParams.id,
-          role: 'ADMIN',
+          customRole: { name: 'Administrador' },
         },
         orderBy: { createdAt: 'asc' },
         select: { id: true },
@@ -67,7 +79,8 @@ export async function PUT(
         }
 
         if (typeof body.admin.password === 'string' && body.admin.password.trim()) {
-          adminData.password = await bcrypt.hash(body.admin.password.trim(), 10);
+          // La fuerza ya se validó fuera de la transacción.
+          adminData.password = await hashPassword(body.admin.password.trim());
         }
 
         if (Object.keys(adminData).length > 0) {
@@ -86,7 +99,7 @@ export async function PUT(
             select: { plan: true, status: true, currentPeriodEnd: true, maxBranches: true, maxUsersPerBranch: true, price: true },
           },
           users: {
-            where: { role: 'ADMIN' },
+            where: { customRole: { name: 'Administrador' } },
             orderBy: { createdAt: 'asc' },
             take: 1,
             select: { id: true, name: true, email: true },
@@ -108,7 +121,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const result = await requireRole('SUPER_ADMIN');
+  const result = await requirePermission('admin:all');
   if ('error' in result) return result.error;
 
   const resolvedParams = await params;

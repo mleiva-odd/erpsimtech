@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireTenant, requireRole } from '@/lib/tenant';
+import { requireTenant, requirePermission } from '@/lib/tenant';
 import { z } from 'zod';
 
 const VariantSchema = z.object({
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const requestedBranchId = searchParams.get('branchId');
   const lowStockOnly = searchParams.get('lowStock') === 'true';
 
-  const isAdmin = tenant.role === 'ADMIN' || tenant.role === 'SUPER_ADMIN';
+  const isAdmin = tenant.role === 'SUPER_ADMIN' || tenant.permissions?.includes('settings:manage');
 
   let targetBranchId = tenant.branchId;
   if (isAdmin && requestedBranchId && requestedBranchId !== 'null') {
@@ -159,7 +159,7 @@ const ProductSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const result = await requireRole('SUPERVISOR');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

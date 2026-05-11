@@ -43,7 +43,8 @@ export default function DashboardPage() {
   
   const { selectedBranchId } = useBranchStore();
   const role = session?.user?.role;
-  const canAccess = role === 'SUPERVISOR' || role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const permissions = session?.user?.permissions || [];
+  const canAccess = role === 'SUPER_ADMIN' || permissions.includes('reports:view');
 
   useEffect(() => {
     if (status === 'loading') {

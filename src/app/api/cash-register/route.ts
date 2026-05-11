@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId, userId: tenant.userId,
       action: 'CASH_REGISTER_OPENED', entity: 'CashRegister', entityId: newRegister.id,
       details: { openingBalance: parsed.data.openingBalance, branchId },
@@ -171,7 +171,7 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId, userId: tenant.userId,
       action: 'CASH_REGISTER_CLOSED', entity: 'CashRegister', entityId: closedRegister.id,
       details: { closingBalance: parsed.data.closingBalance, openingBalance: Number(activeRegister.openingBalance) },

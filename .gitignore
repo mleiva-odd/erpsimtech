@@ -42,13 +42,44 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
-vercel_production.env
 
 # Logs y archivos temporales de desarrollo
 *.log
 terminal.txt
 /scratch/
-Propuesta_SIMTECH_POS.*
+
+# Carpeta de mockup de rediseño — dos patrones para cubrir macOS NFD/NFC.
+# El nombre tiene 'ñ' que en HFS+/APFS macOS suele codificarse como n + combining tilde,
+# por eso ambos patrones.
+Rediseñar landing y login/
+Redise*landing y login/
+
+# Reportes y resultados de tests (auto-generados)
+/playwright-report/
+/test-results/
+/coverage/
+
+# Artefactos de auditoría / agentes / IDEs
+/.agent/
+.audit-*
+get_admin.js
+
+# Archivos sensibles que NUNCA deben commitearse
 credentials.md
-productos_prueba_simtech.csv
-Rediseñar landing y login
+*.credentials
+*.secret
+secrets/
+vercel_production.env
+
+# Archivos de propuesta/marketing en raíz (mover a /docs/marketing si aplica)
+/Propuesta_SIMTECH_POS.*
+/SIMTECH_POS_Blueprint.md
+/fondo*.jpeg
+/fondo*.jpg
+/simtechlogo.*
+/logo.png
+/productos_prueba_*.csv
+
+# OS
+Thumbs.db
+ehthumbs.db

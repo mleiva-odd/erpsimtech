@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireRole, requireTenant } from '@/lib/tenant';
+import { requirePermission, requireTenant } from '@/lib/tenant';
 import { z } from 'zod';
 
 const BranchSchema = z.object({
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
 // Create a new branch
 export async function POST(req: NextRequest) {
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

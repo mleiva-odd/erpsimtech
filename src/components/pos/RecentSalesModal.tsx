@@ -31,7 +31,7 @@ export function RecentSalesModal({ onClose, onSelectSale }: RecentSalesModalProp
         const res = await fetch('/api/sales?status=COMPLETED&limit=30', { cache: 'no-store' });
         const data = await res.json();
         if (!cancelled) {
-          setSales(Array.isArray(data) ? data : []);
+          setSales(Array.isArray(data) ? data : data.data || []);
         }
       } catch (error) {
         console.error('Error cargando ventas recientes:', error);

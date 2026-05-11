@@ -40,8 +40,17 @@ export default function OnboardingPage() {
       if (!formData.adminName || !formData.adminEmail || !formData.adminPassword) {
         setError('Todos los campos del administrador son obligatorios'); return false;
       }
-      if (formData.adminPassword.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return false; }
-      if (formData.adminPassword !== formData.adminPasswordConfirm) { setError('Las contraseñas no coinciden'); return false; }
+      // Política alineada con el server (src/lib/hashing.ts):
+      // mínimo 12 caracteres, mayúscula, minúscula, dígito y símbolo.
+      const pwd = formData.adminPassword;
+      if (pwd.length < 12) {
+        setError('La contraseña debe tener al menos 12 caracteres'); return false;
+      }
+      if (!/[a-z]/.test(pwd)) { setError('La contraseña debe incluir al menos una letra minúscula'); return false; }
+      if (!/[A-Z]/.test(pwd)) { setError('La contraseña debe incluir al menos una letra mayúscula'); return false; }
+      if (!/[0-9]/.test(pwd)) { setError('La contraseña debe incluir al menos un dígito'); return false; }
+      if (!/[^A-Za-z0-9]/.test(pwd)) { setError('La contraseña debe incluir al menos un símbolo (e.g. !@#$%)'); return false; }
+      if (pwd !== formData.adminPasswordConfirm) { setError('Las contraseñas no coinciden'); return false; }
     }
     return true;
   };
@@ -99,7 +108,7 @@ export default function OnboardingPage() {
             <Store className="w-8 h-8 text-blue-400" />
             <span className="text-2xl font-bold">SIMTECH</span>
           </div>
-          <p className="text-slate-600 text-sm">Registra tu empresa y comienza a vender hoy</p>
+          <p className="text-slate-600 text-sm">Registra tu empresa y empezá tu prueba gratis de 30 días</p>
         </div>
 
         {/* Steps Indicator */}
@@ -168,8 +177,11 @@ export default function OnboardingPage() {
                     <Field label="Identificador (URL)" value={formData.companySlug} onChange={v => updateField('companySlug', v)} placeholder="distribuidora-xyz" mono />
                     <Field label="Email de Contacto *" type="email" value={formData.companyEmail} onChange={v => updateField('companyEmail', v)} placeholder="info@empresa.com" />
                     <div className="grid grid-cols-2 gap-4">
-                      <Field label="NIT" value={formData.companyNit} onChange={v => updateField('companyNit', v)} placeholder="12345678-9" />
+                      <Field label="NIT (opcional en trial)" value={formData.companyNit} onChange={v => updateField('companyNit', v)} placeholder="12345678-9" />
                       <Field label="Teléfono" value={formData.companyPhone} onChange={v => updateField('companyPhone', v)} placeholder="5555-0000" />
+                    </div>
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800">
+                      <strong>Nota sobre el trial:</strong> tu prueba de 30 días incluye todas las funciones del plan Negocio (POS, inventario, ventas, contabilidad, planilla básica), pero <strong>no emite facturas electrónicas (FEL)</strong>. La FEL se configura cuando contratés un plan pago, como parte del setup. El NIT es opcional ahora; al contratar te lo pediremos para configurar tu facturación.
                     </div>
                   </>
                 )}
@@ -179,7 +191,7 @@ export default function OnboardingPage() {
                   <>
                     <Field label="Nombre Completo *" value={formData.adminName} onChange={v => updateField('adminName', v)} placeholder="Juan Pérez" />
                     <Field label="Correo Electrónico *" type="email" value={formData.adminEmail} onChange={v => updateField('adminEmail', v)} placeholder="admin@empresa.com" />
-                    <Field label="Contraseña *" type="password" value={formData.adminPassword} onChange={v => updateField('adminPassword', v)} placeholder="Mínimo 6 caracteres" />
+                    <Field label="Contraseña *" type="password" value={formData.adminPassword} onChange={v => updateField('adminPassword', v)} placeholder="Min 12 chars · mayúscula · minúscula · dígito · símbolo" />
                     <Field label="Confirmar Contraseña *" type="password" value={formData.adminPasswordConfirm} onChange={v => updateField('adminPasswordConfirm', v)} placeholder="Repetir contraseña" />
                   </>
                 )}

@@ -54,7 +54,7 @@ export default function SettingsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'fel' | 'payments'>('general');
   const { toast } = useToast();
-  const canAccess = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN';
+  const canAccess = session?.user?.role === 'SUPER_ADMIN' || session?.user?.permissions?.includes('settings:manage');
 
   useEffect(() => {
     if (status === 'loading') {

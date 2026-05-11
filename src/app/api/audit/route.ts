@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { requireRole } from '@/lib/tenant';
+import { requirePermission } from '@/lib/tenant';
 
 export async function GET(req: NextRequest) {
   // Only ADMINs or SUPER_ADMINs can view the full audit log
-  const result = await requireRole('ADMIN');
+  const result = await requirePermission('settings:manage');
   if ('error' in result) return result.error;
   const { tenant } = result;
 

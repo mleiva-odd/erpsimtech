@@ -52,11 +52,11 @@ const emptyFormData: CompanyFormData = {
   email: '',
   phone: '',
   nit: '',
-  plan: 'basic',
-  subscriptionStatus: 'TRIAL',
-  maxBranches: 3,
-  maxUsersPerBranch: 5,
-  price: 0,
+  plan: 'negocio',
+  subscriptionStatus: 'ACTIVE',
+  maxBranches: 1,
+  maxUsersPerBranch: 1,
+  price: 399, // Negocio founder default
   adminName: '',
   adminEmail: '',
   adminPassword: '',
@@ -182,7 +182,7 @@ export default function AdminPage() {
       email: company.email,
       phone: company.phone || '',
       nit: company.nit || '',
-      plan: company.subscription?.plan || 'basic',
+      plan: company.subscription?.plan || 'negocio',
       subscriptionStatus: company.subscription?.status || 'ACTIVE',
       maxBranches: company.subscription?.maxBranches || 1,
       maxUsersPerBranch: company.subscription?.maxUsersPerBranch || 3,
@@ -469,9 +469,9 @@ export default function AdminPage() {
                       <select value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}
                         className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl bg-white font-bold text-amber-700 outline-none focus:ring-4 focus:ring-amber-50 text-sm cursor-pointer shadow-sm">
                         <option value="trial">Trial (30 días de prueba)</option>
-                        <option value="basic">Plan Básico (POS)</option>
-                        <option value="professional">Plan Profesional (ERP)</option>
-                        <option value="enterprise">Plan Enterprise (Corporativo)</option>
+                        <option value="negocio">Negocio (Q399 founder · Q599 regular · 1 sucursal · 1 usuario)</option>
+                        <option value="comercial">Comercial (Q999 founder · Q1.299 regular · 2 sucursales · 5 usuarios)</option>
+                        <option value="enterprise">Empresarial (cotización a medida)</option>
                       </select>
                     </div>
 

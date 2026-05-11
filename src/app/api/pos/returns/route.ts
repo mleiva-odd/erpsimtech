@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireBranchAccess, requireTenant } from '@/lib/tenant';
 import { z } from 'zod';
 import { createAuditLog } from '@/lib/audit';
+import { createAccountingEntry } from '@/lib/accounting';
 
 const ReturnItemSchema = z.object({
   saleItemId: z.string().uuid(),
@@ -280,10 +281,23 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      const categoryName = sale.channel === 'REMOTE' ? 'Devoluciones Remotas' : 'Devoluciones POS';
+      await createAccountingEntry(tx, {
+        companyId: tenant.companyId,
+        branchId: sale.branchId,
+        type: 'EXPENSE',
+        categoryName,
+        description: `Devolución de Venta #${sale.id.split('-')[0].toUpperCase()} - ${reason}`,
+        amount: Number(refundAmount),
+        referenceType: 'SALE_RETURN',
+        referenceId: newReturn.id,
+        userId: tenant.userId,
+      });
+
       return newReturn;
     });
 
-    createAuditLog({
+    await createAuditLog({
       companyId: tenant.companyId,
       userId: tenant.userId,
       entity: 'SaleReturn',

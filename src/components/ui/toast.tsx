@@ -2,20 +2,25 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 
-type ToastTone = 'success' | 'error' | 'info';
+export type ToastTone = 'success' | 'error' | 'info' | 'warning';
 
-type ToastInput = {
+export type ToastInput = {
   title?: string;
-  message: string;
+  message?: string;
+  description?: string;
   tone?: ToastTone;
+  variant?: 'destructive';
   durationMs?: number;
 };
 
-type ToastItem = Required<Omit<ToastInput, 'title'>> & {
+type ToastItem = {
   id: string;
   title: string;
+  message: string;
+  tone: ToastTone;
+  durationMs: number;
 };
 
 type ToastContextValue = {
@@ -32,6 +37,10 @@ const toneStyles: Record<ToastTone, { accent: string; icon: ReactNode }> = {
   error: {
     accent: 'border-rose-200 bg-rose-50 text-rose-900 shadow-rose-500/10',
     icon: <AlertCircle className="h-5 w-5 text-rose-600" />,
+  },
+  warning: {
+    accent: 'border-amber-200 bg-amber-50 text-amber-900 shadow-amber-500/10',
+    icon: <AlertTriangle className="h-5 w-5 text-amber-600" />,
   },
   info: {
     accent: 'border-slate-200 bg-white text-slate-900 shadow-slate-500/10',
@@ -60,12 +69,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = useCallback((input: ToastInput) => {
+    const message = input.message?.trim() || input.description?.trim() || '';
+    if (!message) {
+      return;
+    }
+
     const id = crypto.randomUUID();
     const nextToast: ToastItem = {
       id,
       title: input.title?.trim() || '',
-      message: input.message,
-      tone: input.tone || 'info',
+      message,
+      tone: input.tone || (input.variant === 'destructive' ? 'error' : 'info'),
       durationMs: input.durationMs || 3800,
     };
 

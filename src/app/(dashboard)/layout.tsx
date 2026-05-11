@@ -7,8 +7,9 @@ import { ClientSidebar } from "@/components/layout/ClientSidebar";
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
-  const isSupervisor = role === 'SUPERVISOR' || isAdmin;
+  const permissions = session?.user?.permissions || [];
+  const isAdmin = role === 'SUPER_ADMIN' || permissions.includes('settings:manage');
+  const isSupervisor = isAdmin || permissions.includes('reports:view');
   const isSuperAdmin = role === 'SUPER_ADMIN';
 
   return (
@@ -19,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         isAdmin={isAdmin} 
         isSupervisor={isSupervisor} 
         isSuperAdmin={isSuperAdmin} 
+        permissions={permissions}
       />
 
       {/* Main Content Area */}

@@ -2,12 +2,15 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { checkSubscription } from '@/lib/subscription';
 
 export interface TenantContext {
   userId: string;
   companyId: string;
   branchId: string | null;
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'CASHIER';
+  role: 'SUPER_ADMIN' | 'USER';
+  customRoleName?: string;
+  permissions: string[];
 }
 
 /**
@@ -29,6 +32,8 @@ export async function getTenantContext(): Promise<TenantContext | null> {
     companyId: session.user.companyId,
     branchId: session.user.branchId,
     role: session.user.role,
+    customRoleName: session.user.customRoleName,
+    permissions: session.user.permissions || [],
   };
 }
 
@@ -75,28 +80,85 @@ export async function requireCompanyTenant(): Promise<
 }
 
 /**
- * Requires a specific role or higher.
- * Role hierarchy: SUPER_ADMIN > ADMIN > SUPERVISOR > CASHIER
+ * Helper to check if a tenant has a specific permission.
+ * SUPER_ADMIN has access to everything.
+ * Users with the 'admin:all' (virtual) or specific permissions get access.
  */
-export async function requireRole(minRole: 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'CASHIER'): Promise<
+export function hasPermission(tenant: TenantContext, permission: string): boolean {
+  if (tenant.role === 'SUPER_ADMIN') return true;
+  
+  // Si el usuario tiene permisos absolutos por ser "ADMIN" clásico (migrado a todos los permisos)
+  if (tenant.permissions.includes('admin:all')) return true;
+
+  return tenant.permissions.includes(permission);
+}
+
+export function hasAnyPermission(tenant: TenantContext, permissions: string[]): boolean {
+  return permissions.some((permission) => hasPermission(tenant, permission));
+}
+
+/**
+ * Requires a specific permission to access an API route.
+ * Replaces the old requireRole function.
+ */
+export async function requirePermission(permission: string): Promise<
   { tenant: TenantContext } | { error: NextResponse }
 > {
   const result = await requireTenant();
   if ('error' in result) return result;
 
-  const hierarchy = ['CASHIER', 'SUPERVISOR', 'ADMIN', 'SUPER_ADMIN'];
-  const userLevel = hierarchy.indexOf(result.tenant.role);
-  const requiredLevel = hierarchy.indexOf(minRole);
-
-  if (userLevel < requiredLevel) {
-    return { error: NextResponse.json({ error: 'Permisos insuficientes' }, { status: 403 }) };
+  if (!hasPermission(result.tenant, permission)) {
+    return { error: NextResponse.json({ error: `Permiso denegado: se requiere ${permission}` }, { status: 403 }) };
   }
 
   return result;
 }
 
-export function isAdminRole(role: TenantContext['role']) {
-  return role === 'ADMIN' || role === 'SUPER_ADMIN';
+export async function requireAnyPermission(permissions: string[]): Promise<
+  { tenant: TenantContext } | { error: NextResponse }
+> {
+  const result = await requireTenant();
+  if ('error' in result) return result;
+
+  if (!hasAnyPermission(result.tenant, permissions)) {
+    return {
+      error: NextResponse.json(
+        { error: `Permiso denegado: se requiere uno de ${permissions.join(', ')}` },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return result;
+}
+
+export async function requireActiveSubscription(tenant: TenantContext): Promise<NextResponse | null> {
+  if (!tenant.companyId || tenant.role === 'SUPER_ADMIN') return null;
+
+  const subscriptionError = await checkSubscription(tenant.companyId);
+  if (!subscriptionError) return null;
+
+  return NextResponse.json({ error: subscriptionError }, { status: 403 });
+}
+
+export async function requireOperationalPermission(permission: string | string[]): Promise<
+  { tenant: TenantContext } | { error: NextResponse }
+> {
+  const permissions = Array.isArray(permission) ? permission : [permission];
+  const result = await requireAnyPermission(permissions);
+  if ('error' in result) return result;
+
+  const subscriptionError = await requireActiveSubscription(result.tenant);
+  if (subscriptionError) return { error: subscriptionError };
+
+  return result;
+}
+
+/**
+ * Admins are those who have settings:manage or are SUPER_ADMIN
+ */
+export function isAdminRole(tenant: TenantContext) {
+  return tenant.role === 'SUPER_ADMIN' || tenant.permissions.includes('settings:manage');
 }
 
 /**
@@ -111,7 +173,7 @@ export async function requireBranchAccess(
     return { branchId };
   }
 
-  if (isAdminRole(tenant.role)) {
+  if (isAdminRole(tenant)) {
     const branch = await prisma.branch.findFirst({
       where: {
         id: branchId,

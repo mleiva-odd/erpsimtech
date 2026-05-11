@@ -23,7 +23,8 @@ export function BranchSelector({ isCollapsed = false }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const role = session?.user?.role;
-  const isAdminOrSuper = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const permissions = session?.user?.permissions || [];
+  const isAdminOrSuper = role === 'SUPER_ADMIN' || permissions.includes('settings:manage');
 
   useEffect(() => {
     if (session?.user?.companyId) {

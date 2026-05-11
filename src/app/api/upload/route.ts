@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/tenant';
 import { supabase } from '@/lib/supabase';
+import { getPublicFileUrl } from '@/lib/storage';
 import sharp from 'sharp';
+
+// Bucket `products`: público por diseño — las imágenes se renderizan en POS
+// y en pantallas de venta visibles a cliente final sin auth intermedio.
+// Si llegara a haber un bucket privado (boletas de pago, XMLs FEL, etc.),
+// hay que usar `getSignedFileUrl` con expiración 1h. Ver `src/lib/storage.ts`.
 
 export async function POST(req: NextRequest) {
   const result = await requirePermission('settings:manage');
@@ -61,10 +67,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Error al subir la imagen a la nube' }, { status: 500 });
     }
 
-    // 4. Obtener URL pública
-    const { data: { publicUrl } } = supabase.storage
-      .from('products')
-      .getPublicUrl(filepath);
+    // 4. Obtener URL pública (bucket products es público por diseño — ver
+    //    comentario en el import). Para buckets privados usar getSignedFileUrl.
+    const publicUrl = getPublicFileUrl('products', filepath);
 
     return NextResponse.json({ url: publicUrl });
   } catch (error) {

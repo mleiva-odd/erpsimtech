@@ -90,4 +90,46 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * Wrappeo con Sentry SOLO si:
+ *   - `@sentry/nextjs` está instalado (require condicional).
+ *   - Hay un DSN configurado (env `NEXT_PUBLIC_SENTRY_DSN` o `SENTRY_DSN`).
+ *
+ * Si alguna de las dos falla, devolvemos el config tal cual. Esto permite
+ * que dev local y CI funcionen sin necesidad de tener Sentry configurado.
+ *
+ * El upload de source maps requiere `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` y
+ * `SENTRY_PROJECT` en Vercel. Sin esas vars el upload se salta sin error.
+ */
+function withSentryIfAvailable(config: NextConfig): NextConfig {
+  const hasDsn = Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN);
+  if (!hasDsn) {
+    return config;
+  }
+
+  try {
+    // require dinámico para evitar romper builds donde @sentry/nextjs todavía
+    // no se instaló. `createRequire` mantiene el resolve de Node consistente.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { withSentryConfig } = require("@sentry/nextjs") as typeof import("@sentry/nextjs");
+    return withSentryConfig(config, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      silent: !process.env.CI,
+      // Subir source maps solo en build de prod; en preview/dev no.
+      widenClientFileUpload: true,
+      hideSourceMaps: true,
+      disableLogger: true,
+    });
+  } catch (err) {
+    // Log informativo, no error: Sentry es opcional.
+    console.warn(
+      "[next.config] Sentry DSN presente pero @sentry/nextjs no está instalado. Build continúa sin Sentry.",
+      err instanceof Error ? err.message : String(err),
+    );
+    return config;
+  }
+}
+
+export default withSentryIfAvailable(nextConfig);

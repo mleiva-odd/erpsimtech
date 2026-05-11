@@ -69,54 +69,104 @@ jobs:
       - run: npm run build
 
   # ───────── Tests E2E (Playwright) ─────────
-  # Disabled por default. Habilitarlo cuando los tests cross-tenant estén
-  # estables y se tenga DB de testing dedicada (usar Supabase branch o
-  # un Postgres local en GitHub Actions).
-  # e2e:
-  #   name: E2E Tests
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   services:
-  #     postgres:
-  #       image: postgres:17
-  #       env:
-  #         POSTGRES_PASSWORD: postgres
-  #         POSTGRES_DB: erp_test
-  #       options: >-
-  #         --health-cmd pg_isready
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 5
-  #       ports:
-  #         - 5432:5432
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '22'
-  #         cache: 'npm'
-  #     - run: npm ci
-  #     - run: npx playwright install --with-deps chromium
-  #     - name: Apply Prisma migrations
-  #       env:
-  #         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/erp_test
-  #       run: npx prisma db push
-  #     - name: Seed test data
-  #       env:
-  #         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/erp_test
-  #         SEED_SUPERADMIN_PASSWORD: TestAdmin12345!
-  #         SEED_COMPANY_ADMIN_PASSWORD: TestAdmin12345!
-  #         SEED_MANAGER_PASSWORD: TestAdmin12345!
-  #         SEED_CASHIER_PASSWORD: TestAdmin12345!
-  #       run: npm run seed
-  #     - name: Run Playwright tests
-  #       env:
-  #         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/erp_test
-  #         NEXTAUTH_SECRET: ci-test-secret
-  #         NEXTAUTH_URL: http://localhost:3000
-  #       run: npm run test:e2e
-  #     - if: always()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: playwright-report
-  #         path: playwright-report/
+  # Habilitado en Fase 13. Corre contra un Postgres efímero levantado en
+  # el mismo workflow. Aplica migraciones reales (no `db push`) para que
+  # la DB de tests refleje exactamente lo que existe en producción.
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        node-version: ['22']
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: erp_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      # CI usa Postgres efímero local; sobreescribe el stub global de la sección env: superior.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/erp_test?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/erp_test?schema=public
+      NEXTAUTH_SECRET: ci-test-secret-32-chars-long-min-1234
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_SUPABASE_URL: https://stub.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: stub_anon_key
+      SUPABASE_SERVICE_ROLE_KEY: stub_service_role_key
+      SEED_SUPERADMIN_PASSWORD: TestAdmin12345!
+      SEED_COMPANY_ADMIN_PASSWORD: TestAdmin12345!
+      SEED_MANAGER_PASSWORD: TestAdmin12345!
+      SEED_CASHIER_PASSWORD: TestAdmin12345!
+      # Permite que el seed corra contra una DB efímera (NO production).
+      ALLOW_SEED_DESTRUCTIVE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Apply Prisma migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed test data
+        run: npm run seed
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Start Next.js (background)
+        # Levantamos el server en background; Playwright se conecta a localhost:3000.
+        # Usamos `npm run start` (no dev) para ejercitar el build de producción.
+        run: |
+          npm run start > nextjs.log 2>&1 &
+          echo $! > nextjs.pid
+          # Esperar a que el server arranque (máx 60s).
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000 -o /dev/null; then
+              echo "Next.js up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Next.js no arrancó en 60s"
+          cat nextjs.log
+          exit 1
+
+      - name: Run Playwright tests
+        env:
+          E2E_LOGIN_EMAIL: simtech@simtechgt.com
+          E2E_LOGIN_PASSWORD: TestAdmin12345!
+        run: npm run test:e2e
+
+      - name: Stop Next.js
+        if: always()
+        run: |
+          if [ -f nextjs.pid ]; then
+            kill "$(cat nextjs.pid)" || true
+          fi
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore

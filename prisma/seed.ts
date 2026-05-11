@@ -2,6 +2,27 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
 
+// Guard Fase 13: el seed limpia toda la DB (`deleteMany` por entidad).
+// Si se corre por accidente en producción, vuela los datos del cliente.
+// Mantenemos dos defensas:
+//   1. Bloqueo duro si NODE_ENV=production. Sin excepciones.
+//   2. Para no-production destructivo, requerimos ALLOW_SEED_DESTRUCTIVE=true.
+//      Esto evita que un dev local corra `pnpm seed` con DATABASE_URL apuntada
+//      por accidente a la DB de stage/preview.
+if (process.env.NODE_ENV === 'production') {
+  throw new Error(
+    'Seed cannot run in production. NODE_ENV=production detectado. Abortando.',
+  );
+}
+
+if (process.env.ALLOW_SEED_DESTRUCTIVE !== 'true') {
+  throw new Error(
+    'Seed bloqueado: este script borra TODA la data antes de re-poblar. ' +
+      'Setear ALLOW_SEED_DESTRUCTIVE=true para confirmar que la DB destino ' +
+      'es local/CI y no contiene datos reales.',
+  );
+}
+
 const prisma = new PrismaClient();
 
 // Mantenemos bcrypt rounds alineado a `src/lib/hashing.ts`. No importamos

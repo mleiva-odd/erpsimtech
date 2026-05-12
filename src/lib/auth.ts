@@ -133,18 +133,33 @@ export const authOptions: NextAuthOptions = {
     updateAge: 24 * 60 * 60, // refrescar el token cada 24h de actividad
   },
   cookies: {
-    sessionToken: {
-      name:
-        process.env.NODE_ENV === "production"
+    // El cookie name y el flag `secure` se derivan del **scheme de NEXTAUTH_URL**,
+    // no de NODE_ENV. Razón: en CI corremos `npm run start` (NODE_ENV=production)
+    // sobre http://localhost:3000, y si forzamos `Secure` + el prefijo `__Secure-`
+    // el browser rechaza silenciosamente la cookie por la spec W3C ("Secure cookies
+    // can only be set over HTTPS"). Resultado anterior: login server-side ok pero
+    // sin cookie en el browser → rebote a /login?callbackUrl=... en cada test e2e.
+    //
+    // En producción real (Vercel), NEXTAUTH_URL=https://… → isHttps=true → cookie
+    // segura como antes (sin cambio funcional). En dev/CI sobre http → cookie
+    // normal, browser la acepta, sesión funciona.
+    //
+    // Patrón espejo del default interno de NextAuth (useSecureCookies basado en URL).
+    sessionToken: (() => {
+      const isHttps =
+        process.env.NEXTAUTH_URL?.startsWith("https://") ?? false;
+      return {
+        name: isHttps
           ? "__Secure-next-auth.session-token"
           : "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
+        options: {
+          httpOnly: true,
+          sameSite: "lax" as const,
+          path: "/",
+          secure: isHttps,
+        },
+      };
+    })(),
   },
   secret: nextAuthSecret,
 };

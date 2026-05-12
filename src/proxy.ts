@@ -3,7 +3,23 @@ import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { requireEnv } from '@/lib/env';
 
-const PUBLIC_PATHS = ['/login', '/api/auth', '/_next', '/favicon.ico', '/logo.png'];
+// Rutas que NO requieren sesión de usuario.
+// - /api/auth: handshake de NextAuth.
+// - /api/health: liveness probe (Fase 13). Sin auth para que monitoreo
+//   externo y el cron anti-pausa de Supabase puedan pingearlo.
+// - /api/cron/*: endpoints invocados por cron jobs externos (GitHub Actions,
+//   pg_cron, Vercel Cron). Cada endpoint individual valida su propio
+//   secret en header `X-Cron-Secret`.
+// - /_next, /favicon.ico, /logo.png: assets estáticos.
+const PUBLIC_PATHS = [
+  '/login',
+  '/api/auth',
+  '/api/health',
+  '/api/cron',
+  '/_next',
+  '/favicon.ico',
+  '/logo.png',
+];
 const nextAuthSecret = requireEnv('NEXTAUTH_SECRET');
 
 function hasAnyPermission(permissions: string[], allowed: string[]) {

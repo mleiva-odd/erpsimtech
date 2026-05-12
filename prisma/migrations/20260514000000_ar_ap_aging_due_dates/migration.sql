@@ -132,21 +132,24 @@ WHERE s."dueDate" IS NULL
 -- ─────────────────────────────────────────
 -- 6) Backfill `Sale.status='OVERDUE'` para ventas vencidas con saldo
 -- ─────────────────────────────────────────
--- Heurística: una venta es OVERDUE si:
---   - status era COMPLETED (no QUOTE/CANCELLED/PENDING ni ya OVERDUE)
---   - dueDate < now()
---   - el cliente tiene `balance > 0` (proxy de saldo pendiente, dado que
---     no rastreamos saldo por documento individual en legacy)
--- Después de Fase 17 el cron diario seguirá actualizando esto correctamente.
-
-UPDATE "Sale" s
-SET "status" = 'OVERDUE'
-FROM "Customer" c
-WHERE s."customerId" = c."id"
-  AND s."status" = 'COMPLETED'
-  AND s."dueDate" IS NOT NULL
-  AND s."dueDate" < CURRENT_TIMESTAMP
-  AND c."balance" > 0;
+-- NOTA · 2026-05-12: Postgres no permite usar un valor de enum recién agregado
+-- (`OVERDUE` arriba con ALTER TYPE) dentro de la MISMA migración (SqlState 55P04
+-- "unsafe use of new value"). Originalmente acá había un UPDATE que ponía
+-- 'OVERDUE' a las sales vencidas, pero rompía el deploy. El backfill se delega
+-- al cron diario `markOverdueDocuments` (la primera corrida marca todo el
+-- legacy en pocos segundos). Cuando el cron arranque ya tendrá `OVERDUE`
+-- committed desde una migración previa y no falla.
+--
+-- Si necesitás backfillear manualmente antes del cron, después de aplicar
+-- esta migración corré en Supabase SQL Editor:
+--
+--   UPDATE "Sale" s SET "status" = 'OVERDUE'
+--   FROM "Customer" c
+--   WHERE s."customerId" = c."id"
+--     AND s."status" = 'COMPLETED'
+--     AND s."dueDate" IS NOT NULL
+--     AND s."dueDate" < CURRENT_TIMESTAMP
+--     AND c."balance" > 0;
 
 -- ─────────────────────────────────────────
 -- 7) RLS en tablas nuevas (patrón Fase 13/14/15)

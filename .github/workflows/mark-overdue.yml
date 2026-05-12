@@ -1,0 +1,31 @@
+name: Mark overdue docs
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: POST /api/cron/mark-overdue
+        env:
+          CRON_URL: ${{ vars.MARK_OVERDUE_URL || 'https://erp.simtechgt.com/api/cron/mark-overdue' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for attempt in 1 2 3; do
+            response=$(curl -fsS -X POST \
+              -H "X-Cron-Secret: $CRON_SECRET" \
+              -H "Content-Type: application/json" \
+              --max-time 30 \
+              "$CRON_URL")
+            if [ $? -eq 0 ]; then
+              echo "OK on attempt $attempt: $response"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "All 3 attempts failed"
+          exit 1

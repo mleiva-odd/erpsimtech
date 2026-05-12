@@ -13,14 +13,18 @@ test.describe('Flujo Crítico de Ventas POS (E2E) - Prevención de Doble Cobro',
 
     // 1. Acceder al inicio de sesión
     await page.goto('/login');
-    
+
     // Iniciar como un usuario real del entorno de pruebas
     await page.fill('input[type="email"]', loginEmail!);
     await page.fill('input[type="password"]', loginPassword!);
     await page.click('button[type="submit"]');
 
-    // 2. Comprobar que redirigió al panel general
-    await expect(page).toHaveURL('/dashboard');
+    // 2. Comprobar que llegó a un destino autenticado.
+    // El post-login redirige a `/apps` (hub de aplicaciones — ver
+    // src/app/(auth)/login/page.tsx). Aceptamos /apps, /dashboard o /pos
+    // para que el test no se rompa si el destino vuelve a cambiar.
+    // Mismo patrón que e2e/multi-tenant-isolation.spec.ts.
+    await page.waitForURL(/\/(apps|dashboard|pos)/, { timeout: 10_000 });
 
     // 3. Forzamos la apertura directa del Punto de Venta (POS)
     await page.goto('/pos');

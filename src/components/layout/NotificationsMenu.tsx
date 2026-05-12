@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Check, Info, AlertTriangle, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -19,18 +19,21 @@ export function NotificationsMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchNotifications = useEffectEvent(async () => {
-    try {
-      const res = await fetch('/api/notifications');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setNotifications(data);
-        setUnreadCount(data.filter(n => !n.isRead).length);
-      }
-    } catch (e) { console.error(e) }
-  });
-
+  // Reemplazo de `useEffectEvent` (API experimental de React canary):
+  // definimos la función adentro del useEffect para que capture las
+  // closures de setState (que son estables por contrato de React) sin
+  // necesidad de hooks experimentales ni patrones ref+useCallback.
   useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications');
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setNotifications(data);
+          setUnreadCount(data.filter(n => !n.isRead).length);
+        }
+      } catch (e) { console.error(e) }
+    };
     void fetchNotifications();
     const interval = setInterval(() => {
       void fetchNotifications();

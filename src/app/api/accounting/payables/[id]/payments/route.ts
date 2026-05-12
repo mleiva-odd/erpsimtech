@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireOperationalPermission } from '@/lib/tenant';
-import { createAccountingEntry } from '@/lib/accounting';
+import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 
 export async function POST(
   req: NextRequest,
@@ -70,7 +70,7 @@ export async function POST(
       });
       
       // 3. Create Bank Transaction (Outflow)
-      const bankTx = await tx.bankTransaction.create({
+      await tx.bankTransaction.create({
         data: {
           bankAccountId: bankAccountId,
           type: 'EXPENSE',
@@ -87,17 +87,21 @@ export async function POST(
         data: { balance: { decrement: amount } }
       });
 
-      // 5. Register accounting entry
-      await createAccountingEntry(tx, {
+      // 5. Asiento contable partida doble:
+      //   DR Proveedores (2.1.01) — disminuye la CxP
+      //   CR Bancos (1.1.02)      — sale dinero del banco
+      await createJournalEntry(tx, {
         companyId: tenant.companyId,
-        type: 'EXPENSE',
-        categoryName: 'Pagos a Proveedores',
+        branchId: tenant.branchId,
+        date: p.createdAt,
         description: `Abono a ${payable.supplier.name}: ${payable.description}${reference ? ` (Ref: ${reference})` : ''}`,
-        amount,
         referenceType: 'PAYABLE_PAYMENT',
         referenceId: p.id,
         userId: tenant.userId,
-        bankTransactionId: bankTx.id,
+        lines: [
+          { accountCode: ACCOUNTS.AP, debit: Number(amount), description: 'Proveedores (CxP)' },
+          { accountCode: ACCOUNTS.BANKS, credit: Number(amount), description: `Pago a proveedor (${method})` },
+        ],
       });
 
       return p;

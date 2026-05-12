@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireOperationalPermission } from '@/lib/tenant';
+import { reverseJournalEntry } from '@/lib/accounting';
 
 export async function POST(
   req: NextRequest,
@@ -59,6 +60,28 @@ export async function POST(
             reference: `Reverso Abono: ${payment.id.split('-')[0]}`,
             description: `Anulación de Abono de Cliente: ${payment.customer.name}`,
           }
+        });
+      }
+
+      // 4. Asiento contrario (CRIT-1): reversamos el JournalEntry original.
+      // Si no existe (cobro legacy sin migrar), el script de migración cubre
+      // datos históricos — no abortamos.
+      const originalEntry = await tx.journalEntry.findFirst({
+        where: {
+          companyId: tenant.companyId,
+          referenceType: 'CUSTOMER_PAYMENT',
+          referenceId: payment.id,
+        },
+        include: { reversedBy: { select: { id: true } } },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (originalEntry && originalEntry.reversedBy.length === 0) {
+        await reverseJournalEntry(tx, originalEntry.id, {
+          companyId: tenant.companyId,
+          userId: tenant.userId,
+          description: `Anulación de cobro a ${payment.customer.name}${notes ? ` — ${notes}` : ''}`,
+          referenceType: 'CUSTOMER_PAYMENT_REVERSE',
+          referenceId: payment.id,
         });
       }
     });

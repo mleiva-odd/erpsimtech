@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
-import { createAccountingEntryAsync } from '@/lib/accounting';
+import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 import { z } from 'zod';
 
 const ExpenseSchema = z.object({
@@ -65,15 +65,41 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Registrar egreso de caja
-    const transaction = await prisma.cashRegisterTransaction.create({
-      data: {
-        cashRegisterId: activeRegister.id,
-        userId: tenant.userId,
-        type: type,
-        amount: amount,
-        description: description,
+    // Registrar egreso de caja + asiento dentro de la misma $transaction (H3).
+    const transaction = await prisma.$transaction(async (tx) => {
+      const trx = await tx.cashRegisterTransaction.create({
+        data: {
+          cashRegisterId: activeRegister.id,
+          userId: tenant.userId,
+          type: type,
+          amount: amount,
+          description: description,
+        },
+      });
+
+      // Asiento contable del egreso:
+      //   EXPENSE     → DR Gastos Operativos (5.3.01) / CR Caja (1.1.01)
+      //   WITHDRAWAL  → DR Capital (3.1.01)           / CR Caja (1.1.01)
+      //   REFUND      → no genera asiento aquí; la devolución se maneja en
+      //                 pos/returns (que ya tiene su propio asiento).
+      if (type === 'EXPENSE' || type === 'WITHDRAWAL') {
+        const debitCode = type === 'EXPENSE' ? ACCOUNTS.OPERATING_EXPENSES : ACCOUNTS.EQUITY;
+        await createJournalEntry(tx, {
+          companyId: tenant.companyId,
+          branchId: activeRegister.branchId,
+          date: trx.createdAt,
+          description: `Egreso de caja: ${description}`,
+          referenceType: 'CASH_EXPENSE',
+          referenceId: trx.id,
+          userId: tenant.userId,
+          lines: [
+            { accountCode: debitCode, debit: amount, description },
+            { accountCode: ACCOUNTS.CASH, credit: amount, description: 'Caja' },
+          ],
+        });
       }
+
+      return trx;
     });
 
     await createAuditLog({
@@ -85,22 +111,6 @@ export async function POST(req: NextRequest) {
       entityId: transaction.id,
       details: { amount, description, type },
     });
-
-    // Automatic accounting entry for cash expense/withdrawal
-    if (type === 'EXPENSE' || type === 'WITHDRAWAL') {
-      const categoryName = type === 'EXPENSE' ? 'Gastos de Operación (Caja)' : 'Retiros de Efectivo (Caja)';
-      await createAccountingEntryAsync(prisma, {
-        companyId: tenant.companyId,
-        branchId: activeRegister.branchId,
-        type: 'EXPENSE',
-        categoryName,
-        description: `Egreso de caja: ${description}`,
-        amount,
-        referenceType: 'CASH_EXPENSE',
-        referenceId: transaction.id,
-        userId: tenant.userId,
-      });
-    }
 
     return NextResponse.json(transaction, { status: 201 });
   } catch (error) {

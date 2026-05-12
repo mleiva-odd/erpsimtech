@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireBranchAccess, requireTenant } from '@/lib/tenant';
 import { z } from 'zod';
 import { createAuditLog } from '@/lib/audit';
-import { createAccountingEntry } from '@/lib/accounting';
+import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 
 const ReturnItemSchema = z.object({
   saleItemId: z.string().uuid(),
@@ -281,17 +281,27 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const categoryName = sale.channel === 'REMOTE' ? 'Devoluciones Remotas' : 'Devoluciones POS';
-      await createAccountingEntry(tx, {
+      // Asiento de devolución parcial (partida doble):
+      //   DR Devoluciones sobre Ventas (4.1.02, contra-cuenta de ingresos)
+      //   CR Caja (CASH) / Bancos (CARD|TRANSFER)
+      // No reversamos el JournalEntry de venta entero porque la devolución
+      // puede ser parcial. Cuando el refundMethod es CARD/TRANSFER pero no
+      // está implementada la salida del banco (H5 de phase-14-discovery),
+      // igual generamos el asiento — la consistencia banco↔contabilidad
+      // se aborda en Fase 20.
+      const refundCreditAccount = refundMethod === 'CASH' ? ACCOUNTS.CASH : ACCOUNTS.BANKS;
+      await createJournalEntry(tx, {
         companyId: tenant.companyId,
         branchId: sale.branchId,
-        type: 'EXPENSE',
-        categoryName,
-        description: `Devolución de Venta #${sale.id.split('-')[0].toUpperCase()} - ${reason}`,
-        amount: Number(refundAmount),
+        date: newReturn.createdAt,
+        description: `Devolución de Venta #${sale.id.split('-')[0].toUpperCase()} — ${reason}`,
         referenceType: 'SALE_RETURN',
         referenceId: newReturn.id,
         userId: tenant.userId,
+        lines: [
+          { accountCode: ACCOUNTS.SALES_RETURNS, debit: Number(refundAmount), description: 'Devoluciones sobre ventas' },
+          { accountCode: refundCreditAccount, credit: Number(refundAmount), description: `Salida por reembolso (${refundMethod})` },
+        ],
       });
 
       return newReturn;

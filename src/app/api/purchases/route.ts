@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
-import { createAccountingEntryAsync } from '@/lib/accounting';
+import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 import { handleApiError } from '@/lib/api-error';
 
 const PurchaseItemSchema = z.object({
@@ -199,19 +199,26 @@ export async function POST(req: NextRequest) {
         }
       });
 
+      // 5. Asiento contable de la compra DENTRO del $transaction (H3):
+      //   DR Inventario (1.2.01) por totalAmount
+      //   CR Proveedores (2.1.01) por totalAmount
+      // (Fase 16 separará el IVA crédito fiscal cuando el campo `tax` exista
+      // en PurchaseOrder. Por ahora, la compra se imputa íntegra a inventario.)
+      await createJournalEntry(tx, {
+        companyId: result.tenant.companyId,
+        branchId,
+        date: po.createdAt,
+        description: `Compra a proveedor${reference ? ` (Ref: ${reference})` : ''} — ${purchaseItems.length} producto(s)`,
+        referenceType: 'PURCHASE',
+        referenceId: po.id,
+        userId: result.tenant.userId,
+        lines: [
+          { accountCode: ACCOUNTS.INVENTORY, debit: totalAmount, description: 'Inventario' },
+          { accountCode: ACCOUNTS.AP, credit: totalAmount, description: 'Cuentas por Pagar a Proveedores' },
+        ],
+      });
+
       return po;
-    });
-    // Automatic accounting entry for purchase expense
-    await createAccountingEntryAsync(prisma, {
-      companyId: result.tenant.companyId,
-      branchId: branchId || undefined,
-      type: 'EXPENSE',
-      categoryName: 'Compras de Inventario',
-      description: `Compra a proveedor ${reference ? `(Ref: ${reference})` : ''} — ${purchaseItems.length} producto(s)`,
-      amount: totalAmount,
-      referenceType: 'PURCHASE',
-      referenceId: purchase.id,
-      userId: result.tenant.userId,
     });
 
     return NextResponse.json(purchase, { status: 201 });

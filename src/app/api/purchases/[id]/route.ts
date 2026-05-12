@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
-import { createAccountingEntry } from '@/lib/accounting';
+import { reverseJournalEntry } from '@/lib/accounting';
 import { handleApiError, ApiError } from '@/lib/api-error';
 
 /**
@@ -145,18 +145,28 @@ export async function PATCH(
         data: { status: 'CANCELLED' },
       });
 
-      // 4. Asiento contable de reversa (gasto negativo).
-      await createAccountingEntry(tx, {
-        companyId: tenant.companyId,
-        branchId: po.branchId,
-        type: 'INCOME', // reversa de gasto
-        categoryName: 'Reversa de Compras',
-        description: `Anulación de orden de compra ${po.id.split('-')[0].toUpperCase()}${reason ? ` — ${reason}` : ''}`,
-        amount: Number(po.total),
-        referenceType: 'PURCHASE_CANCEL',
-        referenceId: po.id,
-        userId: tenant.userId,
+      // 4. Asiento contrario (partida doble): buscamos el JournalEntry de la
+      // compra original y lo reversamos (mismas cuentas, signos invertidos).
+      // Si no hay asiento previo (compra legacy sin migrar), continuamos sin
+      // abortar — el script de migración cubre datos históricos.
+      const originalEntry = await tx.journalEntry.findFirst({
+        where: {
+          companyId: tenant.companyId,
+          referenceType: 'PURCHASE',
+          referenceId: po.id,
+        },
+        include: { reversedBy: { select: { id: true } } },
+        orderBy: { createdAt: 'asc' },
       });
+      if (originalEntry && originalEntry.reversedBy.length === 0) {
+        await reverseJournalEntry(tx, originalEntry.id, {
+          companyId: tenant.companyId,
+          userId: tenant.userId,
+          description: `Anulación de Compra #${po.id.split('-')[0].toUpperCase()}${reason ? ` — ${reason}` : ''}`,
+          referenceType: 'PURCHASE_CANCEL',
+          referenceId: po.id,
+        });
+      }
     });
 
     await createAuditLog({

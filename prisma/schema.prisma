@@ -42,6 +42,9 @@ model Company {
   customRoles           CustomRole[]
   employees             Employee[]
   payrolls              Payroll[]
+  chartOfAccounts       ChartOfAccount[]
+  journalEntries        JournalEntry[]
+  accountingPeriods     AccountingPeriod[]
 }
 
 model Branch {
@@ -69,6 +72,7 @@ model Branch {
   deliveryNotes        DeliveryNote[]
   accountingEntries    AccountingEntry[]
   employees            Employee[]
+  journalEntries       JournalEntry[]
 
   @@unique([companyId, code])
 }
@@ -103,6 +107,7 @@ model User {
   supplierPayments         SupplierPayment[]
   bankTransactions         BankTransaction[]
   employee                 Employee?
+  journalEntries           JournalEntry[]
 
   customRoleId             String?
   customRole               CustomRole?               @relation(fields: [customRoleId], references: [id])
@@ -746,6 +751,11 @@ model AccountingCategory {
 }
 
 /// Entrada contable — cada movimiento financiero del negocio
+/// DEPRECATED (Fase 14): este modelo single-line se mantiene únicamente por
+/// retro-compatibilidad durante la migración a partida doble (JournalEntry).
+/// Los nuevos movimientos contables se generan vía `createJournalEntry` en
+/// `src/lib/accounting/journal.ts`. Una migración futura (Fase 25) dropea
+/// AccountingEntry/AccountingCategory después de validar la migración.
 model AccountingEntry {
   id            String             @id @default(uuid())
   companyId     String
@@ -759,6 +769,7 @@ model AccountingEntry {
   date          DateTime           @default(now())
   userId        String
   bankTransactionId String?
+  migrated      Boolean            @default(false)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
@@ -1009,4 +1020,120 @@ model LoginAttempt {
 
   @@index([email, createdAt(sort: Desc)])
   @@index([ipAddress, createdAt(sort: Desc)])
+}
+
+// ─────────────────────────────────────────
+// Contabilidad real (Fase 14): Plan de cuentas + Partida doble
+// ─────────────────────────────────────────
+
+/// Plan de cuentas (Chart of Accounts) jerárquico por empresa.
+/// Códigos en formato decimal "1.1.01" (ej. estándar GT).
+/// Solo cuentas con `isPosting=true` aceptan líneas de JournalEntry.
+model ChartOfAccount {
+  id          String           @id @default(uuid())
+  companyId   String
+  code        String
+  name        String
+  type        AccountType2
+  parentId    String?
+  parent      ChartOfAccount?  @relation("Tree", fields: [parentId], references: [id])
+  children    ChartOfAccount[] @relation("Tree")
+  isPosting   Boolean          @default(true)
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lines       JournalLine[]
+
+  @@unique([companyId, code])
+  @@index([companyId, type])
+  @@index([parentId])
+}
+
+/// Tipo contable de cuenta. Se llama `AccountType2` porque el enum
+/// `AccountType` legacy (CASH_BOX/BANK_ACCOUNT/...) ya está ocupado por
+/// `BankAccount`. Fase 25 puede renombrar cuando se dropee el legacy.
+enum AccountType2 {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+/// Período contable mensual. Cuando un período está CLOSED, no se permiten
+/// nuevos asientos con fecha dentro del período (helper retorna 409).
+model AccountingPeriod {
+  id         String       @id @default(uuid())
+  companyId  String
+  year       Int
+  month      Int
+  status     PeriodStatus @default(OPEN)
+  closedAt   DateTime?
+  closedById String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  entries    JournalEntry[]
+
+  @@unique([companyId, year, month])
+  @@index([companyId, status])
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+/// Cabecera de asiento contable (partida doble).
+/// Las líneas suman DR == CR (validado por `createJournalEntry`).
+/// `posted`: true para asientos generados por sistema; false (DRAFT) para
+/// asientos manuales que requieren publicación explícita.
+model JournalEntry {
+  id            String           @id @default(uuid())
+  companyId     String
+  branchId      String?
+  periodId      String
+  date          DateTime
+  description   String
+  referenceType String?
+  referenceId   String?
+  userId        String
+  posted        Boolean          @default(true)
+  postedAt      DateTime?
+  reversedById  String?          @unique
+  reversedEntry JournalEntry?    @relation("Reversal", fields: [reversedById], references: [id])
+  reversedBy    JournalEntry[]   @relation("Reversal")
+  createdAt     DateTime         @default(now())
+
+  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch        Branch?          @relation(fields: [branchId], references: [id])
+  period        AccountingPeriod @relation(fields: [periodId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+  lines         JournalLine[]
+
+  @@index([companyId, date])
+  @@index([companyId, posted])
+  @@index([periodId])
+  @@index([referenceType, referenceId])
+}
+
+/// Línea de asiento. Debe tener `debit` o `credit` > 0 pero no ambos.
+/// La cuenta referenciada debe tener `isPosting=true`.
+model JournalLine {
+  id           String         @id @default(uuid())
+  journalId    String
+  accountId    String
+  debit        Decimal        @default(0) @db.Decimal(15, 2)
+  credit       Decimal        @default(0) @db.Decimal(15, 2)
+  description  String?
+  costCenterId String?
+
+  journal      JournalEntry   @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  account      ChartOfAccount @relation(fields: [accountId], references: [id])
+
+  @@index([accountId])
+  @@index([journalId])
 }

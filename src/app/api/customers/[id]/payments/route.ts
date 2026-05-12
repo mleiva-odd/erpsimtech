@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
-import { createAccountingEntryAsync } from '@/lib/accounting';
+import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 import { z } from 'zod';
 
 const PaymentSchema = z.object({
@@ -128,6 +128,24 @@ export async function POST(
         throw new Error('El saldo cambió mientras se procesaba el abono. Intenta de nuevo.');
       }
 
+      // Asiento contable del cobro DENTRO del $transaction (H3):
+      //   DR Caja (CASH) / Bancos (CARD|TRANSFER)
+      //   CR Clientes (1.1.04) — disminuye la CxC
+      const debitAccount = method === 'CASH' ? ACCOUNTS.CASH : ACCOUNTS.BANKS;
+      await createJournalEntry(tx, {
+        companyId: tenant.companyId,
+        branchId: tenant.branchId,
+        date: newPayment.createdAt,
+        description: `Abono cliente ${customer.name} (${method})${reference ? ` Ref: ${reference}` : ''}`,
+        referenceType: 'CUSTOMER_PAYMENT',
+        referenceId: newPayment.id,
+        userId: tenant.userId,
+        lines: [
+          { accountCode: debitAccount, debit: amount, description: `Cobro ${method}` },
+          { accountCode: ACCOUNTS.AR, credit: amount, description: 'Clientes (CxC)' },
+        ],
+      });
+
       return newPayment;
     });
 
@@ -144,19 +162,6 @@ export async function POST(
         customerId: resolvedParams.id,
         newBalance: 'updated'
       }
-    });
-
-    // Automatic accounting entry for received customer payment
-    await createAccountingEntryAsync(prisma, {
-      companyId: tenant.companyId,
-      branchId: activeRegisterId ? undefined : tenant.branchId, // If cash register exists we could potentially pull its branch, but undefined or tenant branch is fine for accounts receivable
-      type: 'INCOME',
-      categoryName: 'Abonos de Clientes',
-      description: `Abono de cliente recibido (${method})${reference ? ` Ref: ${reference}` : ''}`,
-      amount,
-      referenceType: 'CUSTOMER_PAYMENT',
-      referenceId: payment.id,
-      userId: tenant.userId,
     });
 
     return NextResponse.json(payment, { status: 201 });

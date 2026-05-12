@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": ".tests-out",
+    "rootDir": ".",
+    "noEmit": false,
+    "skipLibCheck": true,
+    "isolatedModules": false,
+    "jsx": "preserve"
+  },
+  "include": [
+    "src/lib/accounting/**/*.ts",
+    "src/types/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", ".tests-out"]
+}

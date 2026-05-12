@@ -8,45 +8,65 @@ export async function PUT(
 ) {
   const result = await requirePermission('payroll:manage');
   if ('error' in result) return result.error;
+  const { tenant } = result;
 
   const { id } = await params;
   try {
-    const data = await req.json();
-
-    // 1. Update the item
-    const updatedItem = await prisma.payrollItem.update({
+    // Tenant guard: validar que el PayrollItem pertenezca a esta empresa
+    // vía su Payroll parent. Sin esto, cualquier usuario con
+    // `payroll:manage` puede editar PayrollItem de OTRA empresa si conoce
+    // el UUID. (Bug detectado en audit Fase 18.)
+    const existing = await prisma.payrollItem.findUnique({
       where: { id },
-      data: {
-        otherBonuses: data.otherBonuses,
-        otherDeductions: data.otherDeductions,
-        isr: data.isr,
-        netSalary: data.netSalary,
-      },
-      include: { payroll: true }
+      include: { payroll: { select: { companyId: true } } },
     });
-
-    // 2. Recalculate Payroll Totals
-    const allItems = await prisma.payrollItem.findMany({
-      where: { payrollId: updatedItem.payrollId }
-    });
-
-    let totalGross = 0;
-    let totalDeductions = 0;
-    let totalNet = 0;
-
-    for (const item of allItems) {
-      const base = Number(item.baseSalary);
-      const bonus = Number(item.bonusIncentive) + Number(item.otherBonuses);
-      const ded = Number(item.igss) + Number(item.isr) + Number(item.otherDeductions);
-      
-      totalGross += (base + bonus);
-      totalDeductions += ded;
-      totalNet += (base + bonus - ded);
+    if (!existing || existing.payroll.companyId !== tenant.companyId) {
+      return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
     }
 
-    await prisma.payroll.update({
-      where: { id: updatedItem.payrollId },
-      data: { totalGross, totalDeductions, totalNet }
+    const data = await req.json();
+
+    // Todo lo demás dentro de una transacción atómica: si falla el
+    // recálculo de Payroll totales, no queremos que el item quede
+    // actualizado a medias.
+    const updatedItem = await prisma.$transaction(async (tx) => {
+      const item = await tx.payrollItem.update({
+        where: { id },
+        data: {
+          otherBonuses: data.otherBonuses,
+          otherDeductions: data.otherDeductions,
+          isr: data.isr,
+          netSalary: data.netSalary,
+        },
+        include: { payroll: true },
+      });
+
+      // Recalculate Payroll Totals (defensa: no confiamos en netSalary
+      // del cliente — recalculamos de cero).
+      const allItems = await tx.payrollItem.findMany({
+        where: { payrollId: item.payrollId },
+      });
+
+      let totalGross = 0;
+      let totalDeductions = 0;
+      let totalNet = 0;
+
+      for (const it of allItems) {
+        const base = Number(it.baseSalary);
+        const bonus = Number(it.bonusIncentive) + Number(it.otherBonuses);
+        const ded = Number(it.igss) + Number(it.isr) + Number(it.otherDeductions);
+
+        totalGross += (base + bonus);
+        totalDeductions += ded;
+        totalNet += (base + bonus - ded);
+      }
+
+      await tx.payroll.update({
+        where: { id: item.payrollId },
+        data: { totalGross, totalDeductions, totalNet },
+      });
+
+      return item;
     });
 
     return NextResponse.json(updatedItem);

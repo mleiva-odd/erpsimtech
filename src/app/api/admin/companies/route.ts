@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/tenant';
 import { hashPassword, validatePasswordStrength } from '@/lib/hashing';
 import { PLANS, type PlanId } from '@/lib/plans';
+import { seedChartOfAccounts, ensureAccountingPeriod } from '@/lib/accounting';
 
 /**
  * Calcula valores por defecto del Subscription a partir del catálogo
@@ -169,6 +170,10 @@ export async function POST(req: NextRequest) {
           customRoleId: adminRole.id,
         }
       });
+
+      // Plan de cuentas + período contable inicial (Fase 14).
+      await seedChartOfAccounts(tx, newCompany.id);
+      await ensureAccountingPeriod(tx, newCompany.id, new Date());
 
       return newCompany;
     });

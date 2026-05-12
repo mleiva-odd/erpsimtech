@@ -1,0 +1,51 @@
+name: Keep-alive Supabase FREE
+
+# Supabase FREE tier pausa el proyecto después de 7 días de inactividad.
+# Si el ERP no recibe tráfico una semana (vacaciones, navidad, etc.) la
+# DB queda offline hasta que alguien la reactive manualmente desde el
+# dashboard, con 5-30 min de espera. Para evitarlo, este workflow hace
+# un ping al endpoint /api/health cada 6 días (margen de 1 día contra el
+# umbral de 7).
+#
+# El endpoint /api/health corre `SELECT 1` contra la DB, lo que cuenta
+# como actividad para Supabase y resetea el contador de auto-pausa.
+#
+# Cuando se migre a un plan pago (NANO/PRO), este workflow se puede
+# borrar — los planes pagos no tienen auto-pausa.
+
+on:
+  schedule:
+    # Cada 6 días a las 13:00 UTC (07:00 GT). Cron format: m h dom mon dow.
+    # GitHub Actions interpreta "*/6" en day-of-month como días 1, 7, 13, 19, 25.
+    # Eso da ping en días 1, 7, 13, 19, 25 → gap máximo de 6 días entre el 25
+    # y el 1 del mes siguiente. Bien para mantener <7 días.
+    - cron: '0 13 1,7,13,19,25 * *'
+  # También permitimos correr a mano desde la UI de GitHub Actions.
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Curl health endpoint
+        env:
+          # URL configurable. Default a producción.
+          HEALTH_URL: ${{ vars.KEEP_ALIVE_URL || 'https://erp.simtechgt.com/api/health' }}
+        run: |
+          echo "Pinging $HEALTH_URL"
+          # -f: fallar si HTTP >= 400 (degraded responde 503 → falla → notifica).
+          # -sS: silencioso pero muestra errores.
+          # --max-time 30: timeout de la request.
+          # Retry 3x con backoff por si hay glitch transitorio de cold start.
+          for attempt in 1 2 3; do
+            if curl -fsS --max-time 30 "$HEALTH_URL"; then
+              echo "OK on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt failed, retrying in 30s..."
+            sleep 30
+          done
+          echo "All 3 attempts failed — DB probably down. Investigate."
+          exit 1

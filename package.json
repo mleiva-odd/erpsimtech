@@ -11,6 +11,8 @@
     "prisma:validate": "prisma validate",
     "prisma:push": "prisma db push",
     "check:preprod": "npm run lint && npm run typecheck && npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:e2e": "playwright test",
     "seed": "tsx prisma/seed.ts",
     "bootstrap:superadmin": "tsx scripts/bootstrap-superadmin.ts",
@@ -59,7 +61,8 @@
     "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^2.1.0"
   },
   "overrides": {
     "dompurify": "3.4.0",

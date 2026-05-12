@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { createNotification } from '@/lib/notifications';
-import { createAccountingEntry } from '@/lib/accounting';
+import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 import { z } from 'zod';
 
 const SaleItemSchema = z.object({
@@ -394,22 +394,45 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Asiento contable automático DENTRO de la transacción.
+      // Asiento contable automático DENTRO de la transacción (partida doble).
       // Si el asiento falla, la venta se rollbackea entera (consistencia).
-      // Antes este bloque corría fuera del $transaction y dejaba ventas
-      // sin asiento si la lambda moría — ver Phase 4 audit M-1.
+      //
+      // Reglas de imputación según los pagos:
+      //   - Tramo CASH       → DR Caja (1.1.01)
+      //   - Tramo CARD/XFER  → DR Bancos (1.1.02)
+      //   - Tramo CREDIT     → DR Clientes (1.1.04)
+      //   - CR Ventas (4.1.01) por subtotal
+      //   - CR IVA Débito (2.1.02) por tax (hoy 0; Fase 16 calcula real)
       if (status === 'COMPLETED') {
-        const categoryName = channel === 'REMOTE' ? 'Ventas Remotas' : 'Ventas POS';
-        await createAccountingEntry(tx, {
+        const taxAmount = Number(completedSale.tax ?? 0);
+        const subtotalAmount = Number(completedSale.total) - taxAmount;
+
+        const lines: Array<{ accountCode: string; debit?: number; credit?: number; description?: string }> = [];
+        for (const p of finalPayments) {
+          const amt = Number(p.amount);
+          if (amt <= 0) continue;
+          let accountCode: string;
+          if (p.method === 'CASH') accountCode = ACCOUNTS.CASH;
+          else if (p.method === 'CREDIT') accountCode = ACCOUNTS.AR;
+          else accountCode = ACCOUNTS.BANKS; // CARD / TRANSFER
+          lines.push({ accountCode, debit: amt, description: `Cobro ${p.method}` });
+        }
+        if (subtotalAmount > 0) {
+          lines.push({ accountCode: ACCOUNTS.SALES, credit: subtotalAmount, description: 'Ventas' });
+        }
+        if (taxAmount > 0) {
+          lines.push({ accountCode: ACCOUNTS.VAT_OUTPUT, credit: taxAmount, description: 'IVA Débito Fiscal' });
+        }
+
+        await createJournalEntry(tx, {
           companyId: tenant.companyId,
           branchId,
-          type: 'INCOME',
-          categoryName,
-          description: `Venta #${completedSale.id.split('-')[0].toUpperCase()} — ${items.length} producto(s)`,
-          amount: Number(completedSale.total),
+          date: completedSale.createdAt,
+          description: `Venta #${completedSale.id.split('-')[0].toUpperCase()} — ${items.length} producto(s) [${channel}]`,
           referenceType: 'SALE',
           referenceId: completedSale.id,
           userId: tenant.userId,
+          lines,
         });
       }
 

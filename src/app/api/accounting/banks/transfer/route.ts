@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireOperationalPermission } from '@/lib/tenant';
-import { createAccountingEntry } from '@/lib/accounting';
+import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 
 export async function POST(req: NextRequest) {
   const result = await requireOperationalPermission('treasury:manage');
@@ -71,29 +71,22 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // 5. Asientos contables (Movimientos compensatorios)
-      await createAccountingEntry(tx, {
+      // 5. Asiento contable partida doble:
+      //   DR Bancos (destino) / CR Bancos (origen)
+      // Como ambas piernas usan la misma cuenta del plan (1.1.02 Bancos), el
+      // detalle por sub-cuenta bancaria queda en `description`. Cuando Fase 22
+      // introduzca sub-cuentas hoja por banco, esto se reescribe.
+      await createJournalEntry(tx, {
         companyId: tenant.companyId,
-        type: 'EXPENSE',
-        categoryName: 'Traslados Bancarios Salientes',
-        description: `Traslado a ${targetBank.name}${reference ? ` (Ref: ${reference})` : ''}`,
-        amount,
-        referenceType: 'BANK_TRANSFER',
-        referenceId: txExp.id,
-        userId: tenant.userId,
-        bankTransactionId: txExp.id,
-      });
-
-      await createAccountingEntry(tx, {
-        companyId: tenant.companyId,
-        type: 'INCOME',
-        categoryName: 'Traslados Bancarios Entrantes',
-        description: `Traslado desde ${sourceBank.name}${reference ? ` (Ref: ${reference})` : ''}`,
-        amount,
+        date: txInc.createdAt,
+        description: `Traslado bancario: ${sourceBank.name} → ${targetBank.name}${reference ? ` (Ref: ${reference})` : ''}`,
         referenceType: 'BANK_TRANSFER',
         referenceId: txInc.id,
         userId: tenant.userId,
-        bankTransactionId: txInc.id,
+        lines: [
+          { accountCode: ACCOUNTS.BANKS, debit: amount, description: `Ingreso a ${targetBank.name}` },
+          { accountCode: ACCOUNTS.BANKS, credit: amount, description: `Salida de ${sourceBank.name}` },
+        ],
       });
 
     });

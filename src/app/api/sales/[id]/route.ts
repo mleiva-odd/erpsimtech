@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireBranchAccess, requireTenant } from '@/lib/tenant';
-import { createAccountingEntry } from '@/lib/accounting';
+import { reverseJournalEntry } from '@/lib/accounting';
 
 export async function GET(
   req: NextRequest,
@@ -179,19 +179,30 @@ export async function PATCH(
         data: { status: 'CANCELLED' },
       });
 
-      // 4. Registrar movimiento contable (Reversión)
-      const categoryName = sale.channel === 'REMOTE' ? 'Devoluciones Remotas' : 'Devoluciones POS';
-      await createAccountingEntry(tx, {
-        companyId: tenant.companyId,
-        branchId: sale.branchId,
-        type: 'EXPENSE',
-        categoryName,
-        description: `Anulación de Venta #${sale.id.split('-')[0].toUpperCase()}`,
-        amount: Number(sale.total),
-        referenceType: 'SALE_CANCEL',
-        referenceId: sale.id,
-        userId: tenant.userId,
+      // 4. Asiento contrario (CRIT-2): en lugar de crear un EXPENSE
+      // paralelo "Devoluciones POS" (patrón legacy que inflaba P&L), buscamos
+      // el JournalEntry original de la venta y lo reversamos en bloque
+      // (mismas cuentas, signos invertidos). Si no hay asiento previo
+      // (venta legacy sin migrar todavía), continuamos sin abortar — el cron
+      // de migración del schema viejo lo cubrirá.
+      const originalEntry = await tx.journalEntry.findFirst({
+        where: {
+          companyId: tenant.companyId,
+          referenceType: 'SALE',
+          referenceId: sale.id,
+        },
+        include: { reversedBy: { select: { id: true } } },
+        orderBy: { createdAt: 'asc' },
       });
+      if (originalEntry && originalEntry.reversedBy.length === 0) {
+        await reverseJournalEntry(tx, originalEntry.id, {
+          companyId: tenant.companyId,
+          userId: tenant.userId,
+          description: `Anulación de Venta #${sale.id.split('-')[0].toUpperCase()}`,
+          referenceType: 'SALE_CANCEL',
+          referenceId: sale.id,
+        });
+      }
     });
 
     return NextResponse.json({ success: true, message: 'Venta anulada correctamente.' });

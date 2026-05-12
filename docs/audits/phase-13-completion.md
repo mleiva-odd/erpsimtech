@@ -29,10 +29,12 @@ Los archivos en `prisma/manual_migrations/` quedan como referencia histórica (s
 ### 1.2 Role Postgres `app_user` (sin BYPASSRLS)
 - Nueva migración `20260511000000_app_user_role_activation_ready/migration.sql`:
   - Re-asegura `CREATE ROLE app_user NOLOGIN` (idempotente).
-  - `ALTER ROLE app_user NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS` (defensa contra escalado).
+  - **No ejecuta `ALTER ROLE app_user NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`**: Supabase Postgres bloquea ese ALTER vía la extensión `supautils`. Defensa equivalente: los defaults de `CREATE ROLE x NOLOGIN` son exactamente esos (NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOBYPASSRLS por default), así que no necesitamos forzarlos explícitamente. Verificable post-migración con `SELECT rolname, rolsuper, rolbypassrls, rolcanlogin FROM pg_roles WHERE rolname = 'app_user'`.
   - `GRANT USAGE/SELECT/INSERT/UPDATE/DELETE` sobre `public` schema y todas sus tablas.
   - `GRANT USAGE, SELECT` sobre todas las secuencias.
   - `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public ...` para que tablas/secuencias futuras hereden grants automáticamente. **Crítico** — sin esto, cada nueva tabla creada por migrations sería invisible para `app_user`.
+
+> Corrección 2026-05-11 (verificación cruzada): la versión inicial de esta sección decía que la migración ejecutaba `ALTER ROLE app_user NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`. El SQL real no lo hace por la restricción de Supabase. Funcionalmente equivalente, pero el texto se actualizó para que coincida con el código aplicable.
 
 ### 1.3 RLS verificada
 - Auditoría: las 43 tablas con `companyId` (directo o vía relación) ya tienen `tenant_isolation` policy aplicada (`prisma/migrations/20260509120000_add_tenant_isolation_policies`).

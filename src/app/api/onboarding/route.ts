@@ -4,6 +4,7 @@ import { createAuditLog } from '@/lib/audit';
 import { requirePermission } from '@/lib/tenant';
 import { z } from 'zod';
 import { hashPassword, PASSWORD_MIN_LENGTH } from '@/lib/hashing';
+import { seedChartOfAccounts, ensureAccountingPeriod } from '@/lib/accounting';
 
 const OnboardingSchema = z.object({
   // Company info
@@ -149,6 +150,12 @@ export async function POST(req: NextRequest) {
           customRoleId: adminRole.id,
         },
       });
+
+      // Plan de cuentas + período contable inicial (Fase 14).
+      // Sin esto, la primera operación contable (venta, compra, etc.) falla
+      // porque createJournalEntry no encuentra las cuentas hoja.
+      await seedChartOfAccounts(tx, newCompany.id);
+      await ensureAccountingPeriod(tx, newCompany.id, new Date());
 
       return newCompany;
     });

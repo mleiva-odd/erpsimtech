@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireOperationalPermission } from '@/lib/tenant';
-import { createAccountingEntry } from '@/lib/accounting';
+import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 
 export async function POST(
   req: NextRequest,
@@ -63,7 +63,7 @@ export async function POST(
       });
       
       // 3. Create Bank Transaction (Inflow)
-      const bankTx = await tx.bankTransaction.create({
+      await tx.bankTransaction.create({
         data: {
           bankAccountId: bankAccountId,
           type: 'INCOME',
@@ -80,17 +80,21 @@ export async function POST(
         data: { balance: { increment: amount } }
       });
 
-      // 5. Register accounting entry
-      await createAccountingEntry(tx, {
+      // 5. Asiento contable partida doble:
+      //   DR Bancos (1.1.02) — el cobro ingresa al banco
+      //   CR Clientes (1.1.04) — disminuye la CxC
+      await createJournalEntry(tx, {
         companyId: tenant.companyId,
-        type: 'INCOME',
-        categoryName: 'Cobros a Clientes',
+        branchId: tenant.branchId,
+        date: p.createdAt,
         description: `Abono al crédito de ${customer.name}${reference ? ` (Ref: ${reference})` : ''}`,
-        amount,
         referenceType: 'CUSTOMER_PAYMENT',
         referenceId: p.id,
         userId: tenant.userId,
-        bankTransactionId: bankTx.id,
+        lines: [
+          { accountCode: ACCOUNTS.BANKS, debit: Number(amount), description: `Cobro a banco (${method})` },
+          { accountCode: ACCOUNTS.AR, credit: Number(amount), description: 'Clientes (CxC)' },
+        ],
       });
 
       return p;

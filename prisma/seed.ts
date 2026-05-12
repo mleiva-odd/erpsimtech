@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
+import { seedChartOfAccounts, ensureAccountingPeriod } from '../src/lib/accounting/seed';
 
 // Guard Fase 13: el seed limpia toda la DB (`deleteMany` por entidad).
 // Si se corre por accidente en producción, vuela los datos del cliente.
@@ -71,6 +72,11 @@ async function main() {
   console.log('Iniciando Wipe & Re-Seed de la Base de Datos SIMTECH...');
 
   // 1. WIPE DATA (Respetar orden para evitar llaves foráneas)
+  // Contabilidad nueva (Fase 14): primero líneas, luego asientos, períodos y cuentas
+  await prisma.journalLine.deleteMany();
+  await prisma.journalEntry.deleteMany();
+  await prisma.accountingPeriod.deleteMany();
+  await prisma.chartOfAccount.deleteMany();
   await prisma.saleItem.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.sale.deleteMany();
@@ -138,6 +144,11 @@ async function main() {
   const branchSanta = await prisma.branch.create({
     data: { companyId: company.id, name: 'Santa', code: 'SUC-SANTA', isMain: false }
   });
+
+  // 4.b Plan de cuentas y período contable inicial (Fase 14)
+  await seedChartOfAccounts(prisma, company.id);
+  await ensureAccountingPeriod(prisma, company.id, new Date());
+  console.log('-> Plan de cuentas estándar GT + período contable abierto.');
 
   const adminRole = await prisma.customRole.create({
     data: {

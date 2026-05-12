@@ -37,7 +37,12 @@ type AuditAction =
   | 'EMPLOYEE_CREATED'
   | 'EMPLOYEE_UPDATED'
   | 'EMPLOYEE_DEACTIVATED'
-  | 'PURCHASE_CANCELLED';
+  | 'PURCHASE_CANCELLED'
+  // Fase 16 · Facturación Electrónica (FEL)
+  | 'FEL_CERTIFY'
+  | 'FEL_CANCEL'
+  | 'FEL_CERTIFY_NCRE'
+  | 'FEL_CERTIFY_NDEB';
 
 interface AuditLogParams {
   companyId: string;

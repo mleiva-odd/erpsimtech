@@ -7,6 +7,7 @@ import { createNotification } from '@/lib/notifications';
 import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 import { getCurrentCost, logStockMovementInline } from '@/lib/inventory';
 import { assertCustomerCanBuyOnCredit, ARAPError } from '@/lib/ar-ap';
+import { calculateLineTax, validateGuatemalanNit, isCF } from '@/lib/fel';
 import { z } from 'zod';
 
 const SaleItemSchema = z.object({
@@ -29,6 +30,12 @@ const CreateSaleSchema = z.object({
   payments: z.array(PaymentSchema).optional(),
   discount: z.number().min(0).max(100).default(0),
   customerId: z.string().uuid().optional().nullable(),
+  // Fase 16: datos del receptor obligatorios para snapshot FEL.
+  // Si customerId está presente, se toman del Customer salvo override.
+  // Si NO hay customerId, customerNit y customerName son obligatorios.
+  // "CF" (Consumidor Final) acepta nombre genérico "Consumidor Final".
+  customerNit: z.string().trim().optional().nullable(),
+  customerName: z.string().trim().optional().nullable(),
   status: z.enum(['COMPLETED', 'QUOTE']).default('COMPLETED'),
   channel: z.enum(['POS', 'REMOTE', 'WEB']).default('POS'),
 });
@@ -53,7 +60,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { clientRequestId, items, payments = [], discount, customerId, status, channel } = parsed.data;
+  const { clientRequestId, items, payments = [], discount, customerId, status, channel, customerNit: bodyCustomerNit, customerName: bodyCustomerName } = parsed.data;
 
   if (clientRequestId) {
     const existingSale = await prisma.sale.findFirst({
@@ -113,6 +120,68 @@ export async function POST(req: NextRequest) {
       acceptsCredit: true,
     },
   });
+
+  // Fase 16: validar que la empresa tenga régimen tributario configurado.
+  // Sin esto el cálculo de IVA no es determinístico (no podemos saber si
+  // aplicar 12% o 5%). El admin debe setearlo en Settings/onboarding.
+  // Cast del resultado: el cliente Prisma del sandbox no tiene `taxRegime`
+  // generado aún (lo arregla `npx prisma generate` post-merge).
+  const company = (await prisma.company.findUnique({
+    where: { id: tenant.companyId },
+  })) as
+    | { taxRegime: 'GENERAL' | 'PEQUENO_CONTRIBUYENTE' | null; name: string; nit: string | null }
+    | null;
+  if (!company?.taxRegime) {
+    return NextResponse.json(
+      {
+        error:
+          'Debes configurar el régimen tributario (General o Pequeño Contribuyente) en Settings antes de facturar.',
+        code: 'TAX_REGIME_NOT_CONFIGURED',
+      },
+      { status: 400 },
+    );
+  }
+  const companyTaxRegime = company.taxRegime as 'GENERAL' | 'PEQUENO_CONTRIBUYENTE';
+
+  // Resolver receptor (NIT + nombre):
+  //   - Si customerId, leer del Customer (snapshot).
+  //   - Sino, requerir customerNit y customerName del body.
+  //   - Validar formato NIT GT (acepta "CF").
+  let resolvedReceptorNit: string | null = null;
+  let resolvedReceptorName: string | null = null;
+  if (customerId) {
+    const cust = await prisma.customer.findFirst({
+      where: { id: customerId, companyId: tenant.companyId },
+      select: { nit: true, name: true },
+    });
+    if (!cust) {
+      return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
+    }
+    resolvedReceptorNit = (bodyCustomerNit?.trim() || cust.nit || 'CF').trim();
+    resolvedReceptorName = (bodyCustomerName?.trim() || cust.name || 'Consumidor Final').trim();
+  } else {
+    resolvedReceptorNit = (bodyCustomerNit?.trim() || 'CF').trim();
+    resolvedReceptorName = (bodyCustomerName?.trim() || 'Consumidor Final').trim();
+  }
+
+  // Validar formato del NIT (acepta "CF").
+  const nitCheck = validateGuatemalanNit(resolvedReceptorNit);
+  if (!nitCheck.ok) {
+    return NextResponse.json(
+      {
+        error: `NIT del receptor inválido: ${nitCheck.error ?? 'formato incorrecto'}.`,
+        code: 'INVALID_RECEPTOR_NIT',
+      },
+      { status: 400 },
+    );
+  }
+  resolvedReceptorNit = nitCheck.normalized;
+  if (!isCF(resolvedReceptorNit) && (!resolvedReceptorName || resolvedReceptorName.length < 2)) {
+    return NextResponse.json(
+      { error: 'Nombre del receptor requerido cuando el NIT no es CF.' },
+      { status: 400 },
+    );
+  }
 
   const disabledMethod = payments.find((payment) => {
     if (payment.method === 'CASH') return settings?.acceptsCash === false;
@@ -189,10 +258,51 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 2. Calculate totals
-      const subtotal = items.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
-      const discountAmount = subtotal * (discount / 100);
-      const total = subtotal - discountAmount;
+      // 2. Calculate totals + IVA por línea (Fase 16).
+      //
+      // Estrategia:
+      //   - El descuento `discount` (porcentaje 0-100) se distribuye
+      //     prorrateado entre las líneas en proporción a su monto bruto.
+      //   - Cada línea calcula su propio IVA según régimen + isTaxExempt
+      //     del producto.
+      //   - Sale.subtotal = Σ saleItem.subtotal (post-descuento, pre-IVA).
+      //   - Sale.tax      = Σ saleItem.tax.
+      //   - Sale.total    = Sale.subtotal + Sale.tax.
+      //   - Sale.discount queda como antes (porcentaje aplicado).
+      const grossSubtotal = items.reduce(
+        (acc, item) => acc + item.unitPrice * item.quantity,
+        0,
+      );
+      const discountFactor = discount > 0 ? discount / 100 : 0;
+
+      type LineCalc = {
+        taxRate: number;
+        tax: number;
+        subtotal: number; // post-descuento, pre-IVA
+        total: number;
+        lineDiscount: number; // monto descuento prorrateado
+      };
+      const lineCalcs: LineCalc[] = items.map((item) => {
+        const lineGross = item.unitPrice * item.quantity;
+        const lineDiscount = discountFactor > 0 ? lineGross * discountFactor : 0;
+        const product = products.find((p) => p.id === item.productId);
+        const isTaxExempt = product?.isTaxExempt ?? false;
+        const calc = calculateLineTax({
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          discount: lineDiscount,
+          isTaxExempt,
+          companyTaxRegime,
+        });
+        return { ...calc, lineDiscount };
+      });
+
+      const subtotal = lineCalcs.reduce((s, l) => s + l.subtotal, 0);
+      const taxTotal = lineCalcs.reduce((s, l) => s + l.tax, 0);
+      const total = subtotal + taxTotal;
+      // Nota: `grossSubtotal` se usa para validar contra clientes que
+      // mandan el cálculo previo. Tax se incluye en `total` ahora.
+      void grossSubtotal;
 
       // 3. Validate payment amounts & Handle Credit Payment
       let hasCreditPayment = false;
@@ -273,13 +383,17 @@ export async function POST(req: NextRequest) {
           clientRequestId: clientRequestId || null,
           subtotal,
           discount,
-          tax: 0,
+          tax: taxTotal,
           total,
           status,
           channel,
           // Fase 17: dueDate solo si la venta tiene pago a crédito.
           // Calculado arriba en sección 4 (saleDueDate).
           ...(saleDueDate ? { dueDate: saleDueDate } : {}),
+          // Fase 16: snapshot del receptor + régimen vigente al emitir.
+          customerNit: resolvedReceptorNit,
+          customerName: resolvedReceptorName,
+          taxRegime: companyTaxRegime,
           items: {
             create: items.map((item, idx) => ({
               productId: item.productId,
@@ -287,7 +401,10 @@ export async function POST(req: NextRequest) {
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               unitCost: unitCostByItemIndex[idx], // Snapshot WAC al vender
-              subtotal: item.unitPrice * item.quantity,
+              subtotal: lineCalcs[idx].subtotal,
+              discount: lineCalcs[idx].lineDiscount,
+              taxRate: lineCalcs[idx].taxRate,
+              tax: lineCalcs[idx].tax,
             })),
           },
         } as Prisma.SaleUncheckedCreateInput,
@@ -442,11 +559,17 @@ export async function POST(req: NextRequest) {
       //   - Tramo CASH       → DR Caja (1.1.01)
       //   - Tramo CARD/XFER  → DR Bancos (1.1.02)
       //   - Tramo CREDIT     → DR Clientes (1.1.04)
-      //   - CR Ventas (4.1.01) por subtotal
-      //   - CR IVA Débito (2.1.02) por tax (hoy 0; Fase 16 calcula real)
+      //
+      // Reglas de imputación de CR según régimen (Fase 16):
+      //   - GENERAL: CR Ventas (4.1.01) por subtotal + CR IVA Débito (2.1.02) por tax.
+      //   - PEQUEÑO_CONTRIBUYENTE: CR Ventas (4.1.01) por subtotal+tax (el 5%
+      //     NO es IVA débito recuperable contablemente; es parte del ingreso).
+      //     Sale.tax sigue persistiéndose en la columna para que el Libro de
+      //     Ventas SAT pueda reportar el 5%.
       if (status === 'COMPLETED') {
         const taxAmount = Number(completedSale.tax ?? 0);
-        const subtotalAmount = Number(completedSale.total) - taxAmount;
+        const subtotalAmount = Number(completedSale.subtotal ?? 0);
+        const totalAmount = Number(completedSale.total ?? 0);
 
         const lines: Array<{ accountCode: string; debit?: number; credit?: number; description?: string }> = [];
         for (const p of finalPayments) {
@@ -458,11 +581,23 @@ export async function POST(req: NextRequest) {
           else accountCode = ACCOUNTS.BANKS; // CARD / TRANSFER
           lines.push({ accountCode, debit: amt, description: `Cobro ${p.method}` });
         }
-        if (subtotalAmount > 0) {
-          lines.push({ accountCode: ACCOUNTS.SALES, credit: subtotalAmount, description: 'Ventas' });
-        }
-        if (taxAmount > 0) {
-          lines.push({ accountCode: ACCOUNTS.VAT_OUTPUT, credit: taxAmount, description: 'IVA Débito Fiscal' });
+        if (companyTaxRegime === 'GENERAL') {
+          if (subtotalAmount > 0) {
+            lines.push({ accountCode: ACCOUNTS.SALES, credit: subtotalAmount, description: 'Ventas' });
+          }
+          if (taxAmount > 0) {
+            lines.push({ accountCode: ACCOUNTS.VAT_OUTPUT, credit: taxAmount, description: 'IVA Débito Fiscal' });
+          }
+        } else {
+          // PEQUEÑO_CONTRIBUYENTE: el "IVA" 5% no es débito recuperable.
+          // Lo contabilizamos íntegro en Ventas (subtotal + tax).
+          if (totalAmount > 0) {
+            lines.push({
+              accountCode: ACCOUNTS.SALES,
+              credit: totalAmount,
+              description: 'Ventas (Pequeño Contribuyente, IVA incluido en ingreso)',
+            });
+          }
         }
 
         await createJournalEntry(tx, {

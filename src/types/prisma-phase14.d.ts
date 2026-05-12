@@ -25,6 +25,86 @@ declare module '@prisma/client' {
     interface JournalEntryWhereInput {
       [key: string]: any;
     }
+
+    // Fase 16: campos nuevos en Company / Sale / SaleItem (taxRegime,
+    // customerNit/Name, taxRate/tax). Permitimos cualquier propiedad nueva
+    // sin perder el resto del tipado existente.
+    interface CompanyInclude {
+      [key: string]: any;
+    }
+    interface CompanySelect {
+      [key: string]: any;
+    }
+    interface CompanyCreateInput {
+      taxRegime?: any;
+    }
+    interface CompanyUncheckedCreateInput {
+      taxRegime?: any;
+    }
+    interface CompanyUpdateInput {
+      taxRegime?: any;
+    }
+    interface CompanyUncheckedUpdateInput {
+      taxRegime?: any;
+    }
+
+    interface SaleInclude {
+      [key: string]: any;
+    }
+    interface SaleSelect {
+      [key: string]: any;
+    }
+    interface SaleCreateInput {
+      customerNit?: any;
+      customerName?: any;
+      taxRegime?: any;
+    }
+    interface SaleUncheckedCreateInput {
+      customerNit?: any;
+      customerName?: any;
+      taxRegime?: any;
+    }
+
+    interface SaleItemCreateInput {
+      taxRate?: any;
+      tax?: any;
+    }
+    interface SaleItemUncheckedCreateInput {
+      taxRate?: any;
+      tax?: any;
+    }
+
+    interface CompanySettingsCreateInput {
+      [key: string]: any;
+    }
+    interface CompanySettingsUncheckedCreateInput {
+      [key: string]: any;
+    }
+    interface CompanySettingsUpdateInput {
+      [key: string]: any;
+    }
+    interface CompanySettingsUncheckedUpdateInput {
+      [key: string]: any;
+    }
+    /**
+     * Augmenta `Prisma.TransactionClient` con los delegates nuevos de Fase
+     * 14/15/16, para que los helpers que escriben con `tx` (createJournalEntry,
+     * reserveCorrelativo, etc.) typecheckeen incluso si el cliente generado
+     * por `prisma generate` todavía no está disponible (sandbox).
+     */
+    interface TransactionClient {
+      chartOfAccount: AccountingDelegate;
+      journalEntry: AccountingDelegate;
+      journalLine: AccountingDelegate;
+      accountingPeriod: AccountingDelegate;
+      stockMovement: AccountingDelegate;
+      taxSeries: AccountingDelegate;
+      taxDocument: AccountingDelegate;
+      creditNote: AccountingDelegate;
+      creditNoteItem: AccountingDelegate;
+      debitNote: AccountingDelegate;
+      debitNoteItem: AccountingDelegate;
+    }
   }
 }
 
@@ -37,6 +117,13 @@ declare module '@prisma/client' {
     accountingPeriod: AccountingDelegate;
     /** Fase 15: log unificado de movimientos de inventario. */
     stockMovement: AccountingDelegate;
+    /** Fase 16: facturación electrónica. */
+    taxSeries: AccountingDelegate;
+    taxDocument: AccountingDelegate;
+    creditNote: AccountingDelegate;
+    creditNoteItem: AccountingDelegate;
+    debitNote: AccountingDelegate;
+    debitNoteItem: AccountingDelegate;
   }
 }
 

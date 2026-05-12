@@ -38,6 +38,12 @@ declare module 'vitest' {
     toBeCloseTo(expected: number, precision?: number): void;
     toHaveLength(expected: number): void;
     toThrow(expected?: unknown): void;
+    toThrowError(expected?: unknown): void;
+    toMatch(expected: RegExp | string): void;
+    toBeGreaterThan(expected: number): void;
+    toBeGreaterThanOrEqual(expected: number): void;
+    toBeLessThan(expected: number): void;
+    toBeLessThanOrEqual(expected: number): void;
     not: ExpectMatchers<T>;
     rejects: ExpectMatchers<T>;
     resolves: ExpectMatchers<T>;

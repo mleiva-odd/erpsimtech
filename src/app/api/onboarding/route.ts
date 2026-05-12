@@ -17,6 +17,10 @@ const OnboardingSchema = z.object({
   companyEmail: z.string().trim().toLowerCase().email('Email inválido'),
   companyPhone: z.string().optional().or(z.literal('')),
   companyNit: z.string().optional().or(z.literal('')),
+  // Fase 16: régimen tributario. Opcional acá — si no se envía, la empresa
+  // queda con `taxRegime=null` y el admin debe setearlo en Settings antes
+  // de poder facturar (POST /api/sales devuelve 400).
+  taxRegime: z.enum(['GENERAL', 'PEQUENO_CONTRIBUYENTE']).optional().nullable(),
   // Admin user
   adminName: z.string().trim().min(2, 'Nombre del administrador requerido'),
   adminEmail: z.string().trim().toLowerCase().email('Email del admin inválido'),
@@ -76,13 +80,17 @@ export async function POST(req: NextRequest) {
     // Create everything in a transaction
     const company = await prisma.$transaction(async (tx) => {
       // 1. Create company with branch and settings
-      const newCompany = await tx.company.create({
-        data: {
+      // Cast: el cliente Prisma generado en sandbox no tiene `taxRegime`
+      // en CompanyCreateInput todavía.
+      const newCompany = (await tx.company.create({
+        data: ({
           name: data.companyName,
           slug: data.companySlug,
           email: data.companyEmail,
           phone: data.companyPhone || null,
           nit: data.companyNit || null,
+          // Fase 16: régimen tributario (opcional al onboarding).
+          taxRegime: data.taxRegime ?? null,
           branches: {
             create: {
               name: data.branchName,
@@ -114,9 +122,9 @@ export async function POST(req: NextRequest) {
               trialEndsAt: trialEnd,
             },
           },
-        },
+        } as unknown) as Parameters<typeof tx.company.create>[0]['data'],
         include: { branches: true },
-      });
+      })) as { id: string; name: string; slug: string; branches: Array<{ id: string }> };
 
       // 2. Create Administrador CustomRole and admin user
       const mainBranch = newCompany.branches[0];
@@ -156,6 +164,31 @@ export async function POST(req: NextRequest) {
       // porque createJournalEntry no encuentra las cuentas hoja.
       await seedChartOfAccounts(tx, newCompany.id);
       await ensureAccountingPeriod(tx, newCompany.id, new Date());
+
+      // Fase 16: serie FACT default por sucursal recién creada.
+      // Prefix 'A' es placeholder — el admin debe registrar la autorización
+      // SAT real en Settings cuando la tenga.
+      for (const br of newCompany.branches) {
+        await tx.taxSeries.upsert({
+          where: {
+            companyId_branchId_documentType_prefix: {
+              companyId: newCompany.id,
+              branchId: br.id,
+              documentType: 'FACT',
+              prefix: 'A',
+            },
+          },
+          create: {
+            companyId: newCompany.id,
+            branchId: br.id,
+            documentType: 'FACT',
+            prefix: 'A',
+            nextNumber: 1,
+            active: true,
+          },
+          update: {},
+        });
+      }
 
       return newCompany;
     });

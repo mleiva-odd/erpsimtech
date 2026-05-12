@@ -18,6 +18,10 @@ model Company {
   phone                 String?
   logoUrl               String?
   active                Boolean               @default(true)
+  // Fase 16: régimen tributario del emisor (GENERAL=12% / PEQUEÑO_CONTRIBUYENTE=5%).
+  // Nullable hasta que el admin lo elija explícitamente. Sin default — lo regula
+  // SAT, no la app. Una vez seteado NO se permite cambio desde la app.
+  taxRegime             TaxRegime?
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
   auditLogs             AuditLog[]
@@ -47,6 +51,10 @@ model Company {
   accountingPeriods     AccountingPeriod[]
   stockMovements        StockMovement[]
   customerCredits       CustomerCredit[]
+  taxSeries             TaxSeries[]
+  taxDocuments          TaxDocument[]
+  creditNotes           CreditNote[]
+  debitNotes            DebitNote[]
 }
 
 model Branch {
@@ -76,6 +84,10 @@ model Branch {
   employees            Employee[]
   journalEntries       JournalEntry[]
   stockMovements       StockMovement[]
+  taxSeries            TaxSeries[]
+  taxDocuments         TaxDocument[]
+  creditNotes          CreditNote[]
+  debitNotes           DebitNote[]
 
   @@unique([companyId, code])
 }
@@ -114,6 +126,8 @@ model User {
   stockMovements           StockMovement[]
   customerCredits          CustomerCredit[]
   customerCreditApplications CustomerCreditApplication[]
+  creditNotes              CreditNote[]
+  debitNotes               DebitNote[]
 
   customRoleId             String?
   customRole               CustomRole?               @relation(fields: [customRoleId], references: [id])
@@ -399,6 +413,13 @@ model Sale {
   // Fase 17: dueDate solo se setea en ventas a crédito (Payment.method=CREDIT).
   // Ventas contado tienen dueDate=null y nunca se marcan OVERDUE.
   dueDate        DateTime?
+  // Fase 16 · Snapshot del receptor al momento de la venta. SAT exige que el
+  // NIT figure inmutable en el DTE certificado, aunque el cliente lo cambie
+  // después en su master. "CF" representa Consumidor Final.
+  customerNit    String?
+  customerName   String?
+  // Snapshot del régimen tributario vigente del emisor al momento de emitir.
+  taxRegime      TaxRegime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   payments       Payment[]
@@ -411,6 +432,9 @@ model Sale {
   returns        SaleReturn[]
   deliveryNotes  DeliveryNote[]
   customerCreditApplications CustomerCreditApplication[]
+  taxDocument    TaxDocument?
+  creditNotes    CreditNote[]
+  debitNotes     DebitNote[]
 
   @@unique([companyId, invoiceNumber])
   @@unique([companyId, clientRequestId])
@@ -456,9 +480,16 @@ model SaleItem {
   unitCost  Decimal?        @db.Decimal(10, 2)
   discount  Decimal         @default(0) @db.Decimal(10, 2)
   subtotal  Decimal         @db.Decimal(10, 2)
+  // Fase 16 · Cálculo de IVA por línea. `taxRate` es el porcentaje vigente al
+  // momento de la venta (0 si exento, 0.12 régimen General, 0.05 Pequeño
+  // Contribuyente). `tax` es el monto en GTQ. Backfill 0 en históricos —
+  // ninguna venta legacy se recalcula.
+  taxRate   Decimal         @default(0) @db.Decimal(5, 4)
+  tax       Decimal         @default(0) @db.Decimal(10, 2)
   variantId String?
   product   Product         @relation(fields: [productId], references: [id])
   returnItems SaleReturnItem[]
+  creditNoteItems CreditNoteItem[]
   sale      Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
   variant   ProductVariant? @relation(fields: [variantId], references: [id])
 }
@@ -637,8 +668,19 @@ enum SubscriptionStatus {
   SUSPENDED
 }
 
+// Provider de certificación FEL.
+// Fase 16: se agrega `MOCK` para desarrollo/staging (genera DTE local sin
+// llamar a un servicio real). Los providers reales (INFILE/DIGIFACT) quedan
+// como stubs hasta que se contraten credenciales.
+//
+// Nota: este enum lo llaman `FelProvider` en el schema. El brief de Fase 16
+// menciona `FelProviderType` — mantenemos el nombre actual para evitar
+// renombrar/migrar el enum existente (lección Fase 17: ALTER TYPE RENAME es
+// disruptivo). El alias semántico `FelProviderType` se expone en código TS
+// en `src/lib/fel/types.ts`.
 enum FelProvider {
   NONE
+  MOCK
   INFILE
   DIGIFACT
 }
@@ -1280,4 +1322,197 @@ model CustomerCreditApplication {
 
   @@index([customerCreditId])
   @@index([saleId])
+}
+
+// ─────────────────────────────────────────
+// Facturación Electrónica · FEL (Fase 16)
+// ─────────────────────────────────────────
+
+/// Régimen tributario del emisor (Company).
+/// - GENERAL: IVA 12%, con derecho a crédito fiscal.
+/// - PEQUEÑO_CONTRIBUYENTE: IVA 5%, sin crédito fiscal (el 5% NO es IVA
+///   débito recuperable contablemente — es parte del ingreso).
+enum TaxRegime {
+  GENERAL
+  PEQUENO_CONTRIBUYENTE
+}
+
+/// Tipos de Documento Tributario Electrónico (DTE) SAT.
+enum TaxDocumentType {
+  FACT  // Factura
+  NCRE  // Nota de Crédito
+  NDEB  // Nota de Débito
+}
+
+/// Estado del DTE en el ciclo de certificación.
+enum TaxDocumentStatus {
+  PENDING    // En proceso de certificación
+  CERTIFIED  // Certificado por SAT/provider
+  REJECTED   // Provider rechazó la certificación
+  CANCELLED  // Anulado (con NCRE asociada)
+}
+
+/// Serie de correlativos por sucursal y tipo de DTE. SAT asigna una serie
+/// + rango por sucursal autorizada. La empresa lo registra acá. `nextNumber`
+/// se incrementa atómicamente al certificar (lock optimista vía updateMany
+/// con `where: nextNumber = X` para garantizar unicidad sin race).
+model TaxSeries {
+  id            String          @id @default(uuid())
+  companyId     String
+  branchId      String
+  documentType  TaxDocumentType
+  prefix        String          // ej "A", "FACT-2026"
+  nextNumber    Int             @default(1)
+  rangeFrom     Int?            // límite inferior autorizado por SAT
+  rangeTo       Int?            // límite superior autorizado por SAT
+  authorization String?         // número de autorización SAT
+  active        Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  company       Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch        Branch          @relation(fields: [branchId], references: [id])
+  documents     TaxDocument[]
+
+  @@unique([companyId, branchId, documentType, prefix])
+  @@index([companyId, documentType])
+}
+
+/// Cabecera del DTE certificado. Se crea PENDING, se certifica con el
+/// provider (Mock/Infile/Digifact), queda CERTIFIED con UUID y XML firmado.
+/// Anulación crea NCRE asociada vía `cancelledById` y marca CANCELLED.
+///
+/// Snapshots inmutables al momento de certificar:
+///   - `receptorNit`/`receptorNombre`: si el cliente edita su NIT/nombre
+///     después, el DTE conserva el original (requisito SAT).
+///   - `emisorNit`/`emisorNombre`: idem.
+///   - `taxRegime`: si la empresa cambia régimen, el DTE conserva el vigente
+///     al emitir.
+///   - `seriePrefix`/`numero`: el correlativo asignado al certificar.
+model TaxDocument {
+  id                   String            @id @default(uuid())
+  companyId            String
+  branchId             String
+  seriesId             String
+  type                 TaxDocumentType
+  seriePrefix          String            // snapshot del prefix al certificar
+  numero               Int               // correlativo asignado
+  numeroDisplay        String            // ej "A-000123" para UI
+  status               TaxDocumentStatus @default(PENDING)
+  // Snapshot del receptor
+  receptorNit          String            // "CF" para Consumidor Final
+  receptorNombre       String
+  // Snapshot del emisor
+  emisorNit            String
+  emisorNombre         String
+  // Régimen al momento de la certificación
+  taxRegime            TaxRegime
+  // Provider que certificó
+  provider             FelProvider
+  // Respuesta del provider
+  dteUuid              String?           // UUID asignado por SAT
+  autorizacion         String?
+  fechaCertificacion   DateTime?
+  hashCertificacion    String?
+  xmlFirmado           String?
+  providerResponseJson Json?
+  // Vínculos a documentos
+  saleId               String?           @unique
+  creditNoteId         String?           @unique
+  debitNoteId          String?           @unique
+  // NCRE anuladora (si el DTE fue anulado)
+  cancelledById        String?           @unique
+  cancelledBy          TaxDocument?      @relation("Cancellation", fields: [cancelledById], references: [id])
+  cancellations        TaxDocument[]     @relation("Cancellation")
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  company              Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch               Branch            @relation(fields: [branchId], references: [id])
+  series               TaxSeries         @relation(fields: [seriesId], references: [id])
+  sale                 Sale?             @relation(fields: [saleId], references: [id])
+  creditNote           CreditNote?       @relation(fields: [creditNoteId], references: [id])
+  debitNote            DebitNote?        @relation(fields: [debitNoteId], references: [id])
+
+  @@unique([companyId, branchId, seriePrefix, numero])
+  @@index([companyId, type, status])
+  @@index([companyId, fechaCertificacion])
+}
+
+/// Nota de Crédito. Anula o ajusta una venta certificada. Reversa el efecto
+/// contable y fiscal del DTE original (Sale → JournalEntry contrario al
+/// certificarse). Lleva su propio asiento al ser certificada.
+model CreditNote {
+  id           String           @id @default(uuid())
+  companyId    String
+  saleId       String           // venta original a anular/ajustar
+  branchId     String
+  userId       String
+  reason       String           // motivo legal de la NCRE
+  subtotal     Decimal          @db.Decimal(10, 2)
+  tax          Decimal          @db.Decimal(10, 2)
+  total        Decimal          @db.Decimal(10, 2)
+  taxRegime    TaxRegime
+  items        CreditNoteItem[]
+  taxDocument  TaxDocument?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sale         Sale             @relation(fields: [saleId], references: [id])
+  branch       Branch           @relation(fields: [branchId], references: [id])
+  user         User             @relation(fields: [userId], references: [id])
+
+  @@index([companyId, saleId])
+}
+
+model CreditNoteItem {
+  id           String     @id @default(uuid())
+  creditNoteId String
+  saleItemId   String?    // si es anulación de una línea específica
+  productId    String
+  variantId    String?
+  description  String
+  quantity     Int
+  unitPrice    Decimal    @db.Decimal(10, 2)
+  taxRate      Decimal    @db.Decimal(5, 4)
+  subtotal     Decimal    @db.Decimal(10, 2)
+  tax          Decimal    @db.Decimal(10, 2)
+  creditNote   CreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+  saleItem     SaleItem?  @relation(fields: [saleItemId], references: [id])
+}
+
+/// Nota de Débito. Ajuste hacia arriba (recargos, intereses por mora) sobre
+/// una venta certificada.
+model DebitNote {
+  id           String          @id @default(uuid())
+  companyId    String
+  saleId       String
+  branchId     String
+  userId       String
+  reason       String
+  subtotal     Decimal         @db.Decimal(10, 2)
+  tax          Decimal         @db.Decimal(10, 2)
+  total        Decimal         @db.Decimal(10, 2)
+  taxRegime    TaxRegime
+  items        DebitNoteItem[]
+  taxDocument  TaxDocument?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  company      Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sale         Sale            @relation(fields: [saleId], references: [id])
+  branch       Branch          @relation(fields: [branchId], references: [id])
+  user         User            @relation(fields: [userId], references: [id])
+
+  @@index([companyId, saleId])
+}
+
+model DebitNoteItem {
+  id          String    @id @default(uuid())
+  debitNoteId String
+  productId   String?   // opcional para conceptos puros (intereses)
+  description String    // ej "Recargo por mora"
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  taxRate     Decimal   @db.Decimal(5, 4)
+  subtotal    Decimal   @db.Decimal(10, 2)
+  tax         Decimal   @db.Decimal(10, 2)
+  debitNote   DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
 }

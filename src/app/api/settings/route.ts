@@ -10,9 +10,9 @@ const SettingsSchema = z.object({
   phone: z.string().optional().or(z.literal('')),
   nit: z.string().optional().or(z.literal('')),
   receiptMsg: z.string().optional().or(z.literal('')),
-  // FEL settings
+  // FEL settings — `MOCK` agregado en Fase 16.
   felEnabled: z.boolean().optional(),
-  felProvider: z.enum(['NONE', 'INFILE', 'DIGIFACT']).optional(),
+  felProvider: z.enum(['NONE', 'MOCK', 'INFILE', 'DIGIFACT']).optional(),
   felNitEmisor: z.string().optional().or(z.literal('')),
   felApiUser: z.string().optional().or(z.literal('')),
   felApiKey: z.string().optional().or(z.literal('')),
@@ -24,6 +24,10 @@ const SettingsSchema = z.object({
   // Tax
   taxRate: z.number().min(0).max(1).optional(),
   taxIncluded: z.boolean().optional(),
+  // Fase 16: régimen tributario. Solo settable si la company aún tiene
+  // taxRegime=null. Una vez seteado, no se permite cambio desde la app
+  // (lo regula SAT, no la empresa).
+  taxRegime: z.enum(['GENERAL', 'PEQUENO_CONTRIBUYENTE']).optional(),
   // Currency
   currency: z.string().optional(),
   currencySymbol: z.string().optional(),
@@ -66,7 +70,16 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(sanitizeSettings(settings));
+    // Fase 16: exponer taxRegime (vive en Company) junto a los settings,
+    // para que la UI sepa si ya está seteado o pedir al admin que lo elija.
+    const companyTaxRegime = (await prisma.company.findUnique({
+      where: { id: tenant.companyId },
+    })) as { taxRegime: 'GENERAL' | 'PEQUENO_CONTRIBUYENTE' | null } | null;
+
+    return NextResponse.json({
+      ...sanitizeSettings(settings),
+      taxRegime: companyTaxRegime?.taxRegime ?? null,
+    });
   } catch (error) {
     console.error('Settings GET error:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
@@ -94,6 +107,32 @@ export async function PUT(req: NextRequest) {
       where: { companyId: tenant.companyId },
     });
 
+    // Fase 16: aplicar taxRegime a Company si y solo si todavía es null
+    // (regla legal: NO se permite cambio una vez seteado).
+    if (parsed.data.taxRegime !== undefined) {
+      const company = (await prisma.company.findUnique({
+        where: { id: tenant.companyId },
+      })) as { taxRegime: 'GENERAL' | 'PEQUENO_CONTRIBUYENTE' | null } | null;
+      if (company && company.taxRegime && company.taxRegime !== parsed.data.taxRegime) {
+        return NextResponse.json(
+          {
+            error:
+              'El régimen tributario ya está configurado y no se puede cambiar desde la app. Contactá soporte.',
+            code: 'TAX_REGIME_LOCKED',
+          },
+          { status: 409 },
+        );
+      }
+      if (company && !company.taxRegime) {
+        await prisma.company.update({
+          where: { id: tenant.companyId },
+          data: ({ taxRegime: parsed.data.taxRegime } as unknown) as Parameters<
+            typeof prisma.company.update
+          >[0]['data'],
+        });
+      }
+    }
+
     const nextFelApiUser = parsed.data.felApiUser?.trim()
       ? parsed.data.felApiUser.trim()
       : existingSettings?.felApiUser ?? null;
@@ -117,19 +156,23 @@ export async function PUT(req: NextRequest) {
       felApiUser: undefined,
       felApiKey: undefined,
       felCertificateUrl: undefined,
+      // taxRegime vive en Company, no en CompanySettings.
+      taxRegime: undefined,
     };
 
     const updated = await prisma.companySettings.upsert({
       where: { companyId: tenant.companyId },
-      create: {
+      // Casts: felProvider acepta 'MOCK' a partir de Fase 16, pero los tipos
+      // del cliente Prisma generado en el sandbox aún no lo incluyen.
+      create: ({
         companyId: tenant.companyId,
         ...safeData,
         ...felMetadata,
-      },
-      update: {
+      } as unknown) as Parameters<typeof prisma.companySettings.upsert>[0]['create'],
+      update: ({
         ...safeData,
         ...felMetadata,
-      },
+      } as unknown) as Parameters<typeof prisma.companySettings.upsert>[0]['update'],
     });
 
     await createAuditLog({

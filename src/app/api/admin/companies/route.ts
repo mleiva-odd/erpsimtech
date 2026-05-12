@@ -69,9 +69,19 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, slug, email, phone, nit, plan, adminName, adminEmail, adminPassword } = body;
+    const { name, slug, email, phone, nit, plan, adminName, adminEmail, adminPassword, taxRegime } = body;
     const selectedPlan = plan || 'trial';
     const planDefaults = getPlanDefaults(selectedPlan);
+
+    // Fase 16: validar taxRegime si viene. Sin él, la empresa queda con
+    // taxRegime=null y no puede facturar hasta que el admin lo setee.
+    const allowedRegimes = ['GENERAL', 'PEQUENO_CONTRIBUYENTE', null, undefined];
+    if (!allowedRegimes.includes(taxRegime)) {
+      return NextResponse.json(
+        { error: 'taxRegime inválido (debe ser GENERAL o PEQUENO_CONTRIBUYENTE)' },
+        { status: 400 },
+      );
+    }
 
     // Validación estricta de campos obligatorios
     if (!name || !slug || !email || !adminName || !adminEmail || !adminPassword) {
@@ -97,13 +107,16 @@ export async function POST(req: NextRequest) {
 
     // 2. Create company ecosystem (Transaction)
     const company = await prisma.$transaction(async (tx) => {
-      const newCompany = await tx.company.create({
-        data: {
+      // Cast: cliente Prisma generado en sandbox no tiene `taxRegime` en
+      // CompanyCreateInput (lo soluciona `prisma generate` post-merge).
+      const newCompany = (await tx.company.create({
+        data: ({
           name,
           slug,
           email, // Correo de contacto de la empresa
           phone: phone || null,
           nit: nit || null,
+          taxRegime: (taxRegime ?? null) as 'GENERAL' | 'PEQUENO_CONTRIBUYENTE' | null,
           branches: {
             create: {
               name: 'Sucursal Central',
@@ -130,11 +143,11 @@ export async function POST(req: NextRequest) {
               trialEndsAt: selectedPlan === 'trial' ? trialEnd : null,
             },
           },
-        },
+        } as unknown) as Parameters<typeof tx.company.create>[0]['data'],
         include: {
           branches: true,
         }
-      });
+      })) as { id: string; branches: Array<{ id: string }> };
 
       // 3. Create the Administrator User with their own access email
       const mainBranchId = newCompany.branches[0].id;
@@ -174,6 +187,29 @@ export async function POST(req: NextRequest) {
       // Plan de cuentas + período contable inicial (Fase 14).
       await seedChartOfAccounts(tx, newCompany.id);
       await ensureAccountingPeriod(tx, newCompany.id, new Date());
+
+      // Fase 16: serie FACT default por sucursal.
+      for (const br of newCompany.branches) {
+        await tx.taxSeries.upsert({
+          where: {
+            companyId_branchId_documentType_prefix: {
+              companyId: newCompany.id,
+              branchId: br.id,
+              documentType: 'FACT',
+              prefix: 'A',
+            },
+          },
+          create: {
+            companyId: newCompany.id,
+            branchId: br.id,
+            documentType: 'FACT',
+            prefix: 'A',
+            nextNumber: 1,
+            active: true,
+          },
+          update: {},
+        });
+      }
 
       return newCompany;
     });

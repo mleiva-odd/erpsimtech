@@ -72,6 +72,14 @@ async function main() {
   console.log('Iniciando Wipe & Re-Seed de la Base de Datos SIMTECH...');
 
   // 1. WIPE DATA (Respetar orden para evitar llaves foráneas)
+  // FEL (Fase 16): primero items, luego cabeceras + TaxDocument + TaxSeries
+  // (NCRE/NDEB referencian Sale, así que limpiamos antes).
+  await prisma.creditNoteItem.deleteMany();
+  await prisma.debitNoteItem.deleteMany();
+  await prisma.creditNote.deleteMany();
+  await prisma.debitNote.deleteMany();
+  await prisma.taxDocument.deleteMany();
+  await prisma.taxSeries.deleteMany();
   // Contabilidad nueva (Fase 14): primero líneas, luego asientos, períodos y cuentas
   await prisma.journalLine.deleteMany();
   await prisma.journalEntry.deleteMany();
@@ -149,6 +157,35 @@ async function main() {
   await seedChartOfAccounts(prisma, company.id);
   await ensureAccountingPeriod(prisma, company.id, new Date());
   console.log('-> Plan de cuentas estándar GT + período contable abierto.');
+
+  // 4.c Setear régimen tributario + series FACT por sucursal (Fase 16).
+  // Cast: cliente Prisma generado en sandbox no tiene `taxRegime` aún.
+  await prisma.company.update({
+    where: { id: company.id },
+    data: ({ taxRegime: 'GENERAL' } as unknown) as Parameters<typeof prisma.company.update>[0]['data'],
+  });
+  for (const br of [branchTecpan, branchSanta]) {
+    await prisma.taxSeries.upsert({
+      where: {
+        companyId_branchId_documentType_prefix: {
+          companyId: company.id,
+          branchId: br.id,
+          documentType: 'FACT',
+          prefix: 'A',
+        },
+      },
+      create: {
+        companyId: company.id,
+        branchId: br.id,
+        documentType: 'FACT',
+        prefix: 'A',
+        nextNumber: 1,
+        active: true,
+      },
+      update: {},
+    });
+  }
+  console.log('-> Régimen tributario GENERAL + series FACT default sembradas.');
 
   const adminRole = await prisma.customRole.create({
     data: {

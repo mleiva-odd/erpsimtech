@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireOperationalPermission, requireBranchAccess } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
@@ -28,12 +29,12 @@ export async function POST(
   try {
     const ndeb = (await prisma.debitNote.findFirst({
       where: { id, companyId: tenant.companyId },
-      include: ({
+      include: {
         items: true,
         taxDocument: true,
         sale: { select: { id: true, customerNit: true, customerName: true } },
-      } as unknown) as Parameters<typeof prisma.debitNote.findFirst>[0]['include'],
-    })) as {
+      },
+    } as never)) as {
       id: string;
       branchId: string;
       taxRegime: 'GENERAL' | 'PEQUENO_CONTRIBUYENTE';
@@ -200,8 +201,8 @@ export async function POST(
         hashCertificacion: certifyResult.hashCertificacion,
         xmlFirmado: certifyResult.xmlFirmado,
         providerResponseJson: certifyResult.providerResponseRaw
-          ? (certifyResult.providerResponseRaw as Record<string, unknown>)
-          : undefined,
+          ? (certifyResult.providerResponseRaw as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
     });
 

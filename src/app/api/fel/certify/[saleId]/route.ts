@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireOperationalPermission, requireBranchAccess } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
@@ -244,8 +245,8 @@ export async function POST(
         data: {
           status: 'REJECTED',
           providerResponseJson: certifyResult.providerResponseRaw
-            ? (certifyResult.providerResponseRaw as Record<string, unknown>)
-            : undefined,
+            ? (certifyResult.providerResponseRaw as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         },
       });
       return NextResponse.json(
@@ -269,8 +270,8 @@ export async function POST(
           hashCertificacion: certifyResult.hashCertificacion,
           xmlFirmado: certifyResult.xmlFirmado,
           providerResponseJson: certifyResult.providerResponseRaw
-            ? (certifyResult.providerResponseRaw as Record<string, unknown>)
-            : undefined,
+            ? (certifyResult.providerResponseRaw as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         },
       });
       await tx.sale.update({

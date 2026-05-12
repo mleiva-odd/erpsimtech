@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireOperationalPermission, requireBranchAccess } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
@@ -156,6 +157,9 @@ export async function POST(
       }
 
       // Crear CreditNote modelo con líneas espejo de la venta.
+      // Casts a `Number()` para convertir los Decimal de Prisma a primitives
+      // que el create acepta (el include con select indirecto deja los Decimal
+      // como `unknown` en el cast manual del findFirst).
       const creditNote = await tx.creditNote.create({
         data: {
           companyId: tenant.companyId,
@@ -163,9 +167,9 @@ export async function POST(
           branchId: original.branchId,
           userId: tenant.userId,
           reason: parsed.data.motivo,
-          subtotal: sale.subtotal,
-          tax: sale.tax,
-          total: sale.total,
+          subtotal: Number(sale.subtotal),
+          tax: Number(sale.tax),
+          total: Number(sale.total),
           taxRegime: original.taxRegime,
           items: {
             create: sale.items.map((it) => ({
@@ -174,10 +178,10 @@ export async function POST(
               variantId: it.variantId,
               description: it.product.name,
               quantity: it.quantity,
-              unitPrice: it.unitPrice,
-              taxRate: it.taxRate ?? 0,
-              subtotal: it.subtotal,
-              tax: it.tax ?? 0,
+              unitPrice: Number(it.unitPrice),
+              taxRate: Number(it.taxRate ?? 0),
+              subtotal: Number(it.subtotal),
+              tax: Number(it.tax ?? 0),
             })),
           },
         },
@@ -288,8 +292,8 @@ export async function POST(
           hashCertificacion: certifyResult.hashCertificacion,
           xmlFirmado: certifyResult.xmlFirmado,
           providerResponseJson: certifyResult.providerResponseRaw
-            ? (certifyResult.providerResponseRaw as Record<string, unknown>)
-            : undefined,
+            ? (certifyResult.providerResponseRaw as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         },
       });
       await tx.taxDocument.update({
@@ -298,8 +302,8 @@ export async function POST(
           status: 'CANCELLED',
           cancelledById: ncreFinal.id,
           providerResponseJson: cancelResult.providerResponseRaw
-            ? (cancelResult.providerResponseRaw as Record<string, unknown>)
-            : undefined,
+            ? (cancelResult.providerResponseRaw as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         },
       });
       return ncreFinal;

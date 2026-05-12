@@ -31,7 +31,14 @@ export async function GET(req: NextRequest) {
 
     const stocks = await prisma.productStock.findMany({
       where: {
-        product: { companyId: tenant.companyId, active: true },
+        product: {
+          companyId: tenant.companyId,
+          active: true,
+          // Excluir bundles: el valor del bundle ya está representado por
+          // sus componentes en sus respectivas filas de stock. Incluirlo
+          // duplicaría el valor en la valuación.
+          isBundle: false,
+        },
         ...(branchId && branchId !== 'all' && { branchId }),
         ...(!branchId && tenant.role !== 'SUPER_ADMIN' && !tenant.permissions?.includes('settings:manage') && tenant.branchId && { branchId: tenant.branchId }),
       },
@@ -42,6 +49,7 @@ export async function GET(req: NextRequest) {
             sku: true,
             price: true,
             cost: true,
+            isBundle: true,
             category: { select: { name: true } }
           }
         },
@@ -65,8 +73,9 @@ export async function GET(req: NextRequest) {
 
     stocks.forEach(s => {
       const price = Number(s.variant?.price || s.product.price);
+      // Cost = WAC vigente desde Fase 15 (Product.cost o ProductVariant.cost).
       const cost = Number(s.variant?.cost || s.product.cost);
-      
+
       const invValue = cost * s.quantity;
       const revValue = price * s.quantity;
 

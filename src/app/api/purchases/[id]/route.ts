@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { reverseJournalEntry } from '@/lib/accounting';
+import { logStockMovementInline } from '@/lib/inventory';
 import { handleApiError, ApiError } from '@/lib/api-error';
 
 /**
@@ -111,7 +112,8 @@ export async function PATCH(
     await prisma.$transaction(async (tx) => {
       // 1. Reversar stock — pero solo si hay suficiente disponible.
       // Si vendieron parte del stock recibido en esta compra, no podemos
-      // dejar stock negativo: el handler debe abortar.
+      // dejar stock negativo. Hacemos guard con updateMany condicional,
+      // y si ok, registramos el movimiento contrario como RETURN_TO_SUPPLIER.
       for (const item of po.items) {
         const stockUpdate = await tx.productStock.updateMany({
           where: {
@@ -130,6 +132,24 @@ export async function PATCH(
               'Generaría stock negativo. Revisá movimientos antes de anular.',
           );
         }
+
+        // Registrar el movimiento de stock para trazabilidad (Fase 15).
+        // El delta físico ya se aplicó con updateMany; logStockMovementInline
+        // solo escribe la fila de auditoría leyendo balanceAfter/costAfter
+        // actualizados.
+        await logStockMovementInline(tx, {
+          companyId: tenant.companyId,
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          branchId: po.branchId,
+          type: 'RETURN_TO_SUPPLIER',
+          quantity: -Number(item.quantity),
+          unitCost: Number(item.unitCost),
+          referenceType: 'PURCHASE_ORDER_CANCEL',
+          referenceId: po.id,
+          userId: tenant.userId,
+          notes: reason ?? undefined,
+        });
       }
 
       // 2. Borrar Payable asociado (no hay pagos, ya validado arriba).

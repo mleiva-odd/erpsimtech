@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma, UnitOfMeasure } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/tenant';
+import { logStockMovementInline } from '@/lib/inventory';
 
 interface ImportedProductRow {
   name?: string;
@@ -134,17 +135,40 @@ export async function POST(req: NextRequest) {
 
           if (exists) {
             // Inteligencia Multi-sucursal: Si existe el producto global, aseguramos el stock para esta sucursal
+            const stockBefore = await tx.productStock.findFirst({
+              where: { productId: exists.id, branchId, variantId: null },
+              select: { quantity: true },
+            });
+            const oldQty = Number(stockBefore?.quantity ?? 0);
+            const newQty = Number(firstRow.stock) || 0;
             await upsertBaseStock(tx, {
               productId: exists.id,
               branchId,
-              quantity: Number(firstRow.stock) || 0,
+              quantity: newQty,
               minStock: Number(firstRow.minStock) || 5,
             });
+            // Si hubo cambio de stock, log como ADJUSTMENT (Fase 15).
+            const diff = newQty - oldQty;
+            if (diff !== 0) {
+              await logStockMovementInline(tx, {
+                companyId: tenant.companyId,
+                productId: exists.id,
+                variantId: null,
+                branchId,
+                type: diff > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
+                quantity: diff,
+                unitCost: Number(firstRow.cost) || Number(exists.cost ?? 0),
+                referenceType: 'PRODUCT_BULK_IMPORT',
+                referenceId: exists.id,
+                userId: tenant.userId,
+                notes: 'Importación masiva (existente)',
+              });
+            }
             count++;
             continue;
           }
 
-          await tx.product.create({
+          const createdSimple = await tx.product.create({
             data: {
               companyId: tenant.companyId,
               categoryId,
@@ -163,6 +187,22 @@ export async function POST(req: NextRequest) {
               }
             }
           });
+          const initialQty = Number(firstRow.stock) || 0;
+          if (initialQty > 0) {
+            await logStockMovementInline(tx, {
+              companyId: tenant.companyId,
+              productId: createdSimple.id,
+              variantId: null,
+              branchId,
+              type: 'ADJUSTMENT_IN',
+              quantity: initialQty,
+              unitCost: Number(firstRow.cost) || 0,
+              referenceType: 'PRODUCT_BULK_IMPORT',
+              referenceId: createdSimple.id,
+              userId: tenant.userId,
+              notes: 'Importación masiva (nuevo)',
+            });
+          }
           count++;
         } else {
           // Matrix Multi-Variant Product grouping

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
+import { logStockMovementInline } from '@/lib/inventory';
 import { z } from 'zod';
 
 const ReturnItemSchema = z.object({
@@ -101,7 +102,7 @@ export async function POST(
         include: { items: true },
       });
 
-      // 2. Reincorporate stock if requested
+      // 2. Reincorporate stock if requested + log StockMovement (Fase 15).
       if (stockAdded) {
         for (const returnItem of items) {
           const saleItem = sale.items.find(si => si.id === returnItem.saleItemId)!;
@@ -112,6 +113,20 @@ export async function POST(
               variantId: saleItem.variantId || null,
             },
             data: { quantity: { increment: returnItem.quantity } },
+          });
+
+          await logStockMovementInline(tx, {
+            companyId: tenant.companyId,
+            productId: saleItem.productId,
+            variantId: saleItem.variantId || null,
+            branchId: sale.branchId,
+            type: 'RETURN_FROM_CUSTOMER',
+            quantity: returnItem.quantity,
+            unitCost: Number(saleItem.unitCost ?? 0),
+            referenceType: 'SALE_RETURN',
+            referenceId: newReturn.id,
+            userId: tenant.userId,
+            notes: reason,
           });
         }
       }

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
+import { logStockMovementInline } from '@/lib/inventory';
 import { z } from 'zod';
 
 const TransferItemSchema = z.object({
@@ -132,10 +133,12 @@ export async function POST(req: NextRequest) {
 
     const transfer = await prisma.$transaction(async (tx) => {
       // 1. Validar y Reservar Stock en Origen
+      type OriginInfo = { item: typeof items[number]; productName: string; unitCost: number };
+      const reserved: OriginInfo[] = [];
       for (const item of items) {
         const originStock = await tx.productStock.findFirst({
           where: { productId: item.productId, branchId: fromBranchId, variantId: item.variantId || null },
-          include: { product: true }
+          include: { product: true, variant: true }
         });
 
         if (!originStock || originStock.quantity < item.quantity) {
@@ -153,10 +156,16 @@ export async function POST(req: NextRequest) {
         if (stockUpdate.count !== 1) {
           throw new Error(`El stock cambió mientras se procesaba el traslado de "${originStock.product.name}"`);
         }
+
+        reserved.push({
+          item,
+          productName: originStock.product.name,
+          unitCost: Number(originStock.variant?.cost ?? originStock.product.cost ?? 0),
+        });
       }
 
       // 2. Crear documento de Remisión (PENDIENTE)
-      return tx.stockTransfer.create({
+      const created = await tx.stockTransfer.create({
         data: {
           companyId: tenant.companyId,
           fromBranchId,
@@ -173,6 +182,25 @@ export async function POST(req: NextRequest) {
           }
         }
       });
+
+      // 3. Registrar StockMovement TRANSFER_OUT por cada línea.
+      for (const r of reserved) {
+        await logStockMovementInline(tx, {
+          companyId: tenant.companyId,
+          productId: r.item.productId,
+          variantId: r.item.variantId || null,
+          branchId: fromBranchId,
+          type: 'TRANSFER_OUT',
+          quantity: -r.item.quantity,
+          unitCost: r.unitCost,
+          referenceType: 'STOCK_TRANSFER',
+          referenceId: created.id,
+          userId: tenant.userId,
+          notes: `Traslado a sucursal ${toBranch.name}`,
+        });
+      }
+
+      return created;
     });
 
     await createAuditLog({

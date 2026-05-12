@@ -4,6 +4,7 @@ import { requireBranchAccess, requireTenant } from '@/lib/tenant';
 import { z } from 'zod';
 import { createAuditLog } from '@/lib/audit';
 import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
+import { logStockMovementInline } from '@/lib/inventory';
 
 const ReturnItemSchema = z.object({
   saleItemId: z.string().uuid(),
@@ -250,11 +251,26 @@ export async function POST(req: NextRequest) {
         for (const selectedItem of selectedItems) {
           if (selectedItem.saleItem.product.isBundle) {
             for (const bundleItem of selectedItem.saleItem.product.bundleItems) {
+              const qty = selectedItem.quantity * bundleItem.quantity;
               await restockProductStock({
                 productId: bundleItem.componentId,
                 branchId: sale.branchId,
                 variantId: bundleItem.variantId || null,
-                quantity: selectedItem.quantity * bundleItem.quantity,
+                quantity: qty,
+              });
+
+              await logStockMovementInline(tx, {
+                companyId: tenant.companyId,
+                productId: bundleItem.componentId,
+                variantId: bundleItem.variantId || null,
+                branchId: sale.branchId,
+                type: 'RETURN_FROM_CUSTOMER',
+                quantity: qty,
+                unitCost: 0,
+                referenceType: 'SALE_RETURN',
+                referenceId: newReturn.id,
+                userId: tenant.userId,
+                notes: `Devolución bundle "${selectedItem.saleItem.product.name}"`,
               });
             }
           } else {
@@ -263,6 +279,20 @@ export async function POST(req: NextRequest) {
               branchId: sale.branchId,
               variantId: selectedItem.saleItem.variantId || null,
               quantity: selectedItem.quantity,
+            });
+
+            await logStockMovementInline(tx, {
+              companyId: tenant.companyId,
+              productId: selectedItem.saleItem.productId,
+              variantId: selectedItem.saleItem.variantId || null,
+              branchId: sale.branchId,
+              type: 'RETURN_FROM_CUSTOMER',
+              quantity: selectedItem.quantity,
+              unitCost: Number(selectedItem.saleItem.unitCost ?? 0),
+              referenceType: 'SALE_RETURN',
+              referenceId: newReturn.id,
+              userId: tenant.userId,
+              notes: reason,
             });
           }
         }

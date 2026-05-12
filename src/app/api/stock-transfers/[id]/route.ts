@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import type { TenantContext } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
+import { logStockMovementInline } from '@/lib/inventory';
 
 async function incrementProductStock(tx: Prisma.TransactionClient, input: {
   productId: string;
@@ -88,6 +89,26 @@ async function receiveTransfer(transferId: string, tenant: TenantContext) {
         branchId: transfer.toBranchId,
         variantId: item.variantId || null,
         quantity: item.quantity,
+      });
+
+      // Snapshot del costo persistido al momento (no afecta WAC: el costo
+      // del producto se mantiene, solo cambia la sucursal donde está el stock).
+      const persisted = item.variantId
+        ? await tx.productVariant.findUnique({ where: { id: item.variantId }, select: { cost: true } })
+        : await tx.product.findUnique({ where: { id: item.productId }, select: { cost: true } });
+
+      await logStockMovementInline(tx, {
+        companyId: tenant.companyId,
+        productId: item.productId,
+        variantId: item.variantId || null,
+        branchId: transfer.toBranchId,
+        type: 'TRANSFER_IN',
+        quantity: item.quantity,
+        unitCost: Number(persisted?.cost ?? 0),
+        referenceType: 'STOCK_TRANSFER',
+        referenceId: transfer.id,
+        userId: tenant.userId,
+        notes: `Recepción desde sucursal ${transfer.fromBranchId}`,
       });
     }
   });
@@ -195,7 +216,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         data: { status: 'CANCELLED' }
       });
 
-      // 2. Regresar stock al origen
+      // 2. Regresar stock al origen + log de StockMovement (TRANSFER_IN al origen
+      //    como compensación del TRANSFER_OUT original).
       for (const item of transfer.items) {
         const originStock = await tx.productStock.findFirst({
           where: {
@@ -213,6 +235,24 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         await tx.productStock.update({
           where: { id: originStock.id },
           data: { quantity: { increment: item.quantity } }
+        });
+
+        const persisted = item.variantId
+          ? await tx.productVariant.findUnique({ where: { id: item.variantId }, select: { cost: true } })
+          : await tx.product.findUnique({ where: { id: item.productId }, select: { cost: true } });
+
+        await logStockMovementInline(tx, {
+          companyId: tenant.companyId,
+          productId: item.productId,
+          variantId: item.variantId || null,
+          branchId: transfer.fromBranchId,
+          type: 'TRANSFER_IN',
+          quantity: item.quantity,
+          unitCost: Number(persisted?.cost ?? 0),
+          referenceType: 'STOCK_TRANSFER_CANCEL',
+          referenceId: transfer.id,
+          userId: tenant.userId,
+          notes: 'Anulación de traslado',
         });
       }
     });

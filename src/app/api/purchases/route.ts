@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant';
 import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
+import { recordStockMovement } from '@/lib/inventory';
 import { handleApiError } from '@/lib/api-error';
 
 const PurchaseItemSchema = z.object({
@@ -133,57 +134,35 @@ export async function POST(req: NextRequest) {
         }
       });
 
-        // 2. Adjust Physical Stock automatically and update internal product cost
+      // 2. Registrar movimiento de stock (Fase 15): recalcula WAC, suma a
+      //    ProductStock y persiste Product.cost / ProductVariant.cost con el
+      //    nuevo costo promedio ponderado. Un movimiento por línea.
       for (const item of itemsData) {
-        let existingStock;
-        
-        if (item.variantId) {
-           existingStock = await tx.productStock.findFirst({
-             where: { productId: item.productId, variantId: item.variantId, branchId }
-           });
-        } else {
-           existingStock = await tx.productStock.findFirst({
-             where: { productId: item.productId, variantId: null, branchId }
-           });
-        }
-
-        if (existingStock) {
-           await tx.productStock.update({
-             where: { id: existingStock.id },
-             data: { quantity: { increment: item.quantity } }
-           });
-        } else {
-           await tx.productStock.create({
-             data: {
-               productId: item.productId,
-               variantId: item.variantId || null,
-               branchId,
-               quantity: item.quantity,
-               minStock: 5
-             }
-           });
-        }
-
-        // 3. Persist the latest acquisition cost on the concrete SKU that was received.
-        // productVariant no tiene companyId directo (lo hereda via productId, que ya
-        // fue validado más arriba en el bloque de validación de productos).
-        // Para Product agregamos companyId al where como defense in depth.
-        if (item.variantId) {
-          await tx.productVariant.update({
-            where: { id: item.variantId },
-            data: { cost: item.unitCost }
-          });
-        } else {
-          await tx.product.update({
-            where: { id: item.productId, companyId: result.tenant.companyId },
-            data: { cost: item.unitCost }
-          });
-        }
+        await recordStockMovement(tx, {
+          companyId: result.tenant.companyId,
+          productId: item.productId,
+          variantId: item.variantId || null,
+          branchId: branchId!,
+          type: 'PURCHASE',
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+          referenceType: 'PURCHASE_ORDER',
+          referenceId: po.id,
+          userId: result.tenant.userId,
+          date: po.createdAt,
+        });
       }
 
-      // 4. Create Supplier Payable (Debt)
+      // 3. Create Supplier Payable (Debt)
+      // Fase 17: dueDate = createdAt + supplier.creditDaysDefault (no más hardcoded 30).
+      // Si el proveedor no tiene creditDaysDefault o no se encuentra, default 30 días.
+      const supplierForCredit = await tx.supplier.findUnique({
+        where: { id: supplierId },
+        select: { creditDaysDefault: true } as never,
+      }) as unknown as { creditDaysDefault?: number } | null;
+      const creditDays = Number(supplierForCredit?.creditDaysDefault ?? 30);
       const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 30); // Default 30 net days
+      dueDate.setDate(dueDate.getDate() + creditDays);
 
       await tx.supplierPayable.create({
         data: {
@@ -199,7 +178,7 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // 5. Asiento contable de la compra DENTRO del $transaction (H3):
+      // 4. Asiento contable de la compra DENTRO del $transaction (H3):
       //   DR Inventario (1.2.01) por totalAmount
       //   CR Proveedores (2.1.01) por totalAmount
       // (Fase 16 separará el IVA crédito fiscal cuando el campo `tax` exista

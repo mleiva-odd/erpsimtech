@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { requireAnyPermission, requireBranchAccess, requireOperationalPermission } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
+import { logStockMovementInline } from '@/lib/inventory';
 import { z } from 'zod';
 
 const AdjustmentSchema = z.object({
@@ -194,6 +195,24 @@ export async function POST(req: NextRequest) {
         variantId: variantId || null,
         quantity: newQuantity,
         minStock: 5,
+      });
+
+      // 5. Registrar StockMovement (Fase 15). Tipo según signo del difference.
+      const persisted = variantId
+        ? await tx.productVariant.findUnique({ where: { id: variantId }, select: { cost: true } })
+        : await tx.product.findUnique({ where: { id: productId }, select: { cost: true } });
+      await logStockMovementInline(tx, {
+        companyId: tenant.companyId,
+        productId,
+        variantId: variantId || null,
+        branchId,
+        type: difference >= 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
+        quantity: difference,
+        unitCost: Number(persisted?.cost ?? 0),
+        referenceType: 'INVENTORY_ADJUSTMENT',
+        referenceId: newAdjustment.id,
+        userId: tenant.userId,
+        notes: reason,
       });
 
       return newAdjustment;

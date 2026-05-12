@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requirePermission, requireTenant } from '@/lib/tenant';
+import { logStockMovementInline } from '@/lib/inventory';
 
 async function upsertBaseStock(tx: Prisma.TransactionClient, input: {
   productId: string;
@@ -159,37 +160,91 @@ export async function PUT(
                    }
                  });
 
+                 // Capturar stock anterior para logging StockMovement.
+                 const prevStockV = await tx.productStock.findUnique({
+                   where: {
+                     productId_branchId_variantId: {
+                       productId: resolvedParams.id,
+                       branchId: branchId,
+                       variantId: variant.id,
+                     },
+                   },
+                   select: { quantity: true },
+                 });
+                 const oldQtyV = Number(prevStockV?.quantity ?? 0);
+                 const newQtyV = Number(v.stock) || 0;
+
                  // Solo actualizar/crear stock para LA SUCURSAL ACTUAL
                  await tx.productStock.upsert({
-                   where: { 
-                     productId_branchId_variantId: { 
-                       productId: resolvedParams.id, 
-                       branchId: branchId, 
-                       variantId: variant.id 
-                     } 
+                   where: {
+                     productId_branchId_variantId: {
+                       productId: resolvedParams.id,
+                       branchId: branchId,
+                       variantId: variant.id
+                     }
                    },
                    update: {
-                     quantity: Number(v.stock) || 0,
+                     quantity: newQtyV,
                      minStock: Number(body.minStock) || 5
                    },
                    create: {
                      productId: resolvedParams.id,
                      branchId: branchId,
                      variantId: variant.id,
-                     quantity: Number(v.stock) || 0,
+                     quantity: newQtyV,
                      minStock: Number(body.minStock) || 5
                    }
                  });
+
+                 const diffV = newQtyV - oldQtyV;
+                 if (diffV !== 0) {
+                   await logStockMovementInline(tx, {
+                     companyId: tenant.companyId,
+                     productId: resolvedParams.id,
+                     variantId: variant.id,
+                     branchId,
+                     type: diffV > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
+                     quantity: diffV,
+                     unitCost: Number(v.cost) || 0,
+                     referenceType: 'PRODUCT_EDIT',
+                     referenceId: resolvedParams.id,
+                     userId: tenant.userId,
+                     notes: 'Edición manual del producto (variante)',
+                   });
+                 }
               }
             }
          } else {
-            // Producto estándar: Actualizar solo el stock de la sucursal actual
+            // Producto estándar: Actualizar solo el stock de la sucursal actual.
+            const prevStock = await tx.productStock.findFirst({
+              where: { productId: resolvedParams.id, branchId, variantId: null },
+              select: { quantity: true },
+            });
+            const oldQty = Number(prevStock?.quantity ?? 0);
+            const newQty = Number(body.stock ?? 0);
             await upsertBaseStock(tx, {
               productId: resolvedParams.id,
               branchId,
-              quantity: Number(body.stock ?? 0),
+              quantity: newQty,
               minStock: Number(body.minStock ?? 5),
             });
+            const diff = newQty - oldQty;
+            if (diff !== 0) {
+              const persistedCost = body.cost !== undefined ? Number(body.cost) : Number(existing.cost ?? 0);
+              await logStockMovementInline(tx, {
+                companyId: tenant.companyId,
+                productId: resolvedParams.id,
+                variantId: null,
+                branchId,
+                type: diff > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
+                quantity: diff,
+                unitCost: persistedCost,
+                referenceType: 'PRODUCT_EDIT',
+                referenceId: resolvedParams.id,
+                userId: tenant.userId,
+                notes: 'Edición manual del producto',
+              });
+            }
          }
       }
 

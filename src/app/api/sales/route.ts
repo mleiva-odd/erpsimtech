@@ -5,6 +5,8 @@ import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant
 import { createAuditLog } from '@/lib/audit';
 import { createNotification } from '@/lib/notifications';
 import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
+import { getCurrentCost, logStockMovementInline } from '@/lib/inventory';
+import { assertCustomerCanBuyOnCredit, ARAPError } from '@/lib/ar-ap';
 import { z } from 'zod';
 
 const SaleItemSchema = z.object({
@@ -210,34 +212,57 @@ export async function POST(req: NextRequest) {
       }
 
       // 4. Validate customer if provided
+      // Fase 17: dueDate + assertCustomerCanBuyOnCredit (bloqueo por mora >
+      // maxOverdueDays). El check viejo de creditLimit queda subsumido en
+      // assertCustomerCanBuyOnCredit.
+      let saleDueDate: Date | null = null;
       if (customerId) {
         const customer = await tx.customer.findFirst({
           where: { id: customerId, companyId: tenant.companyId },
-        });
+        }) as unknown as {
+          id: string;
+          name: string;
+          balance: unknown;
+          creditLimit: unknown;
+          creditDaysDefault?: number;
+        } | null;
         if (!customer) throw new Error('Cliente no encontrado');
-        
+
         // Handle credit logic
         if (hasCreditPayment && status === 'COMPLETED') {
-           const creditPaymentAmount = payments.find(p => p.method === 'CREDIT')?.amount || 0;
-           
-           const currentBalance = Number(customer.balance) || 0;
-           const creditLimit = Number(customer.creditLimit) || 0;
+          const creditPaymentAmount = payments.find(p => p.method === 'CREDIT')?.amount || 0;
 
-           if (creditLimit <= 0) {
-               throw new Error(`El cliente ${customer.name} no tiene crédito autorizado.`);
-           }
-           if ((currentBalance + creditPaymentAmount) > creditLimit) {
-               throw new Error(`El abono excede el límite de crédito de Q${creditLimit.toFixed(2)}.`);
-           }
+          // Bloqueo por mora + límite (Fase 17). Lanza ARAPError(409) si
+          // el cliente tiene factura vencida hace más de maxOverdueDays
+          // o si excedería el creditLimit.
+          await assertCustomerCanBuyOnCredit(tx, {
+            customerId: customer.id,
+            newCreditAmount: creditPaymentAmount,
+          });
 
-           await tx.customer.update({
-             where: { id: customer.id },
-             data: { balance: { increment: creditPaymentAmount } }
-           });
+          // dueDate = createdAt + customer.creditDaysDefault (default 30).
+          const creditDays = Number(customer.creditDaysDefault ?? 30);
+          saleDueDate = new Date();
+          saleDueDate.setDate(saleDueDate.getDate() + creditDays);
+
+          await tx.customer.update({
+            where: { id: customer.id },
+            data: { balance: { increment: creditPaymentAmount } }
+          });
         }
       }
 
-      // 5. Create the sale
+      // 5. Pre-compute unit costs using `getCurrentCost` (Fase 15):
+      //    - Variantes: variant.cost
+      //    - Bundles: suma de costos de componentes (no Product.cost del bundle
+      //      que estaba hardcoded a 0).
+      //    - Default: product.cost (que ahora es WAC desde Fase 15).
+      const unitCostByItemIndex: number[] = [];
+      for (const item of items) {
+        const c = await getCurrentCost(tx, item.productId, item.variantId || null);
+        unitCostByItemIndex.push(c);
+      }
+
       const newSale = await tx.sale.create({
         data: {
           companyId: tenant.companyId,
@@ -252,29 +277,20 @@ export async function POST(req: NextRequest) {
           total,
           status,
           channel,
+          // Fase 17: dueDate solo si la venta tiene pago a crédito.
+          // Calculado arriba en sección 4 (saleDueDate).
+          ...(saleDueDate ? { dueDate: saleDueDate } : {}),
           items: {
-            create: items.map((item) => {
-              const product = products.find((p) => p.id === item.productId);
-              let unitCost = Number(product?.cost || 0);
-
-              if (item.variantId) {
-                const variant = product?.variants.find((v) => v.id === item.variantId);
-                if (variant) {
-                  unitCost = Number(variant.cost || 0);
-                }
-              }
-
-              return {
-                productId: item.productId,
-                variantId: item.variantId || null,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                unitCost, // Persistencia de costo histórico
-                subtotal: item.unitPrice * item.quantity,
-              };
-            }),
+            create: items.map((item, idx) => ({
+              productId: item.productId,
+              variantId: item.variantId || null,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              unitCost: unitCostByItemIndex[idx], // Snapshot WAC al vender
+              subtotal: item.unitPrice * item.quantity,
+            })),
           },
-        },
+        } as Prisma.SaleUncheckedCreateInput,
       });
 
       // Handle Payments manually within transaction to capture bank IDs
@@ -333,64 +349,89 @@ export async function POST(req: NextRequest) {
          include: saleResponseInclude
       });
 
-      // 6. Decrement stock in this branch and capture new stock data ONLY IF COMPLETED
+      // 6. Decrement stock in this branch and capture new stock data ONLY IF COMPLETED.
+      // Mantenemos el patrón `updateMany ... where quantity: { gte }` para
+      // race safety, y registramos el movimiento (StockMovement, Fase 15)
+      // directamente — sin pasar por recordStockMovement (que aplicaría el
+      // delta por su cuenta, doblando la operación).
       const updatedStocks = [];
       if (status === 'COMPLETED') {
-        for (const item of items) {
-           const product = products.find(p => p.id === item.productId);
-           if (!product) continue;
-           
-           if (product.isBundle) {
-             for (const bundleItem of product.bundleItems) {
-                const requiredQuantity = item.quantity * bundleItem.quantity;
-                const stockUpdate = await tx.productStock.updateMany({
-                   where: {
-                     productId: bundleItem.componentId,
-                     branchId: branchId!,
-                     variantId: null,
-                     quantity: { gte: requiredQuantity },
-                   },
-                   data: { quantity: { decrement: item.quantity * bundleItem.quantity } }
-                });
-                if (stockUpdate.count !== 1) {
-                  throw new Error(`El stock cambió mientras se procesaba la venta para el componente ${bundleItem.componentId}`);
-                }
-                const stk = await tx.productStock.findFirst({ where: { productId: bundleItem.componentId, branchId: branchId!, variantId: null }, include: { product: true } });
-                if (stk) updatedStocks.push(stk);
-             }
-           } else {
-             if (item.variantId) {
-                const stockUpdate = await tx.productStock.updateMany({
-                   where: {
-                     productId: item.productId,
-                     branchId: branchId!,
-                     variantId: item.variantId,
-                     quantity: { gte: item.quantity },
-                   },
-                   data: { quantity: { decrement: item.quantity } }
-                });
-                if (stockUpdate.count !== 1) {
-                  throw new Error(`El stock cambió mientras se procesaba la venta para ${product.name}`);
-                }
-                const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: item.variantId }, include: { product: true } });
-                if (stk) updatedStocks.push(stk);
-             } else {
-                const stockUpdate = await tx.productStock.updateMany({
-                   where: {
-                     productId: item.productId,
-                     branchId: branchId!,
-                     variantId: null,
-                     quantity: { gte: item.quantity },
-                   },
-                   data: { quantity: { decrement: item.quantity } }
-                });
-                if (stockUpdate.count !== 1) {
-                  throw new Error(`El stock cambió mientras se procesaba la venta para ${product.name}`);
-                }
-                const stk = await tx.productStock.findFirst({ where: { productId: item.productId, branchId: branchId!, variantId: null }, include: { product: true } });
-                if (stk) updatedStocks.push(stk);
-             }
-           }
+        for (let idx = 0; idx < items.length; idx++) {
+          const item = items[idx];
+          const product = products.find(p => p.id === item.productId);
+          if (!product) continue;
+          const unitCost = unitCostByItemIndex[idx];
+
+          if (product.isBundle) {
+            for (const bundleItem of product.bundleItems) {
+              const requiredQuantity = item.quantity * bundleItem.quantity;
+              const stockUpdate = await tx.productStock.updateMany({
+                where: {
+                  productId: bundleItem.componentId,
+                  branchId: branchId!,
+                  variantId: null,
+                  quantity: { gte: requiredQuantity },
+                },
+                data: { quantity: { decrement: requiredQuantity } }
+              });
+              if (stockUpdate.count !== 1) {
+                throw new Error(`El stock cambió mientras se procesaba la venta para el componente ${bundleItem.componentId}`);
+              }
+              const stk = await tx.productStock.findFirst({ where: { productId: bundleItem.componentId, branchId: branchId!, variantId: null }, include: { product: true } });
+              if (stk) updatedStocks.push(stk);
+
+              // Snapshot del costo del componente al momento (WAC vigente).
+              const componentCost = await getCurrentCost(tx, bundleItem.componentId, null);
+
+              // Log StockMovement (SALE) por cada componente del bundle.
+              await logStockMovementInline(tx, {
+                companyId: tenant.companyId,
+                productId: bundleItem.componentId,
+                variantId: null,
+                branchId: branchId!,
+                type: 'SALE',
+                quantity: -requiredQuantity,
+                unitCost: componentCost,
+                referenceType: 'SALE',
+                referenceId: newSale.id,
+                userId: tenant.userId,
+                date: newSale.createdAt,
+                notes: `Bundle "${product.name}"`,
+              });
+            }
+          } else {
+            const variantWhere = item.variantId
+              ? { productId: item.productId, branchId: branchId!, variantId: item.variantId, quantity: { gte: item.quantity } }
+              : { productId: item.productId, branchId: branchId!, variantId: null, quantity: { gte: item.quantity } };
+            const stockUpdate = await tx.productStock.updateMany({
+              where: variantWhere,
+              data: { quantity: { decrement: item.quantity } }
+            });
+            if (stockUpdate.count !== 1) {
+              throw new Error(`El stock cambió mientras se procesaba la venta para ${product.name}`);
+            }
+            const stk = await tx.productStock.findFirst({
+              where: item.variantId
+                ? { productId: item.productId, branchId: branchId!, variantId: item.variantId }
+                : { productId: item.productId, branchId: branchId!, variantId: null },
+              include: { product: true },
+            });
+            if (stk) updatedStocks.push(stk);
+
+            await logStockMovementInline(tx, {
+              companyId: tenant.companyId,
+              productId: item.productId,
+              variantId: item.variantId || null,
+              branchId: branchId!,
+              type: 'SALE',
+              quantity: -item.quantity,
+              unitCost,
+              referenceType: 'SALE',
+              referenceId: newSale.id,
+              userId: tenant.userId,
+              date: newSale.createdAt,
+            });
+          }
         }
       }
 
@@ -434,6 +475,27 @@ export async function POST(req: NextRequest) {
           userId: tenant.userId,
           lines,
         });
+
+        // 7. Asiento COGS (Fase 15): DR Costo de Ventas / CR Inventario por
+        // la suma total de unitCost * quantity de los ítems. Si el costo
+        // total es 0 (productos sin costo capturado), no generamos asiento
+        // — un journal entry con DR=CR=0 violaría la validación de balance.
+        const totalCost = items.reduce((sum, it, idx) => sum + unitCostByItemIndex[idx] * it.quantity, 0);
+        if (totalCost > 0) {
+          await createJournalEntry(tx, {
+            companyId: tenant.companyId,
+            branchId,
+            date: completedSale.createdAt,
+            description: `COGS Venta #${completedSale.id.split('-')[0].toUpperCase()}`,
+            referenceType: 'SALE_COGS',
+            referenceId: completedSale.id,
+            userId: tenant.userId,
+            lines: [
+              { accountCode: ACCOUNTS.COGS, debit: totalCost, description: 'Costo de Ventas' },
+              { accountCode: ACCOUNTS.INVENTORY, credit: totalCost, description: 'Inventario' },
+            ],
+          });
+        }
       }
 
     return { newSale: completedSale, updatedStocks };
@@ -489,6 +551,13 @@ export async function POST(req: NextRequest) {
     }
 
     console.error('ERROR EN VENTA:', error);
+    // Fase 17: ARAPError lleva su propio status (409 para bloqueo por mora/límite).
+    if (error instanceof ARAPError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
+    }
     const message = error instanceof Error ? error.message : 'Error al procesar la venta';
     const status = message.includes('Stock insuficiente')
       || message.includes('crédito')

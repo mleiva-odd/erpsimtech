@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireTenant, requirePermission } from '@/lib/tenant';
+import { logStockMovementInline } from '@/lib/inventory';
 import { z } from 'zod';
 
 const VariantSchema = z.object({
@@ -254,7 +255,7 @@ export async function POST(req: NextRequest) {
       // Anidación Multi-Dimensión secuencial para heredar la jerarquía correcta
       if (hasVariants && variants && variants.length > 0 && branchId) {
         for (const v of variants) {
-           await tx.productVariant.create({
+           const createdVariant = await tx.productVariant.create({
              data: {
                productId: p.id,
                name: String(v.name).trim(),
@@ -272,6 +273,42 @@ export async function POST(req: NextRequest) {
                }
              }
            });
+
+           // StockMovement por stock inicial de la variante (Fase 15).
+           const initialQty = Number(v.stock) || 0;
+           if (initialQty > 0) {
+             await logStockMovementInline(tx, {
+               companyId: tenant.companyId,
+               productId: p.id,
+               variantId: createdVariant.id,
+               branchId: branchId!,
+               type: 'ADJUSTMENT_IN',
+               quantity: initialQty,
+               unitCost: Number(v.cost) || 0,
+               referenceType: 'PRODUCT_INITIAL_STOCK',
+               referenceId: p.id,
+               userId: tenant.userId,
+               notes: 'Stock inicial al crear variante',
+             });
+           }
+        }
+      } else if (branchId && !isBundle) {
+        // StockMovement por stock inicial del producto base (Fase 15).
+        const initialQty = Number(stock) || 0;
+        if (initialQty > 0) {
+          await logStockMovementInline(tx, {
+            companyId: tenant.companyId,
+            productId: p.id,
+            variantId: null,
+            branchId,
+            type: 'ADJUSTMENT_IN',
+            quantity: initialQty,
+            unitCost: Number(cost) || 0,
+            referenceType: 'PRODUCT_INITIAL_STOCK',
+            referenceId: p.id,
+            userId: tenant.userId,
+            notes: 'Stock inicial al crear producto',
+          });
         }
       }
 

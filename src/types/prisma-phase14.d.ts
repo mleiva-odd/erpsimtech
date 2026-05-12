@@ -35,6 +35,8 @@ declare module '@prisma/client' {
     journalEntry: AccountingDelegate;
     journalLine: AccountingDelegate;
     accountingPeriod: AccountingDelegate;
+    /** Fase 15: log unificado de movimientos de inventario. */
+    stockMovement: AccountingDelegate;
   }
 }
 

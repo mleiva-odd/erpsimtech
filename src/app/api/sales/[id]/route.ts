@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireBranchAccess, requireTenant } from '@/lib/tenant';
 import { reverseJournalEntry } from '@/lib/accounting';
+import { logStockMovementInline } from '@/lib/inventory';
 
 export async function GET(
   req: NextRequest,
@@ -119,7 +120,7 @@ export async function PATCH(
     }
 
     await prisma.$transaction(async (tx) => {
-      // 1. Reincorporar stock
+      // 1. Reincorporar stock + registrar StockMovement (RETURN_FROM_CUSTOMER).
       for (const item of sale.items) {
         await tx.productStock.updateMany({
           where: {
@@ -128,6 +129,20 @@ export async function PATCH(
             variantId: item.variantId || null,
           },
           data: { quantity: { increment: item.quantity } },
+        });
+
+        await logStockMovementInline(tx, {
+          companyId: tenant.companyId,
+          productId: item.productId,
+          variantId: item.variantId || null,
+          branchId: sale.branchId,
+          type: 'RETURN_FROM_CUSTOMER',
+          quantity: item.quantity,
+          unitCost: Number(item.unitCost ?? 0),
+          referenceType: 'SALE_CANCEL',
+          referenceId: sale.id,
+          userId: tenant.userId,
+          notes: 'Anulación de venta',
         });
       }
 
@@ -200,6 +215,26 @@ export async function PATCH(
           userId: tenant.userId,
           description: `Anulación de Venta #${sale.id.split('-')[0].toUpperCase()}`,
           referenceType: 'SALE_CANCEL',
+          referenceId: sale.id,
+        });
+      }
+
+      // 5. Reversa del asiento COGS si existió (Fase 15).
+      const cogsEntry = await tx.journalEntry.findFirst({
+        where: {
+          companyId: tenant.companyId,
+          referenceType: 'SALE_COGS',
+          referenceId: sale.id,
+        },
+        include: { reversedBy: { select: { id: true } } },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (cogsEntry && cogsEntry.reversedBy.length === 0) {
+        await reverseJournalEntry(tx, cogsEntry.id, {
+          companyId: tenant.companyId,
+          userId: tenant.userId,
+          description: `Reversa COGS Venta #${sale.id.split('-')[0].toUpperCase()}`,
+          referenceType: 'SALE_COGS_CANCEL',
           referenceId: sale.id,
         });
       }

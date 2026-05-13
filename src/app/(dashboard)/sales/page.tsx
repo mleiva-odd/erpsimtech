@@ -65,12 +65,25 @@ const CHANNEL_COLORS: Record<string, string> = {
   REMOTE: 'bg-purple-100 text-purple-700',
   WEB: 'bg-sky-100 text-sky-700',
 };
-const STATUS_LABELS: Record<string, string> = { COMPLETED: 'Completada', CANCELLED: 'Anulada', QUOTE: 'Cotización', PENDING: 'Pendiente' };
+const STATUS_LABELS: Record<string, string> = {
+  COMPLETED: 'Completada',
+  CANCELLED: 'Anulada',
+  QUOTE: 'Cotización',
+  PENDING: 'Pendiente',
+  ORDER: 'Pedido',
+  PARTIALLY_DELIVERED: 'Parc. despachado',
+  DELIVERED: 'Despachado',
+  INVOICED: 'Facturado',
+};
 const STATUS_COLORS: Record<string, string> = {
   COMPLETED: 'bg-green-100 text-green-700',
   CANCELLED: 'bg-red-100 text-red-700',
   QUOTE: 'bg-blue-100 text-blue-700',
   PENDING: 'bg-amber-100 text-amber-700',
+  ORDER: 'bg-indigo-100 text-indigo-700',
+  PARTIALLY_DELIVERED: 'bg-amber-100 text-amber-700',
+  DELIVERED: 'bg-sky-100 text-sky-700',
+  INVOICED: 'bg-emerald-100 text-emerald-700',
 };
 const METHOD_LABELS: Record<string, string> = { CASH: 'Efectivo', CARD: 'Tarjeta', TRANSFER: 'Transferencia', CREDIT: 'Crédito' };
 
@@ -228,6 +241,10 @@ export default function SalesPage() {
                 <option value="COMPLETED">Completada</option>
                 <option value="CANCELLED">Anulada</option>
                 <option value="QUOTE">Cotización</option>
+                <option value="ORDER">Pedido</option>
+                <option value="PARTIALLY_DELIVERED">Parcialmente despachado</option>
+                <option value="DELIVERED">Despachado</option>
+                <option value="INVOICED">Facturado</option>
               </select>
             </div>
             <div>

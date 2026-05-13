@@ -72,7 +72,7 @@ model Company {
   allowOrders           Boolean              @default(true)
   /// Vigencia default (días) de una cotización antes de expirar.
   quoteValidDays        Int                  @default(30)
-  /// Fase 21 (audit decisiones, Crítico #2): umbrales superiores de los buckets
+  /// Fase 17 (audit decisiones, Crítico #2): umbrales superiores de los buckets
   /// de aging en días, en orden ascendente. Default `[30, 60, 90]` produce los
   /// 4 buckets clásicos (current / d1_30 / d31_60 / d61_90 / d90_plus). Una
   /// PYME que opera distinto puede setear ej. `[15, 30, 45]` o `[30, 60, 90, 120]`.

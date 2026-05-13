@@ -187,6 +187,7 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
             <NavItem href="/accounting" icon={<Calculator className="w-5 h-5" />} label="Contabilidad General" pathname={pathname || ''} isCollapsed={isCollapsed} />
             <NavItem href="/accounting/receivables" icon={<HandCoins className="w-5 h-5" />} label="Cuentas por Cobrar" pathname={pathname || ''} isCollapsed={isCollapsed} />
             <NavItem href="/accounting/payables" icon={<CreditCard className="w-5 h-5" />} label="Cuentas por Pagar" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/accounting/reports" icon={<FileText className="w-5 h-5" />} label="Reportes Contables" pathname={pathname || ''} isCollapsed={isCollapsed} />
           </MenuGroup>
         )}
 

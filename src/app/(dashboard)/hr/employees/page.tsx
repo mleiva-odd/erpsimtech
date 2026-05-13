@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Users, UserPlus, Search, Filter, Loader2, Mail, Phone, MapPin, Briefcase, DollarSign, Edit2 } from 'lucide-react';
 import { EmployeeModal } from '@/components/hr/EmployeeModal';
 
@@ -20,6 +21,7 @@ interface EmployeeRecord {
 }
 
 export default function EmployeesPage() {
+  const router = useRouter();
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -90,10 +92,14 @@ export default function EmployeesPage() {
           </div>
         ) : filteredEmployees.length > 0 ? (
           filteredEmployees.map((emp) => (
-            <div key={emp.id} className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all group relative overflow-hidden">
+            <div
+              key={emp.id}
+              onClick={() => router.push(`/hr/employees/${emp.id}`)}
+              className="bg-white rounded-[2rem] border border-slate-100 p-6 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all group relative overflow-hidden cursor-pointer"
+            >
               <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
-                  onClick={() => { setSelectedEmployee(emp); setIsModalOpen(true); }}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelectedEmployee(emp); setIsModalOpen(true); }}
                   className="p-2 bg-slate-50 text-slate-400 hover:text-blue-600 rounded-xl transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />

@@ -2,12 +2,55 @@
 
 import { Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
+import { useEffect, useState } from 'react';
 
+interface CompanyTaxInfo {
+  taxRegime: 'GENERAL' | 'PEQUENO_CONTRIBUYENTE' | null;
+}
+
+/**
+ * Fase 22a · Cart con IVA visible.
+ *
+ * Lee el régimen tributario de la empresa de `/api/settings/company` y
+ * calcula IVA por línea según las reglas del archivo `src/lib/fel/tax-calc.ts`:
+ *   - GENERAL → 12%
+ *   - PEQUENO_CONTRIBUYENTE → 5%
+ *   - taxRegime null → 0% (la UI muestra el aviso de configurar en Settings)
+ *
+ * La UI muestra IVA por línea y un breakdown Subtotal / Descuento / IVA / Total.
+ */
 export function Cart() {
   const { items, discount, subtotal, totalWithDiscount, removeItem, updateQuantity, setDiscount } = useCartStore();
+  const [taxRegime, setTaxRegime] = useState<CompanyTaxInfo['taxRegime']>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/settings/company')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (active && d) setTaxRegime(d.taxRegime ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const sub = subtotal();
   const total = totalWithDiscount();
+  const descuentoMonto = sub - total;
+  const taxRate = taxRegime === 'GENERAL' ? 0.12 : taxRegime === 'PEQUENO_CONTRIBUYENTE' ? 0.05 : 0;
+
+  // Calcular IVA por línea (sobre subtotal post-descuento proporcional).
+  // El descuento global se aplica % igual a cada línea. IVA = (subtotal-line * (1-disc%)) * taxRate.
+  const factor = sub > 0 ? total / sub : 1;
+  const itemsWithTax = items.map((item) => {
+    const baseGravable = Number(item.subtotal) * factor;
+    const tax = Math.round(baseGravable * taxRate * 100) / 100;
+    return { ...item, baseGravable, tax };
+  });
+  const totalIva = Math.round(itemsWithTax.reduce((a, b) => a + b.tax, 0) * 100) / 100;
+  const totalConIva = Math.round((total + totalIva) * 100) / 100;
 
   if (items.length === 0) {
     return (
@@ -23,7 +66,7 @@ export function Cart() {
     <div className="flex flex-col h-full">
       {/* Lista de ítems */}
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-        {items.map((item) => (
+        {itemsWithTax.map((item) => (
           <div
             key={`${item.product.id}-${item.product.variantId || 'base'}`}
             className="flex items-center gap-3 bg-slate-50 rounded-xl p-3 border border-slate-100"
@@ -33,6 +76,11 @@ export function Cart() {
               <p className="text-xs text-slate-600">
                 Q{Number(item.unitPrice).toFixed(2)} c/u
               </p>
+              {taxRate > 0 && item.tax > 0 && (
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  IVA ({(taxRate * 100).toFixed(0)}%): Q{item.tax.toFixed(2)}
+                </p>
+              )}
             </div>
 
             {/* Controles de cantidad */}
@@ -75,7 +123,7 @@ export function Cart() {
       </div>
 
       {/* Totales y descuento */}
-      <div className="border-t border-slate-200 pt-4 mt-4 space-y-3">
+      <div className="border-t border-slate-200 pt-4 mt-4 space-y-2">
         <div className="flex items-center justify-between text-sm text-slate-600">
           <span>Subtotal</span>
           <span className="font-medium">Q{sub.toFixed(2)}</span>
@@ -91,22 +139,40 @@ export function Cart() {
               value={discount}
               onChange={(e) => setDiscount(Number(e.target.value))}
               className="w-16 text-right border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              aria-label="Porcentaje de descuento"
             />
             <span className="text-sm text-slate-500">%</span>
           </div>
         </div>
 
-        {discount > 0 && (
+        {descuentoMonto > 0 && (
           <div className="flex justify-between text-sm text-green-600">
             <span>Ahorro</span>
-            <span>-Q{(sub - total).toFixed(2)}</span>
+            <span>-Q{descuentoMonto.toFixed(2)}</span>
           </div>
         )}
 
-        <div className="flex justify-between items-center font-bold text-lg border-t border-slate-200 pt-3">
-          <span className="text-slate-800">TOTAL</span>
-          <span className="text-blue-600">Q{total.toFixed(2)}</span>
-        </div>
+        {taxRate > 0 ? (
+          <>
+            <div className="flex items-center justify-between text-sm text-slate-600">
+              <span>Base gravable</span>
+              <span className="font-medium">Q{total.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm text-slate-600">
+              <span>IVA ({(taxRate * 100).toFixed(0)}%)</span>
+              <span className="font-medium">Q{totalIva.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center font-bold text-lg border-t border-slate-200 pt-3">
+              <span className="text-slate-800">TOTAL A PAGAR</span>
+              <span className="text-blue-600">Q{totalConIva.toFixed(2)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between items-center font-bold text-lg border-t border-slate-200 pt-3">
+            <span className="text-slate-800">TOTAL</span>
+            <span className="text-blue-600">Q{total.toFixed(2)}</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Inbox, Plus, Search, Trash2, ArrowLeft, Save, Loader2, PackageOpen } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Inbox, Plus, Search, Trash2, ArrowLeft, Save, Loader2, PackageOpen, ClipboardList, ScrollText, Eye } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { VariantSelectionModal } from '@/components/pos/VariantSelectionModal';
 import { useToast } from '@/components/ui/toast';
+import { PurchaseDetailModal } from '@/components/purchases/PurchaseDetailModal';
 
 interface Supplier { id: string; name: string; }
 interface VariantOption { id: string; name: string; sku: string; price: string | number; stocks?: Array<{ quantity: number }>; }
@@ -20,9 +22,14 @@ interface PurchaseHistoryItem {
 }
 
 export default function PurchasesPage() {
+  const router = useRouter();
   const [view, setView] = useState<'history' | 'new'>('history');
   const [purchases, setPurchases] = useState<PurchaseHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
+
+  // Mode toggle (Fast = compras directas / Enterprise = workflow PR-RFQ-PO con approval).
+  const [mode, setMode] = useState<'fast' | 'enterprise'>('fast');
 
   // New Purchase State
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -105,6 +112,7 @@ export default function PurchasesPage() {
       const payload = {
         supplierId: selectedSupplier,
         reference,
+        mode,
         items: cart.map(item => ({ productId: item.product.id, variantId: item.variantId, quantity: item.quantity, cost: item.cost }))
       };
       const res = await fetch('/api/purchases', {
@@ -129,14 +137,38 @@ export default function PurchasesPage() {
     const totalInput = cart.reduce((acc, item) => acc + (item.quantity * item.cost), 0);
 
     return (
-      <div className="p-8 max-w-7xl mx-auto h-full flex flex-col">
-        <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => setView('history')} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition"><ArrowLeft className="w-5 h-5"/></button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-              <PackageOpen className="w-6 h-6 text-emerald-600" /> Nueva Recepción de Inventario
-            </h1>
-            <p className="text-sm text-slate-500">Documento de Abastecimiento Interno</p>
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto h-full flex flex-col">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
+          <div className="flex items-center gap-4 flex-1">
+            <button onClick={() => setView('history')} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition"><ArrowLeft className="w-5 h-5"/></button>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <PackageOpen className="w-6 h-6 text-emerald-600" /> Nueva Recepción de Inventario
+              </h1>
+              <p className="text-sm text-slate-500">
+                Modo {mode === 'fast' ? 'Fast (compra directa)' : 'Enterprise (PO con workflow)'}.
+              </p>
+            </div>
+          </div>
+          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setMode('fast')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                mode === 'fast' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              Fast
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('enterprise')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                mode === 'enterprise' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              Enterprise
+            </button>
           </div>
         </div>
 
@@ -251,17 +283,31 @@ export default function PurchasesPage() {
 
   // History View
   return (
-    <div className="p-8 max-w-7xl mx-auto h-full flex flex-col">
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto h-full flex flex-col">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Inbox className="w-6 h-6 text-emerald-600" /> Historial de Ingresos Logísticos
           </h1>
           <p className="text-sm text-slate-500 mt-1">Traza de auditoría de todas tus compras selladas y guardadas.</p>
         </div>
-        <button onClick={() => setView('new')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2">
-          <Plus className="w-5 h-5" /> Nueva Recepción
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => router.push('/purchases/requests')}
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition flex items-center gap-2"
+          >
+            <ClipboardList className="w-4 h-4" /> PRs
+          </button>
+          <button
+            onClick={() => router.push('/purchases/rfq')}
+            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition flex items-center gap-2"
+          >
+            <ScrollText className="w-4 h-4" /> RFQs
+          </button>
+          <button onClick={() => setView('new')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-medium shadow-sm transition-colors flex items-center gap-2">
+            <Plus className="w-5 h-5" /> Nueva Recepción
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 overflow-hidden">
@@ -281,12 +327,21 @@ export default function PurchasesPage() {
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">Cargando bitácora de auditoría...</td></tr>
               ) : purchases.length > 0 ? (
                 purchases.map(po => (
-                  <tr key={po.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={po.id}
+                    onClick={() => setSelectedDetailId(po.id)}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-6 py-4 text-slate-600 font-mono text-xs">{new Date(po.createdAt).toLocaleString()}</td>
                     <td className="px-6 py-4 font-bold text-slate-800">{po.supplier.name}</td>
                     <td className="px-6 py-4 text-slate-500">{po.reference || '-'}</td>
                     <td className="px-6 py-4 text-slate-500">{po.user?.name || 'Sistema'}</td>
-                    <td className="px-6 py-4 text-right font-bold text-emerald-700 bg-emerald-50/50">Q{Number(po.total).toFixed(2)}</td>
+                    <td className="px-6 py-4 text-right font-bold text-emerald-700 bg-emerald-50/50">
+                      <div className="flex items-center justify-end gap-2">
+                        Q{Number(po.total).toFixed(2)}
+                        <Eye className="w-4 h-4 text-slate-300" />
+                      </div>
+                    </td>
                   </tr>
                 ))
               ) : (
@@ -296,6 +351,14 @@ export default function PurchasesPage() {
           </table>
         </div>
       </div>
+
+      {selectedDetailId && (
+        <PurchaseDetailModal
+          purchaseId={selectedDetailId}
+          onClose={() => setSelectedDetailId(null)}
+          onRefresh={fetchHistory}
+        />
+      )}
     </div>
   );
 }

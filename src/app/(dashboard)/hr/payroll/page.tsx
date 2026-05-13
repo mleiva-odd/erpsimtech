@@ -1,10 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/**
+ * Fase 22b · Payroll dashboard (Fase 18).
+ *
+ * Lista de planillas con DataTable + acciones por estado (Aprobar, Pagar,
+ * Recalcular, exportar IGSS / CSV).
+ */
+
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wallet, Plus, Loader2, Calendar, ArrowRight } from 'lucide-react';
+import { Wallet, Plus } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { PayrollModal } from '@/components/hr/PayrollModal';
 import { useToast } from '@/components/ui/toast';
 
@@ -14,21 +21,39 @@ interface PayrollSummary {
   status: string;
   startDate: string;
   endDate: string;
+  payrollType?: string;
+  totalGross: number | string;
   totalDeductions: number | string;
   totalNet: number | string;
-  _count?: {
-    items: number;
-  };
+  _count?: { items: number };
 }
 
-export default function PayrollPage() {
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT: 'Borrador',
+  APPROVED: 'Aprobada',
+  PAID: 'Pagada',
+  CANCELLED: 'Cancelada',
+};
+const STATUS_BADGE: Record<string, string> = {
+  DRAFT: 'bg-amber-50 text-amber-700 border-amber-100',
+  APPROVED: 'bg-blue-50 text-blue-700 border-blue-100',
+  PAID: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  CANCELLED: 'bg-slate-100 text-slate-500 border-slate-200',
+};
+
+function formatQ(n: number | string): string {
+  return `Q${Number(n).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export default function PayrollListPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [payrolls, setPayrolls] = useState<PayrollSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { toast } = useToast();
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
 
-  const fetchPayrolls = async () => {
+  const fetchPayrolls = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch('/api/hr/payroll');
@@ -39,105 +64,119 @@ export default function PayrollPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchPayrolls();
   }, []);
 
-  const onPayrollCreated = () => {
+  useEffect(() => {
+    void fetchPayrolls();
+  }, [fetchPayrolls]);
+
+  const onCreated = () => {
     setIsModalOpen(false);
-    fetchPayrolls();
-    toast({
-      title: 'Planilla Generada',
-      description: 'El ciclo de nómina se ha calculado correctamente.',
-    });
+    void fetchPayrolls();
+    toast({ tone: 'success', message: 'Planilla generada y calculada.' });
   };
 
+  const columns: DataTableColumn<PayrollSummary>[] = [
+    {
+      key: 'name',
+      header: 'Planilla',
+      mobilePriority: 'title',
+      accessor: (r) => (
+        <div className="flex flex-col">
+          <span className="font-bold text-slate-800">{r.name}</span>
+          <span className="text-[11px] text-slate-500">{r.payrollType || 'REGULAR'}</span>
+        </div>
+      ),
+      exportValue: (r) => r.name,
+    },
+    {
+      key: 'period',
+      header: 'Período',
+      accessor: (r) =>
+        `${format(new Date(r.startDate), 'dd/MM/yyyy')} - ${format(new Date(r.endDate), 'dd/MM/yyyy')}`,
+      exportValue: (r) =>
+        `${format(new Date(r.startDate), 'dd/MM/yyyy')} - ${format(new Date(r.endDate), 'dd/MM/yyyy')}`,
+    },
+    {
+      key: 'status',
+      header: 'Estado',
+      filterable: true,
+      filterOptions: [
+        { value: 'DRAFT', label: 'Borrador' },
+        { value: 'APPROVED', label: 'Aprobada' },
+        { value: 'PAID', label: 'Pagada' },
+        { value: 'CANCELLED', label: 'Cancelada' },
+      ],
+      accessor: (r) => (
+        <span
+          className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg border ${
+            STATUS_BADGE[r.status] || 'bg-slate-100 text-slate-500'
+          }`}
+        >
+          {STATUS_LABEL[r.status] || r.status}
+        </span>
+      ),
+      exportValue: (r) => STATUS_LABEL[r.status] || r.status,
+    },
+    {
+      key: 'empleados',
+      header: 'Empleados',
+      accessor: (r) => String(r._count?.items ?? 0),
+    },
+    {
+      key: 'totalGross',
+      header: 'Devengado',
+      accessor: (r) => formatQ(r.totalGross),
+      exportValue: (r) => formatQ(r.totalGross),
+    },
+    {
+      key: 'totalNet',
+      header: 'Neto',
+      mobilePriority: 'highlight',
+      accessor: (r) => <span className="font-bold text-emerald-600">{formatQ(r.totalNet)}</span>,
+      exportValue: (r) => formatQ(r.totalNet),
+    },
+  ];
+
+  const filtered = activeFilters.status
+    ? payrolls.filter((p) => p.status === activeFilters.status)
+    : payrolls;
+
   return (
-    <div className="p-8 max-w-7xl mx-auto h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <Wallet className="w-6 h-6 text-blue-600" />
             Gestión de Planillas
           </h1>
-          <p className="text-[13px] text-slate-500 font-medium mt-1">Procesamiento de nómina, bonificaciones y deducciones de ley</p>
+          <p className="text-[13px] text-slate-500 font-medium mt-1">
+            Procesamiento de nómina, bonificaciones y deducciones de ley
+          </p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-slate-500/20 flex items-center gap-2.5 transition-all active:scale-95"
+          className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
         >
-          <Plus className="w-4 h-4" /> 
-          Generar Nueva Planilla
+          <Plus className="w-4 h-4" /> Nueva planilla
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        {isLoading ? (
-          <div className="py-20 text-center">
-            <Loader2 className="w-10 h-10 animate-spin mx-auto text-blue-500 opacity-20" />
-          </div>
-        ) : payrolls.length > 0 ? (
-          payrolls.map((pay) => (
-            <div key={pay.id} 
-                 onClick={() => router.push(`/hr/payroll/${pay.id}`)}
-                 className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all flex flex-col md:flex-row items-center gap-8 cursor-pointer group">
-              <div className="w-16 h-16 rounded-[1.5rem] bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <Calendar className="w-8 h-8" />
-              </div>
-              
-              <div className="flex-1 text-center md:text-left">
-                <div className="flex flex-col md:flex-row items-center gap-3 mb-1">
-                  <h3 className="text-xl font-bold text-slate-900">{pay.name}</h3>
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                    pay.status === 'PAID' ? 'bg-emerald-50 text-emerald-600' : 
-                    pay.status === 'DRAFT' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-400'
-                  }`}>
-                    {pay.status === 'PAID' ? 'Pagada' : pay.status === 'DRAFT' ? 'Borrador' : pay.status}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-500 font-medium">
-                  Periodo: {format(new Date(pay.startDate), 'dd MMM', { locale: es })} al {format(new Date(pay.endDate), 'dd MMM yyyy', { locale: es })}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-3 gap-8 px-8 border-x border-slate-50 hidden lg:grid">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Colaboradores</span>
-                  <span className="text-lg font-bold text-slate-700">{pay._count?.items || 0}</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Deducciones</span>
-                  <span className="text-lg font-bold text-rose-500">-Q{Number(pay.totalDeductions).toLocaleString()}</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total a Pagar</span>
-                  <span className="text-lg font-bold text-emerald-600">Q{Number(pay.totalNet).toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 text-slate-400 group-hover:bg-blue-600 group-hover:text-white rounded-2xl transition-all">
-                <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="py-20 text-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm text-slate-300">
-              <Wallet className="w-8 h-8" />
-            </div>
-            <p className="text-slate-400 font-medium">No has generado planillas todavía.</p>
-            <p className="text-xs text-slate-400 mt-1">Comienza dando de alta a tus empleados y genera la primera planilla.</p>
-          </div>
-        )}
-      </div>
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={isLoading}
+        getRowId={(r) => r.id}
+        onRowClick={(r) => router.push(`/hr/payroll/${r.id}`)}
+        enableCsvExport
+        enablePdfExport
+        exportFileName="planillas"
+        emptyMessage="No hay planillas registradas todavía."
+        onFilter={setActiveFilters}
+      />
 
       {isModalOpen && (
-        <PayrollModal
-          onClose={() => setIsModalOpen(false)}
-          onSuccess={onPayrollCreated}
-        />
+        <PayrollModal onClose={() => setIsModalOpen(false)} onSuccess={onCreated} />
       )}
     </div>
   );

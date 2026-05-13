@@ -13,6 +13,7 @@ export function PayrollModal({ onClose, onSuccess }: PayrollModalProps) {
     name: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
+    payrollType: 'REGULAR' as 'REGULAR' | 'BONO14' | 'AGUINALDO' | 'INDEMNIZACION' | 'EXTRAORDINARIA',
   });
   
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +28,12 @@ export function PayrollModal({ onClose, onSuccess }: PayrollModalProps) {
       const res = await fetch('/api/hr/payroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          payrollType: formData.payrollType,
+        }),
       });
 
       const data = await res.json();
@@ -58,14 +64,29 @@ export function PayrollModal({ onClose, onSuccess }: PayrollModalProps) {
 
         <form onSubmit={handleSubmit} className="p-8 pt-4 space-y-6">
           <div>
+            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Tipo de Planilla</label>
+            <select
+              required
+              value={formData.payrollType}
+              onChange={e => setFormData({...formData, payrollType: e.target.value as typeof formData.payrollType})}
+              className="w-full px-5 py-3.5 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800"
+            >
+              <option value="REGULAR">Regular (mensual / quincenal)</option>
+              <option value="BONO14">Bono 14</option>
+              <option value="AGUINALDO">Aguinaldo</option>
+              <option value="INDEMNIZACION">Indemnización</option>
+              <option value="EXTRAORDINARIA">Extraordinaria</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Nombre Identificador</label>
-            <input 
-              required 
-              type="text" 
+            <input
+              required
+              type="text"
               placeholder="Ej: Planilla Mayo 2026 - 1ra Quincena"
-              value={formData.name} 
-              onChange={e => setFormData({...formData, name: e.target.value})} 
-              className="w-full px-5 py-3.5 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800" 
+              value={formData.name}
+              onChange={e => setFormData({...formData, name: e.target.value})}
+              className="w-full px-5 py-3.5 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800"
             />
           </div>
 

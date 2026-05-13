@@ -159,11 +159,23 @@ export function daysOverdue(dueDate: Date, asOf: Date): number {
   return Math.floor((ref - due) / msPerDay);
 }
 
+/**
+ * Inicializa todas las keys del agregado a 0.
+ *
+ * IMPORTANTE para Fase 22 (UI/UX): incluso cuando una empresa usa config
+ * custom (ej. `[15, 30, 45]`), este helper SIEMPRE incluye las 5 keys legacy
+ * (`current`, `d1_30`, `d31_60`, `d61_90`, `d90_plus`) inicializadas a 0.
+ * Esto preserva compat con UI/reports que asumen esas keys. Las keys
+ * dinámicas adicionales (`d1_15`, `d16_30`, etc.) se agregan encima.
+ *
+ * Cuando la UI nueva (Fase 22+) consuma el aging, debe leer dinámicamente
+ * con `bucketKeysFor(company.agingBucketDays)` para saber qué columnas
+ * renderizar; las keys legacy en 0 no tendrán datos cuando la empresa
+ * usa config custom.
+ */
 function emptyBuckets(
   bucketDays: readonly number[] = DEFAULT_AGING_BUCKET_DAYS,
 ): AgingBuckets {
-  // Inicializa todas las keys que la config va a usar a 0.
-  // Mantiene siempre las keys legacy en 0 para que la UI vieja siga funcionando.
   const base: AgingBuckets = {
     current: 0,
     d1_30: 0,

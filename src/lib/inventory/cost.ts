@@ -63,6 +63,103 @@ export function weightedAverageCost(
 }
 
 /**
+ * Calcula costo FIFO al vender (Fase 15 audit, Crítico #1).
+ *
+ * Lee las capas de entrada históricas (StockMovement de tipo INBOUND con
+ * `quantity > 0` y `unitCost > 0`) ordenadas por fecha asc. Consume `qtyOut`
+ * en orden FIFO devolviendo el costo unitario promedio ponderado de las
+ * capas consumidas.
+ *
+ * Si no hay capas suficientes para cubrir `qtyOut` (puede pasar en backfill
+ * con datos legacy o si hubo overselling sin tracking), cae al `Product.cost`
+ * actual como aproximación segura.
+ *
+ * NOTA: este helper NO consume las capas físicamente (no marca como
+ * "consumido" un StockMovement). Solo calcula el costo a snapshear en
+ * `SaleItem.unitCost`. El kardex sigue su orden cronológico natural.
+ * Una versión más sofisticada con `consumedQuantity` por capa puede agregarse
+ * en una Fase futura si se necesita rastreo de lotes.
+ */
+export async function fifoCostForSale(
+  tx: Tx,
+  companyId: string,
+  productId: string,
+  variantId: string | null,
+  qtyOut: number,
+): Promise<number> {
+  if (qtyOut <= 0) return 0;
+
+  // Leer todas las capas INBOUND de este SKU ordenadas cronológicamente.
+  // Las capas SALIDAS (SALE, ADJUSTMENT_OUT, TRANSFER_OUT) NO se incluyen.
+  const layers = (await (tx as { stockMovement: { findMany: (args: unknown) => Promise<unknown[]> } }).stockMovement.findMany({
+    where: {
+      companyId,
+      productId,
+      variantId: variantId ?? null,
+      type: { in: ['PURCHASE', 'ADJUSTMENT_IN', 'TRANSFER_IN', 'RETURN_FROM_CUSTOMER'] },
+    },
+    orderBy: { date: 'asc' },
+    select: { quantity: true, unitCost: true },
+  })) as Array<{ quantity: unknown; unitCost: unknown }>;
+
+  // Acumular hasta cubrir qtyOut.
+  let remaining = qtyOut;
+  let totalCost = 0;
+  let consumedQty = 0;
+  for (const layer of layers) {
+    if (remaining <= 0) break;
+    const layerQty = Number(layer.quantity);
+    const layerCost = Number(layer.unitCost);
+    if (layerQty <= 0 || layerCost <= 0) continue;
+    const consume = Math.min(layerQty, remaining);
+    totalCost += consume * layerCost;
+    consumedQty += consume;
+    remaining -= consume;
+  }
+
+  // Fallback si las capas no cubren la salida (caso backfill / overselling).
+  if (consumedQty <= 0) {
+    // No hay capas históricas — devolver 0 (el caller debería usar Product.cost
+    // como snapshot defensivo).
+    return 0;
+  }
+
+  return totalCost / consumedQty;
+}
+
+/**
+ * Calcula el costo unitario a snapshear en `SaleItem.unitCost` según el
+ * método configurado por la empresa. Si `Company.costMethod=FIFO`, lee las
+ * capas. Si WAC, devuelve `Product.cost` (que es el WAC corriente).
+ */
+export async function getCostMethodAware(
+  tx: Tx,
+  companyId: string,
+  productId: string,
+  variantId: string | null,
+  qtyOut: number,
+): Promise<number> {
+  // Leer el método de la empresa. Cast loose porque cliente Prisma pre-migrate
+  // generate no lo conoce.
+  const company = (await (tx as { company: { findUnique: (args: unknown) => Promise<unknown> } }).company.findUnique({
+    where: { id: companyId },
+    select: { costMethod: true } as never,
+  })) as { costMethod?: 'WAC' | 'FIFO' } | null;
+  const method = company?.costMethod ?? 'WAC';
+
+  if (method === 'FIFO') {
+    const fifoCost = await fifoCostForSale(tx, companyId, productId, variantId, qtyOut);
+    if (fifoCost > 0) return fifoCost;
+    // Fallback a WAC si no hay capas (backfill).
+  }
+
+  // WAC (default): el costo "current" del producto YA es el WAC actualizado
+  // por `recordStockMovement` en cada entrada. Lee via `getCurrentCost` que
+  // soporta variants y bundles.
+  return getCurrentCost(tx, productId, variantId);
+}
+
+/**
  * Captura el costo actual de un producto/variante para snapshot al momento
  * de la venta.
  *

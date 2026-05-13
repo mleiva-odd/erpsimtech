@@ -72,6 +72,16 @@ model Company {
   allowOrders           Boolean              @default(true)
   /// Vigencia default (días) de una cotización antes de expirar.
   quoteValidDays        Int                  @default(30)
+  /// Fase 21 (audit decisiones, Crítico #2): umbrales superiores de los buckets
+  /// de aging en días, en orden ascendente. Default `[30, 60, 90]` produce los
+  /// 4 buckets clásicos (current / d1_30 / d31_60 / d61_90 / d90_plus). Una
+  /// PYME que opera distinto puede setear ej. `[15, 30, 45]` o `[30, 60, 90, 120]`.
+  agingBucketDays       Int[]                @default([30, 60, 90])
+  /// Fase 15 (audit decisiones, Crítico #1): método de costeo de inventario.
+  /// GT permite WAC (promedio ponderado) y FIFO (LIFO prohibido tributariamente
+  /// desde 2013). Default WAC para PYMEs típicas. Industrias perecederos /
+  /// farmacéuticos suelen requerir FIFO obligatorio por vencimiento de lotes.
+  costMethod            CostMethod           @default(WAC)
   /// Si la empresa calcula comisiones por venta para vendedores/empleados.
   commissionEnabled     Boolean              @default(false)
   priceLists            PriceList[]
@@ -2178,6 +2188,15 @@ enum PromotionType {
   BUY_N_GET_M
   PERCENTAGE_OFF
   FIXED_PRICE
+}
+
+/// Método de costeo de inventario (Fase 15 audit decisiones, Crítico #1).
+/// Configurable por empresa. WAC = promedio ponderado; FIFO = primero
+/// entrado, primero salido. LIFO está prohibido tributariamente en GT
+/// (Decreto 10-2012 art. 14) — no se soporta.
+enum CostMethod {
+  WAC
+  FIFO
 }
 
 /// Cupón canjeable por descuento.

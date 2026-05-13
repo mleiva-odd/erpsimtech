@@ -5,7 +5,7 @@ import { requireAnyPermission, requireOperationalPermission } from '@/lib/tenant
 import { createAuditLog } from '@/lib/audit';
 import { createNotification } from '@/lib/notifications';
 import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
-import { getCurrentCost, logStockMovementInline } from '@/lib/inventory';
+import { getCurrentCost, getCostMethodAware, logStockMovementInline } from '@/lib/inventory';
 import { assertCustomerCanBuyOnCredit, ARAPError } from '@/lib/ar-ap';
 import { calculateLineTax, validateGuatemalanNit, isCF } from '@/lib/fel';
 import {
@@ -453,14 +453,19 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 5. Pre-compute unit costs using `getCurrentCost` (Fase 15):
-      //    - Variantes: variant.cost
-      //    - Bundles: suma de costos de componentes (no Product.cost del bundle
-      //      que estaba hardcoded a 0).
-      //    - Default: product.cost (que ahora es WAC desde Fase 15).
+      // 5. Pre-compute unit costs (Fase 15 + Crítico #1 audit decisiones):
+      //    - WAC (default): Product.cost actual (mantenido por recordStockMovement).
+      //    - FIFO: lee capas históricas StockMovement y consume en orden.
+      //    `getCostMethodAware` routea según `Company.costMethod`.
       const unitCostByItemIndex: number[] = [];
       for (const item of items) {
-        const c = await getCurrentCost(tx, item.productId, item.variantId || null);
+        const c = await getCostMethodAware(
+          tx,
+          tenant.companyId,
+          item.productId,
+          item.variantId || null,
+          item.quantity,
+        );
         unitCostByItemIndex.push(c);
       }
 

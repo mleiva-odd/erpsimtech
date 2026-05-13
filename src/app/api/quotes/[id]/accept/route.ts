@@ -17,13 +17,13 @@ import { assertTransition } from '@/lib/sales';
  */
 export async function POST(
   _req: NextRequest,
-  { params }: { params: Promise<{ saleId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const result = await requireTenant();
   if ('error' in result) return result.error;
   const { tenant } = result;
 
-  const { saleId } = await params;
+  const { id: saleId } = await params;
 
   try {
     const sale = await prisma.sale.findFirst({

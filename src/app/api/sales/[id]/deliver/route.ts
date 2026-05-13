@@ -30,13 +30,13 @@ const DeliverSchema = z.object({
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ saleId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const result = await requireTenant();
   if ('error' in result) return result.error;
   const { tenant } = result;
 
-  const { saleId } = await params;
+  const { id: saleId } = await params;
 
   const body = await req.json().catch(() => ({}));
   const parsed = DeliverSchema.safeParse(body);

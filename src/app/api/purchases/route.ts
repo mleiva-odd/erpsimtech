@@ -316,11 +316,11 @@ export async function POST(req: NextRequest) {
             items: {
               create: po.items.map((poItem) => ({
                 purchaseOrderItemId: poItem.id,
-                quantityReceived: poItem.quantity,
-                unitCost: poItem.unitCost,
+                quantityReceived: new PrismaNS.Decimal(Number(poItem.quantity)),
+                unitCost: new PrismaNS.Decimal(Number(poItem.unitCost)),
               })),
             },
-          },
+          } as never,
         });
 
         // Stock movement por línea (WAC).

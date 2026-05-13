@@ -90,7 +90,7 @@ export async function POST(
     });
     subtotalAmount = round2(subtotalAmount);
 
-    const supplierShape = quote.supplier as SupplierShape;
+    const supplierShape = quote.supplier as unknown as SupplierShape;
     const retention = calculateRetention({
       subtotal: subtotalAmount,
       tax: 0,

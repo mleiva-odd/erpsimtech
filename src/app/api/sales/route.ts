@@ -8,6 +8,12 @@ import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 import { getCurrentCost, logStockMovementInline } from '@/lib/inventory';
 import { assertCustomerCanBuyOnCredit, ARAPError } from '@/lib/ar-ap';
 import { calculateLineTax, validateGuatemalanNit, isCF } from '@/lib/fel';
+import {
+  getExchangeRate,
+  toFunctionalAmount,
+  normalizeCurrency,
+  ExchangeRateError,
+} from '@/lib/currency';
 import { z } from 'zod';
 
 const SaleItemSchema = z.object({
@@ -15,6 +21,8 @@ const SaleItemSchema = z.object({
   variantId: z.string().uuid().optional().nullable(),
   quantity: z.number().int().positive(),
   unitPrice: z.number().positive(),
+  /** Fase 20 · Descuento por línea en porcentaje (0..1). */
+  discountRate: z.number().min(0).max(1).optional(),
 });
 
 const PaymentSchema = z.object({
@@ -36,8 +44,22 @@ const CreateSaleSchema = z.object({
   // "CF" (Consumidor Final) acepta nombre genérico "Consumidor Final".
   customerNit: z.string().trim().optional().nullable(),
   customerName: z.string().trim().optional().nullable(),
-  status: z.enum(['COMPLETED', 'QUOTE']).default('COMPLETED'),
+  status: z.enum(['COMPLETED', 'QUOTE', 'ORDER']).default('COMPLETED'),
   channel: z.enum(['POS', 'REMOTE', 'WEB']).default('POS'),
+  // Fase 20 · Ventas enterprise
+  priceListId: z.string().uuid().optional().nullable(),
+  couponCode: z.string().trim().optional().nullable(),
+  salesUserId: z.string().uuid().optional().nullable(),
+  // Fase 21 · Multi-moneda. Currency opcional, default GTQ. ISO-3 mayúsculas.
+  // Si distinta a GTQ, se busca el rate del día (getExchangeRate) y se
+  // snapshotea en Sale.currency / .exchangeRate / .functionalAmount.
+  currency: z
+    .string()
+    .trim()
+    .transform((v) => v.toUpperCase())
+    .pipe(z.string().regex(/^[A-Z]{3}$/, 'currency debe ser ISO-3 (USD, EUR, ...)'))
+    .optional()
+    .default('GTQ'),
 });
 
 const saleResponseInclude = {
@@ -60,7 +82,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Datos inválidos', details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { clientRequestId, items, payments = [], discount, customerId, status, channel, customerNit: bodyCustomerNit, customerName: bodyCustomerName } = parsed.data;
+  const {
+    clientRequestId,
+    items,
+    payments = [],
+    discount,
+    customerId,
+    status,
+    channel,
+    customerNit: bodyCustomerNit,
+    customerName: bodyCustomerName,
+    priceListId,
+    couponCode,
+    salesUserId,
+    currency: saleCurrency,
+  } = parsed.data;
 
   if (clientRequestId) {
     const existingSale = await prisma.sale.findFirst({
@@ -82,6 +118,13 @@ export async function POST(req: NextRequest) {
 
   if (status === 'QUOTE' && payments.length > 0) {
     return NextResponse.json({ error: 'Las cotizaciones no deben registrar pagos.' }, { status: 400 });
+  }
+
+  if (status === 'ORDER' && payments.length > 0) {
+    return NextResponse.json(
+      { error: 'Los pedidos (ORDER) se cobran al facturar; no acepten pagos al crearse.' },
+      { status: 400 },
+    );
   }
 
   const cardOrTransferWithoutReference = payments.find(
@@ -129,7 +172,14 @@ export async function POST(req: NextRequest) {
   const company = (await prisma.company.findUnique({
     where: { id: tenant.companyId },
   })) as
-    | { taxRegime: 'GENERAL' | 'PEQUENO_CONTRIBUYENTE' | null; name: string; nit: string | null }
+    | {
+        taxRegime: 'GENERAL' | 'PEQUENO_CONTRIBUYENTE' | null;
+        name: string;
+        nit: string | null;
+        allowQuotes?: boolean;
+        allowOrders?: boolean;
+        quoteValidDays?: number;
+      }
     | null;
   if (!company?.taxRegime) {
     return NextResponse.json(
@@ -142,6 +192,20 @@ export async function POST(req: NextRequest) {
     );
   }
   const companyTaxRegime = company.taxRegime as 'GENERAL' | 'PEQUENO_CONTRIBUYENTE';
+
+  // Fase 20: validar flags por empresa.
+  if (status === 'QUOTE' && company.allowQuotes === false) {
+    return NextResponse.json(
+      { error: 'Esta empresa no tiene habilitadas las cotizaciones.', code: 'QUOTES_DISABLED' },
+      { status: 400 },
+    );
+  }
+  if (status === 'ORDER' && company.allowOrders === false) {
+    return NextResponse.json(
+      { error: 'Esta empresa no tiene habilitados los pedidos.', code: 'ORDERS_DISABLED' },
+      { status: 400 },
+    );
+  }
 
   // Resolver receptor (NIT + nombre):
   //   - Si customerId, leer del Customer (snapshot).
@@ -258,7 +322,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 2. Calculate totals + IVA por línea (Fase 16).
+      // 2. Fase 20 · aplicar descuento por línea ANTES del prorrateo global.
+      //    `item.discountRate` (0..1) reduce su unit price para fines de cálculo.
+      //    El descuento `discount` global (% 0..100) se prorratea ENCIMA del
+      //    descuento por línea — ambos se acumulan.
       //
       // Estrategia:
       //   - El descuento `discount` (porcentaje 0-100) se distribuye
@@ -280,11 +347,16 @@ export async function POST(req: NextRequest) {
         tax: number;
         subtotal: number; // post-descuento, pre-IVA
         total: number;
-        lineDiscount: number; // monto descuento prorrateado
+        lineDiscount: number; // monto descuento total (línea + prorrateo global)
+        lineDiscountRate: number; // tasa explícita por línea (0..1)
       };
       const lineCalcs: LineCalc[] = items.map((item) => {
         const lineGross = item.unitPrice * item.quantity;
-        const lineDiscount = discountFactor > 0 ? lineGross * discountFactor : 0;
+        const perLineRate = item.discountRate ?? 0;
+        const perLineDiscount = lineGross * perLineRate;
+        const remainingAfterLine = lineGross - perLineDiscount;
+        const proratedGlobal = discountFactor > 0 ? remainingAfterLine * discountFactor : 0;
+        const lineDiscount = perLineDiscount + proratedGlobal;
         const product = products.find((p) => p.id === item.productId);
         const isTaxExempt = product?.isTaxExempt ?? false;
         const calc = calculateLineTax({
@@ -294,12 +366,31 @@ export async function POST(req: NextRequest) {
           isTaxExempt,
           companyTaxRegime,
         });
-        return { ...calc, lineDiscount };
+        return { ...calc, lineDiscount, lineDiscountRate: perLineRate };
       });
 
-      const subtotal = lineCalcs.reduce((s, l) => s + l.subtotal, 0);
+      let subtotal = lineCalcs.reduce((s, l) => s + l.subtotal, 0);
       const taxTotal = lineCalcs.reduce((s, l) => s + l.tax, 0);
-      const total = subtotal + taxTotal;
+      let total = subtotal + taxTotal;
+
+      // Fase 20 · Cupón (valida + reserva el código, redime al final con el saleId).
+      let couponInfo: { couponId: string; amount: number } | null = null;
+      if (couponCode && status !== 'QUOTE') {
+        const { validateAndApplyCoupon } = await import('@/lib/sales');
+        try {
+          const res = await validateAndApplyCoupon(tx, {
+            code: couponCode,
+            companyId: tenant.companyId,
+            customerId: customerId ?? null,
+            subtotal,
+          });
+          couponInfo = { couponId: res.couponId, amount: res.amount };
+          subtotal = Math.max(0, subtotal - res.amount);
+          total = Math.max(0, total - res.amount);
+        } catch (err: unknown) {
+          throw err;
+        }
+      }
       // Nota: `grossSubtotal` se usa para validar contra clientes que
       // mandan el cálculo previo. Tax se incluye en `total` ahora.
       void grossSubtotal;
@@ -373,8 +464,29 @@ export async function POST(req: NextRequest) {
         unitCostByItemIndex.push(c);
       }
 
+      // Fase 20 · expiresAt para QUOTE.
+      let saleExpiresAt: Date | null = null;
+      if (status === 'QUOTE') {
+        const days = Number(company.quoteValidDays ?? 30);
+        saleExpiresAt = new Date();
+        saleExpiresAt.setDate(saleExpiresAt.getDate() + days);
+      }
+
+      // Fase 21 · Multi-moneda. Snapshot del tipo de cambio al emitir.
+      // Si currency=GTQ → rate=1.0, functionalAmount=total (sin tocar DB).
+      // Si currency≠GTQ → getExchangeRate busca el rate del día y throwea
+      // ExchangeRateError(422) si no hay. La venta entera rollbackea.
+      const normalizedCurrency = normalizeCurrency(saleCurrency);
+      const saleRate = await getExchangeRate(
+        tx as unknown as Parameters<typeof getExchangeRate>[0],
+        tenant.companyId,
+        normalizedCurrency,
+        new Date(),
+      );
+      const saleFunctionalAmount = toFunctionalAmount(total, saleRate);
+
       const newSale = await tx.sale.create({
-        data: {
+        data: ({
           companyId: tenant.companyId,
           branchId,
           userId: tenant.userId,
@@ -388,12 +500,21 @@ export async function POST(req: NextRequest) {
           status,
           channel,
           // Fase 17: dueDate solo si la venta tiene pago a crédito.
-          // Calculado arriba en sección 4 (saleDueDate).
           ...(saleDueDate ? { dueDate: saleDueDate } : {}),
           // Fase 16: snapshot del receptor + régimen vigente al emitir.
           customerNit: resolvedReceptorNit,
           customerName: resolvedReceptorName,
           taxRegime: companyTaxRegime,
+          // Fase 20 · ventas enterprise
+          expiresAt: saleExpiresAt,
+          acceptedAt: status === 'ORDER' ? new Date() : null,
+          priceListId: priceListId || null,
+          couponCode: couponCode || null,
+          salesUserId: salesUserId || tenant.userId,
+          // Fase 21 · Multi-moneda · snapshot inmutable
+          currency: normalizedCurrency,
+          exchangeRate: saleRate,
+          functionalAmount: saleFunctionalAmount,
           items: {
             create: items.map((item, idx) => ({
               productId: item.productId,
@@ -403,12 +524,43 @@ export async function POST(req: NextRequest) {
               unitCost: unitCostByItemIndex[idx], // Snapshot WAC al vender
               subtotal: lineCalcs[idx].subtotal,
               discount: lineCalcs[idx].lineDiscount,
+              discountRate: lineCalcs[idx].lineDiscountRate,
               taxRate: lineCalcs[idx].taxRate,
               tax: lineCalcs[idx].tax,
             })),
           },
-        } as Prisma.SaleUncheckedCreateInput,
+        } as unknown) as Prisma.SaleUncheckedCreateInput,
       });
+
+      // Fase 20 · Redención de cupón (después de tener el saleId).
+      if (couponInfo) {
+        const { persistCouponRedemption } = await import('@/lib/sales');
+        await persistCouponRedemption(tx, {
+          couponId: couponInfo.couponId,
+          saleId: newSale.id,
+          customerId: customerId ?? null,
+          amount: couponInfo.amount,
+        });
+      }
+
+      // Fase 20 · Si status=ORDER, crear StockReservation por línea.
+      if (status === 'ORDER') {
+        for (const item of items) {
+          await (tx as unknown as {
+            stockReservation: { create: (a: unknown) => Promise<unknown> };
+          }).stockReservation.create({
+            data: {
+              companyId: tenant.companyId,
+              saleId: newSale.id,
+              productId: item.productId,
+              variantId: item.variantId || null,
+              branchId: branchId!,
+              quantity: item.quantity,
+              reason: 'ORDER_CREATE',
+            },
+          });
+        }
+      }
 
       // Handle Payments manually within transaction to capture bank IDs
       const finalPayments = [];
@@ -431,30 +583,41 @@ export async function POST(req: NextRequest) {
              if (['CARD', 'TRANSFER'].includes(p.method)) {
                  resolvedBankId = p.bankAccountId || defaultBankAccount?.id;
              }
-             
+
+             // Fase 21 · El pago hereda la currency de la Sale (en POS no
+             // soportamos pagos en moneda distinta al documento). Mantenemos
+             // el snapshot del rate para auditoría y reportería consolidada.
+             const paymentFunctional = toFunctionalAmount(Number(p.amount), saleRate);
+
              const createdPayment = await tx.payment.create({
-                 data: {
+                 data: ({
                      saleId: newSale.id,
                      method: p.method,
                      amount: p.amount,
                      reference: p.reference || null,
-                      bankAccountId: resolvedBankId,
-                 }
+                     bankAccountId: resolvedBankId,
+                     currency: normalizedCurrency,
+                     exchangeRate: saleRate,
+                     functionalAmount: paymentFunctional,
+                 } as never),
              });
              finalPayments.push(createdPayment);
 
              // Create BankTransaction if applicable
              if (resolvedBankId) {
                  await tx.bankTransaction.create({
-                     data: {
+                     data: ({
                          bankAccountId: resolvedBankId,
                          userId: tenant.userId,
                          type: 'INCOME',
                          amount: p.amount,
                          reference: `Venta POS #${newSale.id.split('-')[0].toUpperCase()} - ${p.reference || ''}`,
                          description: 'Ingreso automatizado por venta facturada',
-                         reconciled: false
-                     }
+                         reconciled: false,
+                         currency: normalizedCurrency,
+                         exchangeRate: saleRate,
+                         functionalAmount: paymentFunctional,
+                     } as never),
                  });
              }
          }
@@ -567,13 +730,17 @@ export async function POST(req: NextRequest) {
       //     Sale.tax sigue persistiéndose en la columna para que el Libro de
       //     Ventas SAT pueda reportar el 5%.
       if (status === 'COMPLETED') {
-        const taxAmount = Number(completedSale.tax ?? 0);
-        const subtotalAmount = Number(completedSale.subtotal ?? 0);
-        const totalAmount = Number(completedSale.total ?? 0);
+        // Fase 21 · Asientos contables siempre en moneda funcional (GTQ).
+        // Si la venta es en moneda extranjera, multiplicamos por el rate
+        // snapshoteado para que DR == CR cuadre en GTQ.
+        const fxRate = saleRate;
+        const taxAmount = Math.round(Number(completedSale.tax ?? 0) * fxRate * 100) / 100;
+        const subtotalAmount = Math.round(Number(completedSale.subtotal ?? 0) * fxRate * 100) / 100;
+        const totalAmount = Math.round(Number(completedSale.total ?? 0) * fxRate * 100) / 100;
 
         const lines: Array<{ accountCode: string; debit?: number; credit?: number; description?: string }> = [];
         for (const p of finalPayments) {
-          const amt = Number(p.amount);
+          const amt = Math.round(Number(p.amount) * fxRate * 100) / 100;
           if (amt <= 0) continue;
           let accountCode: string;
           if (p.method === 'CASH') accountCode = ACCOUNTS.CASH;
@@ -693,6 +860,13 @@ export async function POST(req: NextRequest) {
         { status: error.status },
       );
     }
+    // Fase 21: ExchangeRateError(422) si falta el tipo de cambio.
+    if (error instanceof ExchangeRateError) {
+      return NextResponse.json(
+        { error: error.message, code: 'EXCHANGE_RATE_NOT_FOUND' },
+        { status: error.status },
+      );
+    }
     const message = error instanceof Error ? error.message : 'Error al procesar la venta';
     const status = message.includes('Stock insuficiente')
       || message.includes('crédito')
@@ -733,11 +907,22 @@ export async function GET(req: NextRequest) {
 
   // Status filter (supports multiple comma-separated)
   if (status) {
-    const statuses = status.split(',').filter(s => ['COMPLETED', 'PENDING', 'CANCELLED', 'QUOTE'].includes(s));
+    const allowed = [
+      'COMPLETED',
+      'PENDING',
+      'CANCELLED',
+      'QUOTE',
+      'OVERDUE',
+      'ORDER',
+      'PARTIALLY_DELIVERED',
+      'DELIVERED',
+      'INVOICED',
+    ];
+    const statuses = status.split(',').filter((s) => allowed.includes(s));
     if (statuses.length === 1) {
-      where.status = statuses[0] as Prisma.EnumSaleStatusFilter;
+      (where as { status?: unknown }).status = statuses[0];
     } else if (statuses.length > 1) {
-      where.status = { in: statuses as Array<'COMPLETED' | 'PENDING' | 'CANCELLED' | 'QUOTE'> };
+      (where as { status?: unknown }).status = { in: statuses };
     }
   }
 

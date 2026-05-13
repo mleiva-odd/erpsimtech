@@ -46,6 +46,7 @@ model Company {
   customRoles           CustomRole[]
   employees             Employee[]
   payrolls              Payroll[]
+  employeeLoans         EmployeeLoan[]
   chartOfAccounts       ChartOfAccount[]
   journalEntries        JournalEntry[]
   accountingPeriods     AccountingPeriod[]
@@ -55,6 +56,35 @@ model Company {
   taxDocuments          TaxDocument[]
   creditNotes           CreditNote[]
   debitNotes            DebitNote[]
+  // Fase 19 · Compras enterprise (PR/RFQ/PO/GRN/Invoice/CreditNote).
+  // Umbral mínimo para que una PO requiera aprobación. Default 0 = todas
+  // requieren aprobación. Para legacy se setea alto en onboarding.
+  purchaseApprovalThreshold Decimal             @default(0) @db.Decimal(10, 2)
+  purchaseRequests      PurchaseRequest[]
+  rfqRequests           RFQRequest[]
+  goodsReceivedNotes    GoodsReceivedNote[]
+  supplierInvoices      SupplierInvoice[]
+  supplierCreditNotes   SupplierCreditNote[]
+  // Fase 20 · Ventas enterprise (QUOTE/ORDER/Delivery/Invoice + listas, promos, cupones, comisiones).
+  /// Si la empresa habilita el flujo de cotizaciones. Algunos POS puros no las usan.
+  allowQuotes           Boolean              @default(true)
+  /// Si la empresa habilita el flujo de pedidos (ORDER) con reserva de stock.
+  allowOrders           Boolean              @default(true)
+  /// Vigencia default (días) de una cotización antes de expirar.
+  quoteValidDays        Int                  @default(30)
+  /// Si la empresa calcula comisiones por venta para vendedores/empleados.
+  commissionEnabled     Boolean              @default(false)
+  priceLists            PriceList[]
+  promotions            Promotion[]
+  coupons               Coupon[]
+  commissionRules       CommissionRule[]
+  commissions           Commission[]
+  stockReservations     StockReservation[]
+  deliveryNoteSequence  DeliveryNoteSequence?
+  // Fase 21 · Multi-moneda. Tabla maestra de tipos de cambio por empresa
+  // (currency, date) → rate. Permite snapshot inmutable en cada documento
+  // monetario y cálculo de diferencia cambiaria al cobrar/pagar.
+  exchangeRates         ExchangeRate[]
 }
 
 model Branch {
@@ -88,6 +118,11 @@ model Branch {
   taxDocuments         TaxDocument[]
   creditNotes          CreditNote[]
   debitNotes           DebitNote[]
+  // Fase 19 · Compras enterprise
+  purchaseRequests     PurchaseRequest[]
+  rfqRequests          RFQRequest[]
+  // Fase 20 · Ventas enterprise
+  stockReservations    StockReservation[]
 
   @@unique([companyId, code])
 }
@@ -128,6 +163,22 @@ model User {
   customerCreditApplications CustomerCreditApplication[]
   creditNotes              CreditNote[]
   debitNotes               DebitNote[]
+  // Fase 18 · Planilla GT
+  payrollsApproved         Payroll[]                 @relation("PayrollApproved")
+  payrollsPaid             Payroll[]                 @relation("PayrollPaid")
+  empLoansApproved         EmployeeLoan[]            @relation("EmpLoanApproved")
+  empLoansCancelled        EmployeeLoan[]            @relation("EmpLoanCancelled")
+  // Fase 19 · Compras enterprise
+  purchasesApproved        PurchaseOrder[]           @relation("POApproved")
+  purchaseRequestsRequested PurchaseRequest[]        @relation("PRRequestedBy")
+  purchaseRequestsApproved PurchaseRequest[]         @relation("PRApprovedBy")
+  rfqRequestsCreated       RFQRequest[]              @relation("RFQCreatedBy")
+  rfqQuotesCreated         RFQQuote[]                @relation("RFQQuoteBy")
+  goodsReceivedNotes       GoodsReceivedNote[]       @relation("GRNReceivedBy")
+  supplierInvoicesRegistered SupplierInvoice[]       @relation("SupInvRegistered")
+  supplierCreditNotesRegistered SupplierCreditNote[] @relation("SupCNRegistered")
+  // Fase 21 · Multi-moneda
+  exchangeRatesCreated      ExchangeRate[]            @relation("ExchangeRateCreatedBy")
 
   customRoleId             String?
   customRole               CustomRole?               @relation(fields: [customRoleId], references: [id])
@@ -177,6 +228,8 @@ model Category {
   updatedAt   DateTime  @updatedAt
   company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   products    Product[]
+  // Fase 20 · Ventas enterprise
+  commissionRules CommissionRule[]
 
   @@unique([companyId, name])
 }
@@ -214,6 +267,13 @@ model Product {
   transferItems        StockTransferItem[]
   deliveryNoteItems    DeliveryNoteItem[]
   stockMovements       StockMovement[]
+  // Fase 19 · Compras enterprise
+  purchaseRequestItems PurchaseRequestItem[]
+  rfqRequestItems      RFQRequestItem[]
+  rfqQuoteItems        RFQQuoteItem[]
+  // Fase 20 · Ventas enterprise
+  priceListItems       PriceListItem[]
+  stockReservations    StockReservation[]
 
   @@unique([companyId, sku])
   @@unique([companyId, barcode])
@@ -240,6 +300,13 @@ model ProductVariant {
   inventoryAdjustments InventoryAdjustment[]
   deliveryNoteItems    DeliveryNoteItem[]
   stockMovements StockMovement[]
+  // Fase 19 · Compras enterprise
+  purchaseRequestItems PurchaseRequestItem[]
+  rfqRequestItems      RFQRequestItem[]
+  rfqQuoteItems        RFQQuoteItem[]
+  // Fase 20 · Ventas enterprise
+  priceListItems       PriceListItem[]
+  stockReservations    StockReservation[]
 
   @@unique([productId, sku])
 }
@@ -310,12 +377,33 @@ model Supplier {
   // Fase 17: días de crédito que ofrece este proveedor. Reemplaza el hardcoded
   // de +30 días en el handler de compras (`src/app/api/purchases/route.ts`).
   creditDaysDefault Int          @default(30)
+  // Fase 19 · Régimen tributario y retenciones GT
+  /// Régimen tributario del proveedor (mismo enum que Fase 16). Null hasta
+  /// que se clasifique. GENERAL = factura con IVA 12%; PEQUENO_CONTRIBUYENTE
+  /// = sin IVA crédito, posible retención IVA 5% si la empresa es Agente.
+  taxRegime         TaxRegime?
+  /// Indica si la empresa retiene IVA al pagar facturas de este proveedor.
+  /// Aplica típicamente cuando proveedor es PC y la empresa es Agente de
+  /// Retención del IVA (5%). También cubre Agente del IVA general (15%) si
+  /// la empresa fue calificada por SAT.
+  withholdsIVA      Boolean      @default(false)
+  /// Indica si se retiene ISR por servicios profesionales en cada factura
+  /// (5%-7% según tramo SAT). La empresa debe declarar y pagar la retención.
+  withholdsISR      Boolean      @default(false)
+  /// Tasa ISR aplicada cuando withholdsISR=true. Default 5%; usuario sube a
+  /// 7% si la facturación mensual del proveedor supera el tramo SAT.
+  isrRate           Decimal      @default(0.05) @db.Decimal(5, 4)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   products    Product[]
   purchases   PurchaseOrder[]
   company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   payables    SupplierPayable[]
+  // Fase 19 · Relaciones nuevas
+  purchaseRequests    PurchaseRequest[]
+  rfqQuotes           RFQQuote[]           @relation("RFQQuoteSupplier")
+  supplierInvoices    SupplierInvoice[]
+  supplierCreditNotes SupplierCreditNote[]
 
   @@unique([companyId, nit])
   @@unique([companyId, name])
@@ -332,25 +420,71 @@ model PurchaseOrder {
   status     PurchaseStatus      @default(COMPLETED)
   createdAt  DateTime            @default(now())
   updatedAt  DateTime            @updatedAt
+  // Fase 19 · campos enterprise
+  /// Subtotal de la PO antes de IVA y retenciones. Nullable para no romper
+  /// PO legacy (los registros viejos quedan con subtotal=null y total como
+  /// fuente de verdad).
+  subtotal              Decimal? @db.Decimal(10, 2)
+  /// IVA total estimado al crear la PO. Se recalcula al registrar el
+  /// SupplierInvoice. 0 si proveedor es Pequeño Contribuyente (sin crédito).
+  tax                   Decimal? @default(0) @db.Decimal(10, 2)
+  /// Retención IVA estimada al pagar (5% Pequeño Contribuyente o 15%
+  /// Agente). Se recalcula al registrar el SupplierInvoice.
+  withheldIVA           Decimal? @default(0) @db.Decimal(10, 2)
+  /// Retención ISR servicios profesionales (5% o 7%) — solo si proveedor
+  /// withholdsISR=true.
+  withheldISR           Decimal? @default(0) @db.Decimal(10, 2)
+  /// Costo adicional (flete, seguro, aduana) prorrateado al inventario al
+  /// recibir. No genera asiento aparte; suma al COGS efectivo del GRN.
+  landedCost            Decimal? @default(0) @db.Decimal(10, 2)
+  approvedById          String?
+  approvedAt            DateTime?
+  receivedAt            DateTime?
+  /// Número de la factura del proveedor — denormalizado para listados.
+  /// La fuente de verdad sigue siendo `SupplierInvoice.invoiceNumber`.
+  invoiceNumber         String?
+  /// Snapshot del régimen tributario del proveedor al crear la PO. Permite
+  /// auditar la decisión de retención posterior.
+  taxRegime             TaxRegime?
+  // Fase 21 · Multi-moneda. Snapshot inmutable del tipo de cambio al emitir la PO.
+  currency              String   @default("GTQ")
+  exchangeRate          Decimal? @db.Decimal(18, 8)
+  functionalAmount      Decimal? @db.Decimal(15, 2)
   branch     Branch              @relation("PurchasesTo", fields: [branchId], references: [id])
   company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   supplier   Supplier            @relation(fields: [supplierId], references: [id])
   user       User                @relation(fields: [userId], references: [id])
   items      PurchaseOrderItem[]
   payable    SupplierPayable?
+  approvedBy            User?    @relation("POApproved", fields: [approvedById], references: [id])
+  purchaseRequestId     String?  @unique
+  purchaseRequest       PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id])
+  goodsReceivedNotes    GoodsReceivedNote[]
+  supplierInvoice       SupplierInvoice?
 }
 
 model PurchaseOrderItem {
   id              String          @id @default(uuid())
   purchaseOrderId String
   productId       String
-  quantity        Int
+  // Fase 19 · Decimal(12,3) para granel (kg, libras, litros, galones).
+  quantity        Decimal         @db.Decimal(12, 3)
   unitCost        Decimal         @db.Decimal(10, 2)
   subtotal        Decimal         @db.Decimal(10, 2)
   variantId       String?
+  /// Cantidad acumulada efectivamente recibida (sum de GRN items).
+  quantityReceived Decimal        @default(0) @db.Decimal(12, 3)
+  /// Cantidad acumulada facturada (sum de SupplierInvoice items en el
+  /// futuro; hoy se setea al registrar el SupplierInvoice por la línea
+  /// completa, ya que cada PO factura 1 vez).
+  quantityInvoiced Decimal        @default(0) @db.Decimal(12, 3)
+  /// IVA aplicable a esta línea. 0 = exento o régimen PC. Se persiste para
+  /// poder dividir IVA crédito en facturas con líneas mixtas.
+  taxRate         Decimal         @default(0) @db.Decimal(5, 4)
   product         Product         @relation(fields: [productId], references: [id])
   purchaseOrder   PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   variant         ProductVariant? @relation(fields: [variantId], references: [id])
+  grnItems        GoodsReceivedNoteItem[]
 }
 
 model Customer {
@@ -375,6 +509,9 @@ model Customer {
   sales           Sale[]
   deliveryNotes   DeliveryNote[]
   customerCredits CustomerCredit[]
+  // Fase 20 · Ventas enterprise
+  priceLists      CustomerPriceList[]
+  couponRedemptions CouponRedemption[]
 }
 
 model AccountPayment {
@@ -388,6 +525,10 @@ model AccountPayment {
   reference      String?
   notes          String?
   status         String        @default("COMPLETED") // COMPLETED | VOID
+  // Fase 21 · Multi-moneda. Snapshot al recibir el abono.
+  currency         String   @default("GTQ")
+  exchangeRate     Decimal? @db.Decimal(18, 8)
+  functionalAmount Decimal? @db.Decimal(15, 2)
   createdAt      DateTime      @default(now())
   customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
   user           User          @relation(fields: [userId], references: [id])
@@ -420,6 +561,25 @@ model Sale {
   customerName   String?
   // Snapshot del régimen tributario vigente del emisor al momento de emitir.
   taxRegime      TaxRegime?
+  // Fase 20 · Ciclo enterprise. Snapshots para auditoría:
+  /// Fecha de expiración de la cotización (QUOTE). Se setea = createdAt + Company.quoteValidDays.
+  expiresAt      DateTime?
+  /// Momento en que la cotización fue aceptada (QUOTE → ORDER).
+  acceptedAt     DateTime?
+  /// Lista de precios snapshot al crear la venta. Nullable: si no se aplicó, queda null.
+  priceListId    String?
+  /// Código de cupón aplicado a la venta (snapshot). El registro de redención
+  /// está en CouponRedemption (1:1 con la venta).
+  couponCode     String?
+  /// Vendedor asignado a la venta (para comisión). Default = userId, pero puede
+  /// ser distinto al usuario que tipea (caja vs vendedor).
+  salesUserId    String?
+  // Fase 21 · Multi-moneda. Snapshot inmutable del tipo de cambio al emitir.
+  // `currency` es ISO-3 (GTQ por default). `exchangeRate` = 1 si currency=GTQ.
+  // `functionalAmount` = total * exchangeRate (siempre en GTQ, para reportes SAT).
+  currency         String   @default("GTQ")
+  exchangeRate     Decimal? @db.Decimal(18, 8)
+  functionalAmount Decimal? @db.Decimal(15, 2)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   payments       Payment[]
@@ -435,6 +595,11 @@ model Sale {
   taxDocument    TaxDocument?
   creditNotes    CreditNote[]
   debitNotes     DebitNote[]
+  // Fase 20 · Ventas enterprise
+  priceList         PriceList?         @relation(fields: [priceListId], references: [id])
+  stockReservations StockReservation[]
+  couponRedemption  CouponRedemption?
+  commissions       Commission[]
 
   @@unique([companyId, invoiceNumber])
   @@unique([companyId, clientRequestId])
@@ -479,6 +644,10 @@ model SaleItem {
   unitPrice Decimal         @db.Decimal(10, 2)
   unitCost  Decimal?        @db.Decimal(10, 2)
   discount  Decimal         @default(0) @db.Decimal(10, 2)
+  // Fase 20 · Tasa de descuento por línea (0..1). Permite registrar el % en
+  // adición al monto absoluto en `discount` (que sigue siendo el descuento
+  // efectivo en GTQ aplicado a la línea, para fines contables).
+  discountRate Decimal      @default(0) @db.Decimal(5, 4)
   subtotal  Decimal         @db.Decimal(10, 2)
   // Fase 16 · Cálculo de IVA por línea. `taxRate` es el porcentaje vigente al
   // momento de la venta (0 si exento, 0.12 régimen General, 0.05 Pequeño
@@ -502,6 +671,11 @@ model Payment {
   amount    Decimal       @db.Decimal(10, 2)
   reference String?
   bankAccountId String?
+  // Fase 21 · Multi-moneda. Snapshot del tipo de cambio al momento del pago.
+  // Cuando currency != Sale.currency aplica diferencia cambiaria.
+  currency         String   @default("GTQ")
+  exchangeRate     Decimal? @db.Decimal(18, 8)
+  functionalAmount Decimal? @db.Decimal(15, 2)
   createdAt DateTime      @default(now())
   sale      Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
   bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
@@ -658,6 +832,12 @@ enum SaleStatus {
   // Fase 17: el cron diario `markOverdueDocuments` setea OVERDUE cuando
   // dueDate < now() y queda saldo pendiente. Idempotente.
   OVERDUE
+  // Fase 20 · Ciclo enterprise QUOTE → ORDER → PARTIALLY_DELIVERED → DELIVERED → INVOICED.
+  // COMPLETED queda como atajo POS (one-shot: factura+entrega+cobro). PENDING ya no se usa.
+  ORDER
+  PARTIALLY_DELIVERED
+  DELIVERED
+  INVOICED
 }
 
 enum SubscriptionStatus {
@@ -703,7 +883,12 @@ enum UnitOfMeasure {
 
 enum PurchaseStatus {
   DRAFT
-  COMPLETED
+  PENDING_APPROVAL
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  INVOICED
+  COMPLETED // legacy — backfill mapea PO antiguas aquí o a INVOICED.
   CANCELLED
 }
 
@@ -890,6 +1075,10 @@ model SupplierPayment {
   notes         String?
   status        String          @default("COMPLETED") // COMPLETED | VOID
   bankAccountId String?
+  // Fase 21 · Multi-moneda. Snapshot al ejecutar el pago al proveedor.
+  currency         String   @default("GTQ")
+  exchangeRate     Decimal? @db.Decimal(18, 8)
+  functionalAmount Decimal? @db.Decimal(15, 2)
   createdAt     DateTime        @default(now())
 
   payable       SupplierPayable @relation(fields: [payableId], references: [id], onDelete: Cascade)
@@ -930,8 +1119,13 @@ model BankTransaction {
   reference      String?
   description    String?
   reconciled     Boolean           @default(false)
+  // Fase 21 · Multi-moneda. Hereda la currency de BankAccount al crear y
+  // snapshotea el rate del día. `functionalAmount` es el equivalente GTQ.
+  currency         String   @default("GTQ")
+  exchangeRate     Decimal? @db.Decimal(18, 8)
+  functionalAmount Decimal? @db.Decimal(15, 2)
   createdAt      DateTime          @default(now())
-  
+
   bankAccount    BankAccount       @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   user           User              @relation(fields: [userId], references: [id])
   accountingEntries AccountingEntry[]
@@ -962,6 +1156,18 @@ model Employee {
   active          Boolean          @default(true)
   bankAccount     String?
   bankName        String?
+  // Fase 18: parámetros configurables por empleado (no son ley, son
+  // configuración de la empresa).
+  payrollFrequency PayrollFrequency @default(MONTHLY)
+  shift            Shift            @default(DIURNA)
+  /// Bonificación incentivo (decreto 78-89): default Q250 pero la empresa
+  /// puede pagar más. Es prorrateable al período (quincenal = mitad).
+  bonusIncentive   Decimal          @default(250.00) @db.Decimal(10, 2)
+  /// Si la empresa contrata bajo afiliación al IGSS. Empleados no afiliados
+  /// (ej. temporales) no descuentan ni reciben cuotas IGSS laboral/patronal.
+  igssAffiliated   Boolean          @default(true)
+  /// Número de afiliación IGSS (para reportes CSV IGSS-FORMUL-1117).
+  igssNumber       String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -971,8 +1177,29 @@ model Employee {
   payrollItems    PayrollItem[]
   attendance      Attendance[]
   leaveRequests   LeaveRequest[]
+  loans           EmployeeLoan[]
+  balance         EmployeeBalance?
+  // Fase 20 · Ventas enterprise
+  commissions     Commission[]
 
   @@index([companyId])
+}
+
+/// Frecuencia de planilla. Determina divisor base para prorrateo de
+/// bonificación incentivo y periodicidad de provisiones.
+enum PayrollFrequency {
+  MONTHLY
+  BIWEEKLY    // quincenal
+}
+
+/// Tipo de jornada. Afecta horas base por jornada ordinaria (LGT art 116):
+///   DIURNA   → 8 hrs/día
+///   NOCTURNA → 6 hrs/día
+///   MIXTA    → 7 hrs/día
+enum Shift {
+  DIURNA
+  NOCTURNA
+  MIXTA
 }
 
 model Payroll {
@@ -985,32 +1212,144 @@ model Payroll {
   totalGross      Decimal          @db.Decimal(10, 2)
   totalDeductions Decimal          @db.Decimal(10, 2)
   totalNet        Decimal          @db.Decimal(10, 2)
+  // Fase 18: tipado por concepto (regular vs Bono14 vs aguinaldo, etc.)
+  payrollType     PayrollType      @default(REGULAR)
+  /// Referencia normalizada del período fiscal. Ej:
+  ///   REGULAR     → "2026-06" / "2026-06-Q1"
+  ///   BONO14      → "2026-BONO14"
+  ///   AGUINALDO   → "2026-AGUINALDO"
+  ///   INDEMNIZACION → "EMP-<id>-2026-05"
+  periodReference String?
+  approvedAt      DateTime?
+  paidAt          DateTime?
+  approvedById    String?
+  paidById        String?
+  /// FK al asiento contable generado al pagar (idempotencia). Único.
+  journalEntryId  String?          @unique
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   items           PayrollItem[]
+  approvedBy      User?            @relation("PayrollApproved", fields: [approvedById], references: [id])
+  paidBy          User?            @relation("PayrollPaid", fields: [paidById], references: [id])
+  journalEntry    JournalEntry?    @relation("PayrollJournal", fields: [journalEntryId], references: [id])
 
   @@index([companyId])
+  @@index([companyId, payrollType, periodReference])
+}
+
+/// Tipo de planilla. Determina helpers de cálculo y plantilla de asiento
+/// contable que se genera al pagar.
+enum PayrollType {
+  REGULAR        // planilla mensual/quincenal
+  BONO14         // Bono 14, pagado en julio
+  AGUINALDO      // Aguinaldo, pagado en diciembre
+  INDEMNIZACION  // liquidación al despido
+  EXTRAORDINARIA // ajuste manual
 }
 
 model PayrollItem {
   id              String           @id @default(uuid())
   payrollId       String
   employeeId      String
+  // Snapshots del empleado al momento de generar la planilla. Si después
+  // cambia baseSalary del empleado, este snapshot NO se mueve (auditoría).
   baseSalary      Decimal          @db.Decimal(10, 2)
-  bonusIncentive  Decimal          @default(250.00) @db.Decimal(10, 2) // Bonificación Ley GT
-  otherBonuses    Decimal          @default(0) @db.Decimal(10, 2)
-  igss            Decimal          @db.Decimal(10, 2) // 4.83%
-  isr             Decimal          @default(0) @db.Decimal(10, 2)
-  otherDeductions Decimal          @default(0) @db.Decimal(10, 2)
-  netSalary       Decimal          @db.Decimal(10, 2)
-  
+  bonusIncentive  Decimal          @default(0) @db.Decimal(10, 2)
+  /// Días efectivamente trabajados / hábiles del período (proporciona).
+  daysWorked      Int              @default(30)
+  // Horas extras del período (3 tipos, snapshot de los rates aplicados):
+  overtimeRegularHours  Decimal    @default(0) @db.Decimal(8, 2)  // 50% premium
+  overtimeRegularAmount Decimal    @default(0) @db.Decimal(10, 2)
+  overtimeNightHours    Decimal    @default(0) @db.Decimal(8, 2)  // 100% premium
+  overtimeNightAmount   Decimal    @default(0) @db.Decimal(10, 2)
+  overtimeHolidayHours  Decimal    @default(0) @db.Decimal(8, 2)  // 100%
+  overtimeHolidayAmount Decimal    @default(0) @db.Decimal(10, 2)
+  /// Pago séptimo día (jornada 6 días/sem) — Art. 126 CT GT.
+  seventhDayAmount      Decimal    @default(0) @db.Decimal(10, 2)
+  commissions           Decimal    @default(0) @db.Decimal(10, 2)
+  otherBonuses          Decimal    @default(0) @db.Decimal(10, 2)
+  /// Bruto: sumar ordinario + bonificación + horas extras + comisiones + otros.
+  totalGross            Decimal    @db.Decimal(10, 2)
+  // Deducciones del empleado (positivas):
+  igssLaboral           Decimal    @default(0) @db.Decimal(10, 2)  // 4.83% sobre base + h.extras
+  /// (legacy compat) alias mantenido para no romper queries antiguas.
+  /// Nuevo código usa `igssLaboral`. Misma cifra.
+  igss                  Decimal    @default(0) @db.Decimal(10, 2)
+  isr                   Decimal    @default(0) @db.Decimal(10, 2)
+  loanDeduction         Decimal    @default(0) @db.Decimal(10, 2)
+  otherDeductions       Decimal    @default(0) @db.Decimal(10, 2)
+  totalDeductions       Decimal    @default(0) @db.Decimal(10, 2)
+  netSalary             Decimal    @db.Decimal(10, 2)
+  // Provisiones (NO se descuentan al empleado, son costo patronal mensual):
+  bono14Provision         Decimal  @default(0) @db.Decimal(10, 2)
+  aguinaldoProvision      Decimal  @default(0) @db.Decimal(10, 2)
+  indemnizacionProvision  Decimal  @default(0) @db.Decimal(10, 2)
+  vacacionesProvision     Decimal  @default(0) @db.Decimal(10, 2)
+  // Cargas patronales (IGSS 10.67% + IRTRA 1% + INTECAP 1% = 12.67%):
+  igssPatronal            Decimal  @default(0) @db.Decimal(10, 2)
+  irtra                   Decimal  @default(0) @db.Decimal(10, 2)
+  intecap                 Decimal  @default(0) @db.Decimal(10, 2)
+  totalCostoPatronal      Decimal  @default(0) @db.Decimal(10, 2)
+  notes                   String?
+
   payroll         Payroll          @relation(fields: [payrollId], references: [id], onDelete: Cascade)
   employee        Employee         @relation(fields: [employeeId], references: [id])
 
   @@index([payrollId])
   @@index([employeeId])
+}
+
+/// Préstamos al empleado (anticipo, descontado mensualmente del salario).
+/// La cuota se descuenta en cada planilla REGULAR mientras esté ACTIVE,
+/// hasta saldar `balance`. Cancelable.
+model EmployeeLoan {
+  id              String        @id @default(uuid())
+  companyId       String
+  employeeId      String
+  /// Monto original prestado.
+  amount          Decimal       @db.Decimal(10, 2)
+  /// Saldo pendiente (decrementa con cada cuota aplicada).
+  balance         Decimal       @db.Decimal(10, 2)
+  /// Cuota a descontar en cada planilla mensual.
+  monthlyDeduction Decimal      @db.Decimal(10, 2)
+  status          EmployeeLoanStatus @default(ACTIVE)
+  reason          String?
+  approvedById    String
+  approvedAt      DateTime      @default(now())
+  cancelledAt     DateTime?
+  cancelledById   String?
+  notes           String?
+
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee        Employee      @relation(fields: [employeeId], references: [id])
+  approvedBy      User          @relation("EmpLoanApproved", fields: [approvedById], references: [id])
+  cancelledBy     User?         @relation("EmpLoanCancelled", fields: [cancelledById], references: [id])
+
+  @@index([companyId, employeeId])
+  @@index([companyId, status])
+}
+
+enum EmployeeLoanStatus {
+  ACTIVE
+  PAID
+  CANCELLED
+}
+
+/// Saldo de vacaciones del empleado.
+/// 15 días hábiles por año cumplido (LGT art. 130). Se acumula y se
+/// descuenta al gozar (LeaveRequest VACATION aprobado) o al liquidar.
+model EmployeeBalance {
+  id              String   @id @default(uuid())
+  employeeId      String   @unique
+  /// Días devengados acumulados sin gozar (positivo).
+  vacationDaysAccrued  Decimal @default(0) @db.Decimal(6, 2)
+  /// Días tomados desde hireDate (acumulado histórico).
+  vacationDaysTaken    Decimal @default(0) @db.Decimal(6, 2)
+  updatedAt       DateTime @updatedAt
+
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
 enum PayrollStatus {
@@ -1179,6 +1518,8 @@ model JournalEntry {
   period        AccountingPeriod @relation(fields: [periodId], references: [id])
   user          User             @relation(fields: [userId], references: [id])
   lines         JournalLine[]
+  /// Fase 18: relación inversa para Payroll → JournalEntry (1:1).
+  payroll       Payroll?         @relation("PayrollJournal")
 
   @@index([companyId, date])
   @@index([companyId, posted])
@@ -1515,4 +1856,481 @@ model DebitNoteItem {
   subtotal    Decimal   @db.Decimal(10, 2)
   tax         Decimal   @db.Decimal(10, 2)
   debitNote   DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────
+// Fase 19 · Compras enterprise: PR → RFQ → PO → GRN → SupplierInvoice
+// ─────────────────────────────────────────
+
+/// Solicitud de compra interna (Purchase Request).
+/// Un empleado solicita comprar algo; un aprobador lo convierte a PO.
+model PurchaseRequest {
+  id            String   @id @default(uuid())
+  companyId     String
+  branchId      String
+  supplierId    String?  // opcional: la PR puede no especificar proveedor todavía
+  requestedById String
+  reason        String
+  status        PurchaseRequestStatus @default(PENDING)
+  approvedById  String?
+  approvedAt    DateTime?
+  rejectedAt    DateTime?
+  rejectionReason String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch        Branch   @relation(fields: [branchId], references: [id])
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  requestedBy   User     @relation("PRRequestedBy", fields: [requestedById], references: [id])
+  approvedBy    User?    @relation("PRApprovedBy", fields: [approvedById], references: [id])
+  items         PurchaseRequestItem[]
+  purchaseOrder PurchaseOrder?
+
+  @@index([companyId, status])
+}
+
+enum PurchaseRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CONVERTED_TO_PO
+  CANCELLED
+}
+
+model PurchaseRequestItem {
+  id                String  @id @default(uuid())
+  purchaseRequestId String
+  productId         String
+  variantId         String?
+  quantity          Decimal @db.Decimal(12, 3)
+  estimatedUnitCost Decimal? @db.Decimal(10, 2)
+  notes             String?
+
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  product           Product  @relation(fields: [productId], references: [id])
+  variant           ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+/// Request For Quotation: pedir cotización a varios proveedores.
+/// Cada RFQ tiene N cotizaciones (RFQQuote). El comprador elige la mejor
+/// y convierte la quote ganadora en PO.
+model RFQRequest {
+  id             String @id @default(uuid())
+  companyId      String
+  branchId       String
+  reason         String
+  createdById    String
+  status         RFQStatus @default(OPEN)
+  closedAt       DateTime?
+  awardedQuoteId String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch         Branch   @relation(fields: [branchId], references: [id])
+  createdBy      User     @relation("RFQCreatedBy", fields: [createdById], references: [id])
+  awardedQuote   RFQQuote? @relation("RFQAwarded", fields: [awardedQuoteId], references: [id])
+  items          RFQRequestItem[]
+  quotes         RFQQuote[]
+
+  @@index([companyId, status])
+}
+
+enum RFQStatus {
+  OPEN
+  AWARDED
+  CANCELLED
+  CLOSED
+}
+
+model RFQRequestItem {
+  id             String  @id @default(uuid())
+  rfqRequestId   String
+  productId      String
+  variantId      String?
+  quantity       Decimal @db.Decimal(12, 3)
+  specifications String?  // ej "marca específica, calibre, etc."
+
+  rfqRequest     RFQRequest @relation(fields: [rfqRequestId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id])
+  variant        ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model RFQQuote {
+  id           String  @id @default(uuid())
+  rfqRequestId String
+  supplierId   String
+  quotedById   String   // quien capturó la cotización
+  totalAmount  Decimal @db.Decimal(10, 2)
+  validUntil   DateTime?
+  notes        String?
+  selected     Boolean @default(false)
+  createdAt    DateTime @default(now())
+
+  rfqRequest   RFQRequest @relation(fields: [rfqRequestId], references: [id], onDelete: Cascade)
+  supplier     Supplier @relation("RFQQuoteSupplier", fields: [supplierId], references: [id])
+  quotedBy     User     @relation("RFQQuoteBy", fields: [quotedById], references: [id])
+  awardedRfq   RFQRequest? @relation("RFQAwarded")
+  items        RFQQuoteItem[]
+}
+
+model RFQQuoteItem {
+  id           String  @id @default(uuid())
+  rfqQuoteId   String
+  productId    String
+  variantId    String?
+  quantity     Decimal @db.Decimal(12, 3)
+  unitPrice    Decimal @db.Decimal(10, 2)
+  deliveryDays Int?
+
+  rfqQuote     RFQQuote @relation(fields: [rfqQuoteId], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [productId], references: [id])
+  variant      ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+/// Goods Received Note: documento de recepción de mercadería contra una PO.
+/// Una PO puede tener N GRNs (recepción parcial). Cada GRN actualiza stock
+/// (vía recordStockMovement) y avanza el estado de la PO.
+model GoodsReceivedNote {
+  id              String   @id @default(uuid())
+  companyId       String
+  purchaseOrderId String
+  receivedById    String
+  receivedAt      DateTime @default(now())
+  notes           String?
+
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  receivedBy      User     @relation("GRNReceivedBy", fields: [receivedById], references: [id])
+  items           GoodsReceivedNoteItem[]
+
+  @@index([companyId, purchaseOrderId])
+}
+
+model GoodsReceivedNoteItem {
+  id                  String  @id @default(uuid())
+  grnId               String
+  purchaseOrderItemId String
+  quantityReceived    Decimal @db.Decimal(12, 3)
+  unitCost            Decimal @db.Decimal(10, 2)  // del PO o ajuste
+  notes               String?
+
+  grn                 GoodsReceivedNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  poItem              PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id])
+}
+
+/// Factura del proveedor (documento de cobro). Solo 1 por PO usualmente.
+/// El SupplierPayable se crea cuando se registra el SupplierInvoice (no
+/// cuando se crea la PO).
+model SupplierInvoice {
+  id              String   @id @default(uuid())
+  companyId       String
+  purchaseOrderId String   @unique
+  supplierId      String
+  registeredById  String
+  invoiceNumber   String
+  invoiceDate     DateTime
+  dueDate         DateTime
+  subtotal        Decimal  @db.Decimal(10, 2)
+  tax             Decimal  @db.Decimal(10, 2)
+  withheldIVA     Decimal  @default(0) @db.Decimal(10, 2)
+  withheldISR     Decimal  @default(0) @db.Decimal(10, 2)
+  total           Decimal  @db.Decimal(10, 2)  // subtotal + tax - withheldIVA - withheldISR
+  attachmentUrl   String?  // PDF/imagen de la factura
+  // Fase 21 · Multi-moneda. Snapshot al registrar la factura de proveedor.
+  currency         String   @default("GTQ")
+  exchangeRate     Decimal? @db.Decimal(18, 8)
+  functionalAmount Decimal? @db.Decimal(15, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  supplier        Supplier @relation(fields: [supplierId], references: [id])
+  registeredBy    User     @relation("SupInvRegistered", fields: [registeredById], references: [id])
+  creditNotes     SupplierCreditNote[]
+
+  @@unique([companyId, supplierId, invoiceNumber])
+  @@index([companyId, invoiceDate])
+}
+
+/// Nota de Crédito del proveedor: descuento o devolución.
+model SupplierCreditNote {
+  id                String   @id @default(uuid())
+  companyId         String
+  supplierId        String
+  supplierInvoiceId String?  // opcional, puede ser nota independiente
+  registeredById    String
+  noteNumber        String
+  noteDate          DateTime
+  reason            String
+  subtotal          Decimal  @db.Decimal(10, 2)
+  tax               Decimal  @db.Decimal(10, 2)
+  total             Decimal  @db.Decimal(10, 2)
+  attachmentUrl     String?
+  createdAt         DateTime @default(now())
+
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier          Supplier @relation(fields: [supplierId], references: [id])
+  supplierInvoice   SupplierInvoice? @relation(fields: [supplierInvoiceId], references: [id])
+  registeredBy      User     @relation("SupCNRegistered", fields: [registeredById], references: [id])
+
+  @@unique([companyId, supplierId, noteNumber])
+}
+
+// ─────────────────────────────────────────
+// Fase 20 · Ventas enterprise (QUOTE/ORDER/DELIVERED/INVOICED + listas, promos, cupones, comisiones)
+// ─────────────────────────────────────────
+
+/// Lista de precios por mayoreo, retail, cliente especial, etc.
+model PriceList {
+  id          String     @id @default(uuid())
+  companyId   String
+  name        String
+  description String?
+  isDefault   Boolean    @default(false)
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items       PriceListItem[]
+  customers   CustomerPriceList[]
+  sales       Sale[]
+
+  @@unique([companyId, name])
+  @@index([companyId, active])
+}
+
+model PriceListItem {
+  id          String  @id @default(uuid())
+  priceListId String
+  productId   String
+  variantId   String?
+  price       Decimal @db.Decimal(10, 2)
+  priceList   PriceList       @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product     Product         @relation(fields: [productId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@unique([priceListId, productId, variantId])
+}
+
+/// Asignación N..N de listas de precios a clientes.
+model CustomerPriceList {
+  customerId  String
+  priceListId String
+  assignedAt  DateTime  @default(now())
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  priceList   PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, priceListId])
+}
+
+/// Reserva de stock cuando se crea ORDER. Mantiene apartado hasta entrega/cancelación.
+/// `quantity` puede ser fraccional (granel). `releasedAt` se setea al consumir
+/// (entrega) o liberar (cancelación). Mientras `releasedAt IS NULL` la reserva
+/// está activa y debe restarse del stock disponible.
+model StockReservation {
+  id          String   @id @default(uuid())
+  companyId   String
+  saleId      String
+  productId   String
+  variantId   String?
+  branchId    String
+  quantity    Decimal  @db.Decimal(15, 3)
+  reservedAt  DateTime @default(now())
+  releasedAt  DateTime?
+  reason      String?
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sale        Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product     Product         @relation(fields: [productId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+  branch      Branch          @relation(fields: [branchId], references: [id])
+
+  @@index([companyId, productId, branchId])
+  @@index([saleId])
+}
+
+/// Promoción: 2x1 (BUY_N_GET_M), descuento porcentual (PERCENTAGE_OFF) o precio
+/// fijo (FIXED_PRICE). Aplicable global o a productos específicos.
+model Promotion {
+  id                   String        @id @default(uuid())
+  companyId            String
+  name                 String
+  type                 PromotionType
+  minPurchase          Decimal?      @db.Decimal(10, 2)
+  applicableProductIds String[]
+  quantityRequired     Int?
+  quantityFree         Int?
+  discountRate         Decimal?      @db.Decimal(5, 4)
+  fixedPrice           Decimal?      @db.Decimal(10, 2)
+  startsAt             DateTime
+  endsAt               DateTime
+  active               Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  company              Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, active, startsAt, endsAt])
+}
+
+enum PromotionType {
+  BUY_N_GET_M
+  PERCENTAGE_OFF
+  FIXED_PRICE
+}
+
+/// Cupón canjeable por descuento.
+model Coupon {
+  id               String   @id @default(uuid())
+  companyId        String
+  code             String
+  type             CouponType
+  amount           Decimal? @db.Decimal(10, 2)
+  percentage       Decimal? @db.Decimal(5, 4)
+  maxUses          Int?
+  usedCount        Int      @default(0)
+  perCustomerLimit Int?
+  minPurchase      Decimal? @db.Decimal(10, 2)
+  validFrom        DateTime
+  validUntil       DateTime
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  redemptions      CouponRedemption[]
+
+  @@unique([companyId, code])
+  @@index([companyId, active])
+}
+
+enum CouponType {
+  FIXED_AMOUNT
+  PERCENTAGE_OFF
+}
+
+model CouponRedemption {
+  id         String   @id @default(uuid())
+  couponId   String
+  saleId     String   @unique
+  customerId String?
+  redeemedAt DateTime @default(now())
+  amount     Decimal  @db.Decimal(10, 2)
+  coupon     Coupon    @relation(fields: [couponId], references: [id])
+  sale       Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([couponId])
+}
+
+/// Regla de comisiones. Si `categoryId` es null aplica a todos los productos.
+/// `basis` decide si la comisión se calcula sobre margen (subtotal - cost) o
+/// sobre subtotal.
+model CommissionRule {
+  id          String          @id @default(uuid())
+  companyId   String
+  name        String
+  categoryId  String?
+  basis       CommissionBasis @default(MARGIN)
+  rate        Decimal         @db.Decimal(5, 4)
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category    Category?       @relation(fields: [categoryId], references: [id])
+  commissions Commission[]
+
+  @@index([companyId, active])
+}
+
+enum CommissionBasis {
+  MARGIN
+  SUBTOTAL
+}
+
+/// Comisión generada al INVOICED. Se paga al procesar planilla del período.
+model Commission {
+  id            String           @id @default(uuid())
+  companyId     String
+  ruleId        String
+  saleId        String
+  employeeId    String?
+  amount        Decimal          @db.Decimal(10, 2)
+  status        CommissionStatus @default(ACCRUED)
+  paidAt        DateTime?
+  payrollItemId String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  company       Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  rule          CommissionRule   @relation(fields: [ruleId], references: [id])
+  sale          Sale             @relation(fields: [saleId], references: [id])
+  employee      Employee?        @relation(fields: [employeeId], references: [id])
+
+  @@index([companyId, status])
+  @@index([saleId])
+}
+
+enum CommissionStatus {
+  ACCRUED
+  PAID
+  CANCELLED
+}
+
+/// Secuencia atómica para `DeliveryNote.noteNumber` por empresa.
+/// Se reserva con updateMany ... where nextNumber=X para evitar race.
+model DeliveryNoteSequence {
+  id         String   @id @default(uuid())
+  companyId  String   @unique
+  nextNumber Int      @default(1)
+  prefix     String   @default("ND-")
+  updatedAt  DateTime @updatedAt
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────
+// Fase 21 · Multi-moneda
+// ─────────────────────────────────────────
+
+/// Tipo de cambio histórico de una currency extranjera contra la moneda
+/// funcional de la empresa (GTQ). Se utiliza para:
+///   1. Snapshot inmutable en cada documento monetario al emitirse
+///      (Sale.exchangeRate, Payment.exchangeRate, etc.).
+///   2. Calcular `functionalAmount` (= amount × rate) que es el equivalente
+///      en GTQ para reportería SAT.
+///   3. Calcular diferencia cambiaria al cobrar o pagar (FX_GAIN / FX_LOSS)
+///      contra el rate snapshoteado en la factura original.
+///
+/// Reglas:
+///   - `currency` ISO-3 letras mayúsculas (USD, EUR, MXN, etc.).
+///   - `rate` = unidades de moneda funcional por 1 unidad de `currency`.
+///     Ej.: 1 USD = 7.85 GTQ → rate = 7.85.
+///   - `(companyId, currency, date)` único: máximo un rate por día por moneda
+///     por empresa. Si Banguat reporta dos tipos, gana el último insertado.
+///   - `source` indica origen: MANUAL (admin lo subió), BANGUAT (scraper
+///     oficial), API (provider externo terceros). En Fase 21 solo MANUAL se
+///     usa operacionalmente; los otros quedan como enum future-ready.
+model ExchangeRate {
+  id          String             @id @default(uuid())
+  companyId   String
+  currency    String             // ISO 3 letras (USD, EUR, etc.)
+  date        DateTime           @db.Date
+  rate        Decimal            @db.Decimal(18, 8) // 1 unidad de `currency` = `rate` GTQ
+  source      ExchangeRateSource @default(MANUAL)
+  notes       String?
+  createdById String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  company     Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy   User               @relation("ExchangeRateCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([companyId, currency, date])
+  @@index([companyId, date])
+  @@index([companyId, currency, date])
+}
+
+enum ExchangeRateSource {
+  MANUAL
+  BANGUAT
+  API
 }

@@ -98,10 +98,10 @@ export async function PATCH(
     if (po.status === 'CANCELLED') {
       throw new ApiError(400, 'La orden ya está anulada');
     }
-    if (po.status !== 'COMPLETED') {
-      throw new ApiError(400, `Solo se pueden anular órdenes COMPLETED (estado actual: ${po.status})`);
-    }
 
+    // Fase 19: la PO se puede anular en cualquier estado siempre que no haya
+    // pagos al proveedor. Si tiene GRN (stock incrementado), se reversa.
+    // Si tiene SupplierInvoice/asiento, también se reversa contablemente.
     if (po.payable && po.payable.payments.length > 0) {
       throw new ApiError(
         409,
@@ -109,47 +109,63 @@ export async function PATCH(
       );
     }
 
+    // El reversal de stock solo aplica si efectivamente se recibió mercadería.
+    // Estados que generaron stock: COMPLETED (flujo fast), PARTIALLY_RECEIVED,
+    // RECEIVED, INVOICED. DRAFT/PENDING_APPROVAL/APPROVED no movieron stock.
+    const stockWasMoved =
+      (po.status as string) === 'COMPLETED' ||
+      (po.status as string) === 'PARTIALLY_RECEIVED' ||
+      (po.status as string) === 'RECEIVED' ||
+      (po.status as string) === 'INVOICED';
+
     await prisma.$transaction(async (tx) => {
-      // 1. Reversar stock — pero solo si hay suficiente disponible.
-      // Si vendieron parte del stock recibido en esta compra, no podemos
-      // dejar stock negativo. Hacemos guard con updateMany condicional,
-      // y si ok, registramos el movimiento contrario como RETURN_TO_SUPPLIER.
-      for (const item of po.items) {
-        const stockUpdate = await tx.productStock.updateMany({
-          where: {
+      // 1. Reversar stock — solo si la PO ya recibió mercadería.
+      // En el flujo enterprise, la cantidad efectivamente en stock es
+      // `quantityReceived`, no `quantity` (compromiso). Si vendieron parte
+      // del stock recibido, no podemos dejar stock negativo.
+      if (stockWasMoved) {
+        for (const item of po.items as Array<{
+          id: string;
+          productId: string;
+          variantId: string | null;
+          quantity: unknown;
+          quantityReceived?: unknown;
+          unitCost: unknown;
+        }>) {
+          const qtyToReverse = Number(item.quantityReceived ?? 0);
+          if (qtyToReverse <= 0) continue;
+          const stockUpdate = await tx.productStock.updateMany({
+            where: {
+              productId: item.productId,
+              variantId: item.variantId ?? null,
+              branchId: po.branchId,
+              quantity: { gte: qtyToReverse },
+            },
+            data: { quantity: { decrement: qtyToReverse } },
+          });
+
+          if (stockUpdate.count !== 1) {
+            throw new ApiError(
+              409,
+              'No se puede anular: parte del stock recibido en esta compra ya fue vendido o trasladado. ' +
+                'Generaría stock negativo. Revisá movimientos antes de anular.',
+            );
+          }
+
+          await logStockMovementInline(tx, {
+            companyId: tenant.companyId,
             productId: item.productId,
             variantId: item.variantId ?? null,
             branchId: po.branchId,
-            quantity: { gte: item.quantity },
-          },
-          data: { quantity: { decrement: item.quantity } },
-        });
-
-        if (stockUpdate.count !== 1) {
-          throw new ApiError(
-            409,
-            'No se puede anular: parte del stock recibido en esta compra ya fue vendido o trasladado. ' +
-              'Generaría stock negativo. Revisá movimientos antes de anular.',
-          );
+            type: 'RETURN_TO_SUPPLIER',
+            quantity: -qtyToReverse,
+            unitCost: Number(item.unitCost),
+            referenceType: 'PURCHASE_ORDER_CANCEL',
+            referenceId: po.id,
+            userId: tenant.userId,
+            notes: reason ?? undefined,
+          });
         }
-
-        // Registrar el movimiento de stock para trazabilidad (Fase 15).
-        // El delta físico ya se aplicó con updateMany; logStockMovementInline
-        // solo escribe la fila de auditoría leyendo balanceAfter/costAfter
-        // actualizados.
-        await logStockMovementInline(tx, {
-          companyId: tenant.companyId,
-          productId: item.productId,
-          variantId: item.variantId ?? null,
-          branchId: po.branchId,
-          type: 'RETURN_TO_SUPPLIER',
-          quantity: -Number(item.quantity),
-          unitCost: Number(item.unitCost),
-          referenceType: 'PURCHASE_ORDER_CANCEL',
-          referenceId: po.id,
-          userId: tenant.userId,
-          notes: reason ?? undefined,
-        });
       }
 
       // 2. Borrar Payable asociado (no hay pagos, ya validado arriba).

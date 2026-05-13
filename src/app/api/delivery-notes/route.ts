@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
+import { reserveNoteNumber } from '@/lib/sales';
 import { z } from 'zod';
 
 const DeliveryNoteItemSchema = z.object({
@@ -85,43 +86,36 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Generate sequential note number
-    const lastNote = await prisma.deliveryNote.findFirst({
-      where: { companyId: tenant.companyId },
-      orderBy: { createdAt: 'desc' },
-      select: { noteNumber: true },
-    });
-    let nextNumber = 1;
-    if (lastNote?.noteNumber) {
-      const match = lastNote.noteNumber.match(/\d+$/);
-      if (match) nextNumber = parseInt(match[0]) + 1;
-    }
-    const noteNumber = `NE-${String(nextNumber).padStart(6, '0')}`;
-
-    const note = await prisma.deliveryNote.create({
-      data: {
-        companyId: tenant.companyId,
-        branchId,
-        saleId: saleId || null,
-        customerId: customerId || null,
-        userId: tenant.userId,
-        noteNumber,
-        recipientName,
-        address,
-        phone: phone || null,
-        notes: notes || null,
-        items: {
-          create: items.map(i => ({
-            productId: i.productId,
-            variantId: i.variantId || null,
-            quantity: i.quantity,
-          })),
+    // Fase 20: lock atómico vía DeliveryNoteSequence (reemplaza el patrón
+    // "leer último + sumar 1 + insert" que tenía race condition documentada
+    // en phase-20-discovery.md §3 / H6).
+    const note = await prisma.$transaction(async (tx) => {
+      const reserved = await reserveNoteNumber(tx, tenant.companyId);
+      return await tx.deliveryNote.create({
+        data: {
+          companyId: tenant.companyId,
+          branchId,
+          saleId: saleId || null,
+          customerId: customerId || null,
+          userId: tenant.userId,
+          noteNumber: reserved.noteNumber,
+          recipientName,
+          address,
+          phone: phone || null,
+          notes: notes || null,
+          items: {
+            create: items.map((i) => ({
+              productId: i.productId,
+              variantId: i.variantId || null,
+              quantity: i.quantity,
+            })),
+          },
         },
-      },
-      include: {
-        items: { include: { product: { select: { name: true } } } },
-        customer: { select: { name: true } },
-      },
+        include: {
+          items: { include: { product: { select: { name: true } } } },
+          customer: { select: { name: true } },
+        },
+      });
     });
 
     return NextResponse.json(note, { status: 201 });

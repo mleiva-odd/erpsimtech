@@ -30,6 +30,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Una de las cuentas bancarias es inválida o inactiva.' }, { status: 404 });
     }
 
+    // Fase 21 · Multi-moneda: bloqueamos transferencias entre cuentas con
+    // monedas distintas. La conversión cross-currency requiere un asiento
+    // doble manual (DR Bancos destino / CR Bancos origen + DR/CR FX_GAIN/LOSS)
+    // que el flujo automático de transfer no contempla aún.
+    if (
+      (sourceBank.currency ?? 'GTQ').toUpperCase() !==
+      (targetBank.currency ?? 'GTQ').toUpperCase()
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Las cuentas tienen monedas diferentes; usá conversión manual con asiento doble.',
+          code: 'CURRENCY_MISMATCH',
+          sourceCurrency: sourceBank.currency,
+          targetCurrency: targetBank.currency,
+        },
+        { status: 400 },
+      );
+    }
+
     if (Number(sourceBank.balance) < amount) {
       return NextResponse.json({ error: 'Fondos insuficientes en la cuenta de origen.' }, { status: 400 });
     }

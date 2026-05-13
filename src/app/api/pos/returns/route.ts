@@ -311,14 +311,47 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // Fase 20 · H5: si el refund es CARD/TRANSFER, generar BankTransaction
+      // (EXPENSE) sobre la cuenta del Payment original. Sin esto el saldo del
+      // banco no refleja la devolución y la conciliación queda descuadrada.
+      if (refundMethod === 'CARD' || refundMethod === 'TRANSFER') {
+        const originalPayment = (
+          (await tx.payment.findFirst({
+            where: { saleId, method: refundMethod, bankAccountId: { not: null } },
+            orderBy: { createdAt: 'desc' },
+          })) as { bankAccountId: string | null } | null
+        );
+        let bankAccountId = originalPayment?.bankAccountId ?? null;
+        if (!bankAccountId) {
+          const defaultBank = await tx.bankAccount.findFirst({
+            where: { companyId: tenant.companyId, type: 'BANK_ACCOUNT', isActive: true },
+          });
+          bankAccountId = defaultBank?.id ?? null;
+        }
+        if (bankAccountId) {
+          await tx.bankTransaction.create({
+            data: {
+              bankAccountId,
+              userId: tenant.userId,
+              type: 'EXPENSE',
+              amount: refundAmount,
+              reference: reference || `REF-${newReturn.id.slice(0, 8)}`,
+              description: `Devolución ${refundMethod} venta ${sale.id.slice(0, 8)}: ${reason}`,
+              reconciled: false,
+            },
+          });
+          await tx.bankAccount.update({
+            where: { id: bankAccountId },
+            data: { balance: { decrement: refundAmount } },
+          });
+        }
+      }
+
       // Asiento de devolución parcial (partida doble):
       //   DR Devoluciones sobre Ventas (4.1.02, contra-cuenta de ingresos)
       //   CR Caja (CASH) / Bancos (CARD|TRANSFER)
       // No reversamos el JournalEntry de venta entero porque la devolución
-      // puede ser parcial. Cuando el refundMethod es CARD/TRANSFER pero no
-      // está implementada la salida del banco (H5 de phase-14-discovery),
-      // igual generamos el asiento — la consistencia banco↔contabilidad
-      // se aborda en Fase 20.
+      // puede ser parcial.
       const refundCreditAccount = refundMethod === 'CASH' ? ACCOUNTS.CASH : ACCOUNTS.BANKS;
       await createJournalEntry(tx, {
         companyId: tenant.companyId,

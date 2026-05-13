@@ -24,6 +24,12 @@ export const VALID_PERMISSIONS = [
   // Purchases
   'purchases:view',
   'purchases:create',
+  // Fase 19 · Compras enterprise (sub-acciones)
+  'purchases:request',     // crear PurchaseRequest
+  'purchases:approve',     // aprobar PR o PO arriba de threshold
+  'purchases:receive',     // registrar GoodsReceivedNote
+  'purchases:invoice',     // registrar SupplierInvoice
+  'purchases:credit-note', // registrar SupplierCreditNote
 
   // Treasury
   'treasury:view',

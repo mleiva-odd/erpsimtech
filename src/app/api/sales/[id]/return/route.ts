@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 import { createAuditLog } from '@/lib/audit';
 import { logStockMovementInline } from '@/lib/inventory';
+import { ACCOUNTS, createJournalEntry } from '@/lib/accounting';
 import { z } from 'zod';
 
 const ReturnItemSchema = z.object({
@@ -147,7 +148,139 @@ export async function POST(
         }
       }
 
-      // 4. If full return, mark sale as cancelled
+      // 4. Reembolso por método de pago original + JournalEntry de devolución
+      //    (verificación cruzada Fase 20+21, fixes A-1 y A-2).
+      //
+      //    El refund se aplica proporcional al monto retornado, repartido en
+      //    los métodos del Payment original NO crediticios. El crédito ya se
+      //    descontó del Customer.balance en el paso 3.
+      const nonCreditPayments = sale.payments.filter((p) => p.method !== 'CREDIT');
+      const totalNonCredit = nonCreditPayments.reduce(
+        (acc, p) => acc + Number(p.amount),
+        0,
+      );
+
+      // Distribución proporcional del totalReturnAmount sobre los pagos no-crédito.
+      const refundLines: Array<{ method: string; amount: number; bankAccountId: string | null }> = [];
+      if (totalNonCredit > 0) {
+        for (const p of nonCreditPayments) {
+          const share = (Number(p.amount) / totalNonCredit) * totalReturnAmount;
+          if (share <= 0) continue;
+          refundLines.push({
+            method: p.method,
+            amount: Math.round(share * 100) / 100,
+            bankAccountId: p.bankAccountId,
+          });
+        }
+      }
+
+      // Para cada método: CASH → CashRegisterTransaction (si hay caja), CARD/TRANSFER → BankTransaction.
+      for (const refund of refundLines) {
+        if (refund.method === 'CASH') {
+          if (sale.cashRegisterId) {
+            await tx.cashRegisterTransaction.create({
+              data: {
+                cashRegisterId: sale.cashRegisterId,
+                userId: tenant.userId,
+                type: 'REFUND',
+                amount: refund.amount,
+                description: `Devolución venta ${sale.id.slice(0, 8)}: ${reason}`,
+              },
+            });
+          }
+          // Si no hay cashRegisterId, no creamos CashRegisterTransaction pero
+          // SÍ generamos el asiento contable abajo.
+        } else if (refund.method === 'CARD' || refund.method === 'TRANSFER') {
+          // Resolver bankAccountId: prefer el del payment original, fallback al
+          // primer BankAccount activo de la empresa.
+          let bankAccountId: string | null = refund.bankAccountId;
+          if (!bankAccountId) {
+            const defaultBank = await tx.bankAccount.findFirst({
+              where: { companyId: tenant.companyId, type: 'BANK_ACCOUNT', isActive: true },
+            });
+            bankAccountId = defaultBank?.id ?? null;
+          }
+          if (bankAccountId) {
+            await tx.bankTransaction.create({
+              data: {
+                bankAccountId,
+                userId: tenant.userId,
+                type: 'EXPENSE',
+                amount: refund.amount,
+                description: `Devolución ${refund.method} venta ${sale.id.slice(0, 8)}: ${reason}`,
+                reconciled: false,
+              },
+            });
+            await tx.bankAccount.update({
+              where: { id: bankAccountId },
+              data: { balance: { decrement: refund.amount } },
+            });
+          }
+        }
+      }
+
+      // 5. Asiento contable de la devolución (partida doble):
+      //    DR Devoluciones sobre Ventas (4.1.02) por totalReturnAmount
+      //    CR Caja (por la parte CASH) + CR Bancos (CARD/TRANSFER) + CR Clientes (por la parte CREDIT, si aplica)
+      const creditProportionLocal = (() => {
+        if (!sale.customerId) return 0;
+        const creditPayment = sale.payments.find((p) => p.method === 'CREDIT');
+        if (!creditPayment) return 0;
+        return (Number(creditPayment.amount) / Number(sale.total)) * totalReturnAmount;
+      })();
+      const creditReturnAmount = Math.round(creditProportionLocal * 100) / 100;
+
+      const journalLines: Array<{ accountCode: string; debit?: number; credit?: number; description?: string }> = [
+        {
+          accountCode: ACCOUNTS.SALES_RETURNS,
+          debit: totalReturnAmount,
+          description: 'Devoluciones sobre ventas',
+        },
+      ];
+      // CR por cada refund line
+      for (const refund of refundLines) {
+        const accountCode = refund.method === 'CASH' ? ACCOUNTS.CASH : ACCOUNTS.BANKS;
+        journalLines.push({
+          accountCode,
+          credit: refund.amount,
+          description: `Salida por reembolso (${refund.method})`,
+        });
+      }
+      // CR por la parte de crédito (decrement de Customer.balance compensa el AR)
+      if (creditReturnAmount > 0) {
+        journalLines.push({
+          accountCode: ACCOUNTS.AR,
+          credit: creditReturnAmount,
+          description: 'Saldo a favor del cliente',
+        });
+      }
+
+      // Validación defensiva: total CR debe coincidir con DR. Si por redondeo
+      // hay diff < 0.01, ajustar la última línea. Si >= 0.01, log warning.
+      const sumCredit = journalLines.reduce((acc, l) => acc + (l.credit ?? 0), 0);
+      const diff = totalReturnAmount - sumCredit;
+      if (Math.abs(diff) > 0 && Math.abs(diff) < 0.01 && journalLines.length > 1) {
+        const lastCreditLine = [...journalLines].reverse().find((l) => l.credit !== undefined);
+        if (lastCreditLine) {
+          lastCreditLine.credit = Math.round(((lastCreditLine.credit ?? 0) + diff) * 100) / 100;
+        }
+      }
+
+      // Solo emitir asiento si hay líneas CR (sino el cuadre falla).
+      if (journalLines.length > 1) {
+        await createJournalEntry(tx, {
+          companyId: tenant.companyId,
+          branchId: sale.branchId,
+          date: newReturn.createdAt,
+          description: `Devolución de venta ${sale.id.slice(0, 8)} — ${reason}`,
+          referenceType: 'SALE_RETURN',
+          referenceId: newReturn.id,
+          userId: tenant.userId,
+          lines: journalLines,
+        });
+      }
+
+      // 6. If full return, mark sale as cancelled
       if (isFullReturn) {
         await tx.sale.update({
           where: { id: saleId },

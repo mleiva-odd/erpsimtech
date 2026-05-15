@@ -28,8 +28,33 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { flattenForExport, nextSortDirection } from './data-table.helpers';
 
+export { flattenForExport, nextSortDirection } from './data-table.helpers';
 export type SortDirection = 'asc' | 'desc';
+
+/**
+ * Definición de filtros para el slot `filters` (controlled).
+ */
+export interface DataTableFilterDef {
+  key: string;
+  label: string;
+  type: 'select' | 'date' | 'daterange' | 'number' | 'text';
+  options?: Array<{ value: string; label: string }>;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}
+
+/**
+ * Acción masiva al haber rows seleccionadas. Recibe el array de rows
+ * (no sólo ids) para que el caller pueda decidir qué hacer.
+ */
+export interface DataTableBulkAction<TRow> {
+  label: string;
+  icon?: ReactNode;
+  variant?: 'default' | 'destructive' | 'primary';
+  onClick: (selected: TRow[]) => Promise<void> | void;
+}
 
 export interface DataTableColumn<TRow> {
   /** Key estable - usada para sort/filter. */
@@ -63,17 +88,31 @@ export interface DataTableProps<TRow> {
   page?: number;
   pageSize?: number;
   onPageChange?: (page: number) => void;
+  /** Cambiar tamaño de página (opcional). Si se provee, se renderiza un selector. */
+  onPageSizeChange?: (pageSize: number) => void;
+  /** Opciones del selector de page size. Default [10, 20, 50, 100]. */
+  pageSizeOptions?: number[];
   onSort?: (key: string, direction: SortDirection) => void;
   onFilter?: (filters: Record<string, string>) => void;
   loading?: boolean;
   /** Si se provee, habilita selección múltiple. Función para extraer el id. */
   getRowId?: (row: TRow) => string;
-  /** Acciones masivas a renderizar cuando hay selección. */
-  bulkActions?: Array<{
-    label: string;
-    onClick: (selectedIds: string[]) => void;
-    variant?: 'default' | 'danger';
-  }>;
+  /**
+   * Acciones masivas a renderizar cuando hay selección.
+   * Forma canónica: `DataTableBulkAction<TRow>` (con rows + variant
+   * 'destructive'|'primary'). Para retro-compat aceptamos también la forma
+   * legacy `{ onClick: (ids) => void, variant: 'danger' }` — internamente
+   * el componente resuelve cuál pasar.
+   */
+  bulkActions?: Array<
+    | DataTableBulkAction<TRow>
+    | {
+        label: string;
+        icon?: ReactNode;
+        onClick: (selectedIds: string[]) => void;
+        variant?: 'default' | 'danger';
+      }
+  >;
   /** Habilitar export CSV. */
   enableCsvExport?: boolean;
   /** Habilitar export PDF. */
@@ -84,32 +123,39 @@ export interface DataTableProps<TRow> {
   onRowClick?: (row: TRow) => void;
   /** Mensaje cuando no hay datos. */
   emptyMessage?: string;
+  /** Slot JSX para empty state (toma precedencia sobre emptyMessage). */
+  empty?: ReactNode;
   /** Sort actual (controlado). */
   sortKey?: string;
   sortDirection?: SortDirection;
+  /**
+   * Search controlado top-bar (string libre). Si se provee, se renderiza el input
+   * a la izquierda del toolbar.
+   */
+  search?: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+  };
+  /**
+   * Filtros controlados externos (alternativa a `filterable` por columna).
+   */
+  filters?: DataTableFilterDef[];
+  /**
+   * Render personalizado para mobile (< md). Si se provee, sobreescribe la
+   * vista card automática.
+   */
+  cardRenderer?: (row: TRow) => ReactNode;
+  /**
+   * Selección controlada externa. Si se provee, se ignora el state interno.
+   */
+  selection?: {
+    selected: Set<string>;
+    onSelectionChange: (next: Set<string>) => void;
+    rowIdKey?: keyof TRow & string;
+  };
 }
 
-function flattenForExport<TRow>(
-  rows: TRow[],
-  columns: DataTableColumn<TRow>[],
-): { header: string[]; body: string[][] } {
-  const header = columns.map((c) => c.header);
-  const body = rows.map((row) =>
-    columns.map((c) => {
-      if (c.exportValue) return c.exportValue(row);
-      if (c.accessor) {
-        const val = c.accessor(row);
-        if (typeof val === 'string' || typeof val === 'number') return String(val);
-        // fallback: intentar leer row[key]
-        const rec = row as unknown as Record<string, unknown>;
-        return rec[c.key] != null ? String(rec[c.key]) : '';
-      }
-      const rec = row as unknown as Record<string, unknown>;
-      return rec[c.key] != null ? String(rec[c.key]) : '';
-    }),
-  );
-  return { header, body };
-}
 
 export function DataTable<TRow>({
   columns,
@@ -118,6 +164,8 @@ export function DataTable<TRow>({
   page = 1,
   pageSize = 20,
   onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [10, 20, 50, 100],
   onSort,
   onFilter,
   loading = false,
@@ -128,16 +176,33 @@ export function DataTable<TRow>({
   exportFileName = 'export',
   onRowClick,
   emptyMessage = 'Sin datos para mostrar.',
+  empty,
   sortKey,
   sortDirection,
+  search,
+  filters: externalFilters,
+  cardRenderer,
+  selection,
 }: DataTableProps<TRow>) {
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [internalSelectedIds, setInternalSelectedIds] = useState<Set<string>>(new Set());
+
+  // Selection controlada externa tiene precedencia.
+  const selectedIds = selection?.selected ?? internalSelectedIds;
+  const setSelectedIds = (next: Set<string>) => {
+    if (selection?.onSelectionChange) {
+      selection.onSelectionChange(next);
+    } else {
+      setInternalSelectedIds(next);
+    }
+  };
 
   const totalCount = total ?? data.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  const hasFilters = useMemo(() => columns.some((c) => c.filterable), [columns]);
+  const hasColumnFilters = useMemo(() => columns.some((c) => c.filterable), [columns]);
+  const hasExternalFilters = (externalFilters?.length ?? 0) > 0;
+  const hasSearch = Boolean(search);
 
   const updateFilter = (key: string, value: string) => {
     const next = { ...filters, [key]: value };
@@ -148,8 +213,10 @@ export function DataTable<TRow>({
 
   const handleSort = (col: DataTableColumn<TRow>) => {
     if (!col.sortable || !onSort) return;
-    const nextDir: SortDirection =
-      sortKey === col.key && sortDirection === 'asc' ? 'desc' : 'asc';
+    const nextDir = nextSortDirection(
+      { key: sortKey ?? null, direction: sortDirection ?? null },
+      col.key,
+    );
     onSort(col.key, nextDir);
   };
 
@@ -164,12 +231,10 @@ export function DataTable<TRow>({
   };
 
   const toggleSelect = (id: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
   };
 
   const exportCsv = () => {
@@ -209,10 +274,81 @@ export function DataTable<TRow>({
 
   return (
     <div className="space-y-3">
+      {/* Search top-bar (slot controlado) */}
+      {hasSearch && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="search"
+            aria-label="Buscar"
+            placeholder={search!.placeholder ?? 'Buscar...'}
+            value={search!.value}
+            onChange={(e) => search!.onChange(e.target.value)}
+            className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-100 outline-none"
+          />
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-        {hasFilters && (
+        {(hasColumnFilters || hasExternalFilters) && (
           <div className="flex flex-wrap gap-2 flex-1">
+            {externalFilters?.map((f) => {
+              if (f.type === 'select' && f.options) {
+                return (
+                  <select
+                    key={`xf-${f.key}`}
+                    aria-label={f.label}
+                    value={(f.value as string) || ''}
+                    onChange={(e) => f.onChange(e.target.value || null)}
+                    className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-100 outline-none"
+                  >
+                    <option value="">{f.label}: todas</option>
+                    {f.options.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                );
+              }
+              if (f.type === 'date') {
+                return (
+                  <input
+                    key={`xf-${f.key}`}
+                    type="date"
+                    aria-label={f.label}
+                    value={(f.value as string) || ''}
+                    onChange={(e) => f.onChange(e.target.value || null)}
+                    className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-100 outline-none"
+                  />
+                );
+              }
+              if (f.type === 'number') {
+                return (
+                  <input
+                    key={`xf-${f.key}`}
+                    type="number"
+                    aria-label={f.label}
+                    placeholder={f.label}
+                    value={(f.value as string) || ''}
+                    onChange={(e) => f.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                    className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-100 outline-none w-32"
+                  />
+                );
+              }
+              return (
+                <input
+                  key={`xf-${f.key}`}
+                  type="text"
+                  aria-label={f.label}
+                  placeholder={f.label}
+                  value={(f.value as string) || ''}
+                  onChange={(e) => f.onChange(e.target.value || null)}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-blue-100 outline-none"
+                />
+              );
+            })}
             {columns
               .filter((c) => c.filterable)
               .map((c) =>
@@ -279,20 +415,44 @@ export function DataTable<TRow>({
           <span className="text-sm font-bold text-blue-700">
             {selectedArray.length} seleccionados
           </span>
-          {bulkActions.map((act) => (
-            <button
-              key={act.label}
-              type="button"
-              onClick={() => act.onClick(selectedArray)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                act.variant === 'danger'
-                  ? 'bg-red-600 text-white hover:bg-red-700'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              {act.label}
-            </button>
-          ))}
+          {bulkActions.map((act) => {
+            // El callback canónico recibe `TRow[]`. La forma legacy recibe `string[]`.
+            // Resolvemos detectando si la callback espera 1 arg (rows típicamente
+            // se pasa como TRow[], ids se pasa como string[]). Para compat, pasamos
+            // el array que tenga sentido según el tipo del primer elemento del
+            // `selectedArray` — selectedArray son IDs por implementación interna.
+            // Si el caller declaró el tipo TRow, el cast es seguro al runtime.
+            const selectedRows = data.filter((row) =>
+              getRowId ? selectedIds.has(getRowId(row)) : false,
+            );
+            const isLegacy =
+              (act as { variant?: string }).variant === 'danger';
+            const variantClass = isLegacy
+              ? 'bg-red-600 text-white hover:bg-red-700'
+              : (act as DataTableBulkAction<TRow>).variant === 'destructive'
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : (act as DataTableBulkAction<TRow>).variant === 'primary'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-slate-600 text-white hover:bg-slate-700';
+            const handleClick = () => {
+              if (isLegacy) {
+                (act as { onClick: (ids: string[]) => void }).onClick(selectedArray);
+              } else {
+                (act as DataTableBulkAction<TRow>).onClick(selectedRows);
+              }
+            };
+            return (
+              <button
+                key={act.label}
+                type="button"
+                onClick={handleClick}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${variantClass}`}
+              >
+                {act.icon}
+                {act.label}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -360,7 +520,7 @@ export function DataTable<TRow>({
                     colSpan={columns.length + (getRowId && bulkActions ? 1 : 0)}
                     className="px-4 py-12 text-center text-sm text-slate-400"
                   >
-                    {emptyMessage}
+                    {empty ?? emptyMessage}
                   </td>
                 </tr>
               ) : (
@@ -421,8 +581,17 @@ export function DataTable<TRow>({
           ))
         ) : data.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center text-sm text-slate-400">
-            {emptyMessage}
+            {empty ?? emptyMessage}
           </div>
+        ) : cardRenderer ? (
+          data.map((row, idx) => {
+            const id = getRowId ? getRowId(row) : String(idx);
+            return (
+              <div key={id} onClick={() => onRowClick?.(row)}>
+                {cardRenderer(row)}
+              </div>
+            );
+          })
         ) : (
           data.map((row, idx) => {
             const id = getRowId ? getRowId(row) : String(idx);
@@ -506,12 +675,26 @@ export function DataTable<TRow>({
       </div>
 
       {/* Pagination */}
-      {onPageChange && totalCount > pageSize && (
-        <div className="flex items-center justify-between gap-3 mt-2">
+      {onPageChange && (totalCount > pageSize || onPageSizeChange) && (
+        <div className="flex items-center justify-between gap-3 mt-2 flex-wrap">
           <p className="text-xs text-slate-500">
             Página {page} de {totalPages} · {totalCount} registros
           </p>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            {onPageSizeChange && (
+              <select
+                aria-label="Tamaño de página"
+                value={pageSize}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                className="px-2 py-1.5 border border-slate-200 rounded-xl text-xs bg-white focus:ring-2 focus:ring-blue-100 outline-none"
+              >
+                {pageSizeOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt} por página
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               aria-label="Página anterior"

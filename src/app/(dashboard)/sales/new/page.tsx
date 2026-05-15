@@ -16,7 +16,8 @@ export default function NewRemoteSalePage() {
   const router = useRouter();
   const [showCheckout, setShowCheckout] = useState(false);
   const [showQuotesModal, setShowQuotesModal] = useState(false);
-  
+  const [showCartMobile, setShowCartMobile] = useState(false);
+
   const itemCount = useCartStore((s) => s.itemCount());
   const { items, discount, customerId, totalWithDiscount, clearCart, ensureCheckoutRequestId } = useCartStore();
   const [isQuoting, setIsQuoting] = useState(false);
@@ -28,8 +29,9 @@ export default function NewRemoteSalePage() {
   const handleSuccess = (saleId: string) => {
     window.dispatchEvent(new Event('pos:inventory-changed'));
     setShowCheckout(false);
+    setShowCartMobile(false);
     toast({ tone: 'success', message: 'Venta remota registrada con éxito' });
-    router.push(`/sales/${saleId}`); 
+    router.push(`/sales/${saleId}`);
   };
 
   const handleCreateQuote = async () => {
@@ -84,38 +86,38 @@ export default function NewRemoteSalePage() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 flex flex-col p-6 gap-6 overflow-hidden">
-          <div className="flex items-center justify-between z-20">
-            <div className="flex items-center gap-4">
-              <button onClick={() => router.push('/sales')} className="p-2 hover:bg-slate-200 rounded-xl transition">
+    <div className="min-h-screen md:h-screen flex flex-col bg-slate-50 md:overflow-hidden">
+      <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
+        <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 sm:gap-6 overflow-hidden min-h-0">
+          <div className="flex items-center justify-between z-20 gap-3 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0">
+              <button onClick={() => router.push('/sales')} aria-label="Volver a Ventas" className="p-2 hover:bg-slate-200 rounded-xl transition shrink-0">
                 <ArrowLeft className="w-5 h-5 text-slate-600" />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                   <Wifi className="w-5 h-5 text-purple-600" /> Nueva Venta Remota
                 </h1>
-                <p className="text-[13px] font-medium text-slate-500 mt-1">Cotizar y vender sin dependencia de caja chica</p>
+                <p className="hidden sm:block text-[13px] font-medium text-slate-500 mt-1">Cotizar y vender sin dependencia de caja chica</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => setShowQuotesModal(true)}
-                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm active:scale-95"
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors shadow-sm active:scale-95"
                 title="Ver cotizaciones pendientes"
               >
                 <FileText className="w-4 h-4" />
-                Cotizaciones Pendientes
+                <span className="hidden sm:inline">Cotizaciones Pendientes</span>
+                <span className="sm:hidden">Cotizaciones</span>
               </button>
-              <div className="text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm min-w-[120px] text-center hidden sm:block">
+              <div className="text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm min-w-[120px] text-center hidden md:block">
                 {new Date().toLocaleDateString('es-GT', { weekday: 'short', day: '2-digit', month: 'short' }).toUpperCase()}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 z-10">
-            {/* Buscador de cliente (izq) y productos (der) */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 z-10">
             <div className="w-full sm:w-1/3">
               <CustomerSearch />
             </div>
@@ -124,13 +126,31 @@ export default function NewRemoteSalePage() {
             </div>
           </div>
 
-          <div className="flex-1 flex overflow-hidden mt-6">
+          <div className="flex-1 flex overflow-hidden mt-2 sm:mt-6 min-h-[18rem]">
             <ProductGrid />
+          </div>
+
+          {/* Mobile: trigger del carrito (sticky bottom) */}
+          <div className="md:hidden -mx-4 sm:-mx-6 mt-2">
+            <button
+              type="button"
+              onClick={() => setShowCartMobile(true)}
+              disabled={itemCount === 0}
+              className="w-full bg-purple-600 disabled:bg-slate-300 text-white font-bold py-4 flex items-center justify-center gap-3 active:scale-[0.98] transition"
+              aria-label="Ver carrito"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              <span>
+                {itemCount > 0
+                  ? `Ver carrito (${itemCount}) · Q${totalWithDiscount().toFixed(2)}`
+                  : 'Carrito vacío'}
+              </span>
+            </button>
           </div>
         </div>
 
-        {/* Panel derecho: carrito */}
-        <div className="w-96 border-l border-slate-100 bg-white flex flex-col p-6 shadow-xl shadow-slate-200/20 z-10">
+        {/* Panel derecho: carrito (desktop) */}
+        <div className="hidden md:flex w-96 border-l border-slate-100 bg-white flex-col p-6 shadow-xl shadow-slate-200/20 z-10">
           <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-50">
             <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-purple-600" />
@@ -143,12 +163,10 @@ export default function NewRemoteSalePage() {
             )}
           </div>
 
-          {/* Carrito */}
           <div className="flex-1 overflow-hidden flex flex-col">
             <Cart />
           </div>
 
-          {/* Botón de cobrar / Cotizar */}
           {itemCount > 0 && (
             <div className="mt-6 flex flex-col gap-3">
               <button
@@ -161,7 +179,7 @@ export default function NewRemoteSalePage() {
               </button>
               <button
                 onClick={() => setShowCheckout(true)}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4.5 rounded-2xl text-lg transition-all shadow-xl shadow-purple-500/20 active:scale-95 flex items-center justify-center gap-2"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-2xl text-lg transition-all shadow-xl shadow-purple-500/20 active:scale-95 flex items-center justify-center gap-2"
               >
                 Procesar Venta · Q{totalWithDiscount().toFixed(2)}
               </button>
@@ -169,6 +187,44 @@ export default function NewRemoteSalePage() {
           )}
         </div>
       </div>
+
+      {/* Carrito mobile como modal full-screen */}
+      {showCartMobile && (
+        <div className="fixed inset-0 z-[70] md:hidden bg-white flex flex-col">
+          <header className="h-16 border-b border-slate-200 flex items-center px-4 justify-between sticky top-0 bg-white z-10">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-purple-600" /> Carrito
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowCartMobile(false)}
+              className="px-3 py-1.5 rounded-xl text-sm text-slate-500 hover:bg-slate-100"
+            >
+              Volver
+            </button>
+          </header>
+          <div className="flex-1 overflow-y-auto p-4">
+            <Cart />
+          </div>
+          {itemCount > 0 && (
+            <div className="p-4 border-t border-slate-100 bg-white space-y-3">
+              <button
+                onClick={handleCreateQuote}
+                disabled={isQuoting}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-2xl text-sm active:scale-95 transition"
+              >
+                {isQuoting ? 'Guardando...' : 'Generar Cotización'}
+              </button>
+              <button
+                onClick={() => setShowCheckout(true)}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-2xl text-lg active:scale-95 transition shadow-xl shadow-purple-500/20"
+              >
+                Procesar Venta · Q{totalWithDiscount().toFixed(2)}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {showCheckout && (
         <CheckoutModal

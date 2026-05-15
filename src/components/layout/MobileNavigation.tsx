@@ -18,6 +18,7 @@ import type { Session } from 'next-auth';
 import { ClientSidebar } from './ClientSidebar';
 import { MobileDrawer } from '@/components/ui/mobile-drawer';
 import { HamburgerButton } from './HamburgerButton';
+import { shouldCloseDrawer } from './mobile-nav.helpers';
 import { Store } from 'lucide-react';
 
 interface Props {
@@ -67,9 +68,9 @@ export function MobileNavigation(props: Props) {
         <div
           className="h-full overflow-y-auto"
           onClick={(e) => {
-            // Cerrar drawer al clickear cualquier link interno.
+            // Cerrar drawer al clickear cualquier link interno o botón con data-close-drawer.
             const target = e.target as HTMLElement;
-            if (target.closest('a[href]')) {
+            if (shouldCloseDrawer(target)) {
               setDrawerOpen(false);
             }
           }}

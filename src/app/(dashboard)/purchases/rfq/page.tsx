@@ -1,595 +1,284 @@
 'use client';
 
 /**
- * Fase 22b · RFQs (Fase 19).
+ * Fase 22c-4 · Listado de RFQs migrado a DataTable + useDataTable.
  *
- * Listado de RFQs, creación, agregar cotizaciones de proveedores y adjudicar.
+ * - Filtros: status (multi), createdById, buyerId, fechas.
+ * - Paginación servidor.
+ * - cardRenderer mobile.
+ * - Click en fila → /purchases/rfq/[id].
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { ScrollText, Plus, X, Loader2, Trash2, Award } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
-import { useToast } from '@/components/ui/toast';
+import { es } from 'date-fns/locale';
+import { ScrollText, Plus } from 'lucide-react';
+import { useDataTable } from '@/hooks/useDataTable';
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTableFilterDef,
+} from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { RfqStatusBadge } from '@/components/purchases/RfqStatusBadge';
 
-interface RFQItem {
+interface RfqRow {
   id: string;
-  productId: string;
-  quantity: number | string;
-  specifications?: string | null;
-  product?: { id: string; name: string; sku: string };
-}
-
-interface Quote {
-  id: string;
-  supplierId: string;
-  supplier: { id: string; name: string };
-  validUntil?: string | null;
-  notes?: string | null;
-  total: number | string;
-  items?: Array<{ productId: string; quantity: number | string; unitPrice: number | string }>;
-}
-
-interface RFQ {
-  id: string;
-  status: string;
+  reference: string | null;
   reason: string;
+  status: string;
   createdAt: string;
-  items: RFQItem[];
-  quotes: Quote[];
-  awardedQuoteId?: string | null;
+  responseDeadline: string | null;
+  branch: { id: string; name: string } | null;
+  buyer: { id: string; name: string | null } | null;
+  createdBy: { id: string; name: string | null } | null;
+  _count: { items: number; invitations: number; quotes: number };
+  awardedQuote: {
+    id: string;
+    totalAmount: number | string;
+    supplier: { id: string; name: string };
+  } | null;
 }
 
-interface SupplierOpt { id: string; name: string }
+const STATUS_OPTIONS = [
+  { value: 'DRAFT', label: 'Borrador' },
+  { value: 'SENT', label: 'Enviado' },
+  { value: 'AWARDED', label: 'Adjudicado' },
+  { value: 'CANCELLED', label: 'Cancelado' },
+  { value: 'CLOSED', label: 'Cerrado' },
+];
 
-const STATUS_LABEL: Record<string, string> = {
-  OPEN: 'Abierta',
-  AWARDED: 'Adjudicada',
-  CANCELLED: 'Cancelada',
-  EXPIRED: 'Vencida',
-};
+export default function RfqListPage() {
+  const router = useRouter();
 
-const STATUS_BADGE: Record<string, string> = {
-  OPEN: 'bg-amber-50 text-amber-700 border-amber-100',
-  AWARDED: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  CANCELLED: 'bg-slate-100 text-slate-500 border-slate-200',
-  EXPIRED: 'bg-rose-50 text-rose-700 border-rose-100',
-};
+  const table = useDataTable<RfqRow>({
+    defaultLimit: 20,
+    onFetch: async ({ page, limit, filters, signal }) => {
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('pageSize', String(limit));
+      const statusFilter = filters.status;
+      if (typeof statusFilter === 'string' && statusFilter) {
+        params.set('status', statusFilter);
+      }
+      if (typeof filters.dateFrom === 'string' && filters.dateFrom) {
+        params.set('dateFrom', filters.dateFrom);
+      }
+      if (typeof filters.dateTo === 'string' && filters.dateTo) {
+        params.set('dateTo', filters.dateTo);
+      }
+      if (typeof filters.buyerId === 'string' && filters.buyerId) {
+        params.set('buyerId', filters.buyerId);
+      }
+      const res = await fetch(`/api/purchases/rfq?${params.toString()}`, { signal });
+      if (!res.ok) throw new Error('Error al cargar RFQs.');
+      const json = await res.json();
+      return { data: json.data ?? [], total: json.total ?? 0 };
+    },
+  });
 
-export default function RFQPage() {
-  const { toast } = useToast();
-  const [rfqs, setRfqs] = useState<RFQ[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showNew, setShowNew] = useState(false);
-  const [selected, setSelected] = useState<RFQ | null>(null);
-  const [filters, setFilters] = useState<Record<string, string>>({});
-
-  const fetchRFQs = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/purchases/rfq');
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : (data?.items ?? []);
-      setRfqs(list);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void fetchRFQs(); }, [fetchRFQs]);
-
-  const columns: DataTableColumn<RFQ>[] = [
+  const externalFilters: DataTableFilterDef[] = [
     {
-      key: 'reason',
-      header: 'Asunto',
+      key: 'status',
+      label: 'Estado',
+      type: 'select',
+      options: [{ value: '', label: 'Todos' }, ...STATUS_OPTIONS],
+      value: (table.filters.status as string) || '',
+      onChange: (v) => {
+        table.setFilter('status', v ? String(v) : '');
+      },
+    },
+    {
+      key: 'dateFrom',
+      label: 'Desde',
+      type: 'date',
+      value: (table.filters.dateFrom as string) || '',
+      onChange: (v) => table.setFilter('dateFrom', v ? String(v) : ''),
+    },
+    {
+      key: 'dateTo',
+      label: 'Hasta',
+      type: 'date',
+      value: (table.filters.dateTo as string) || '',
+      onChange: (v) => table.setFilter('dateTo', v ? String(v) : ''),
+    },
+  ];
+
+  const columns: DataTableColumn<RfqRow>[] = [
+    {
+      key: 'reference',
+      header: 'Referencia',
       mobilePriority: 'title',
       accessor: (r) => (
-        <div className="flex flex-col">
-          <span className="font-bold text-slate-800 truncate max-w-xs">{r.reason}</span>
-          <span className="text-[11px] text-slate-500">#{r.id.slice(0, 8).toUpperCase()}</span>
+        <div>
+          <p className="font-bold text-slate-800">
+            {r.reference || `Borrador #${r.id.slice(0, 6).toUpperCase()}`}
+          </p>
+          <p className="text-[10px] text-slate-500">
+            {r.branch?.name ?? 'Sin sucursal'}
+          </p>
         </div>
+      ),
+      exportValue: (r) => r.reference || r.id,
+    },
+    {
+      key: 'reason',
+      header: 'Motivo',
+      mobilePriority: 'meta',
+      accessor: (r) => (
+        <span className="text-slate-600 line-clamp-2">{r.reason}</span>
       ),
       exportValue: (r) => r.reason,
     },
     {
-      key: 'createdAt',
-      header: 'Fecha',
-      accessor: (r) => format(new Date(r.createdAt), 'dd/MM/yyyy'),
-      exportValue: (r) => format(new Date(r.createdAt), 'dd/MM/yyyy'),
+      key: 'buyer',
+      header: 'Comprador',
+      mobilePriority: 'hidden',
+      accessor: (r) => (
+        <span className="text-slate-500 text-xs">
+          {r.buyer?.name || r.createdBy?.name || '-'}
+        </span>
+      ),
+      exportValue: (r) => r.buyer?.name || r.createdBy?.name || '',
     },
-    { key: 'items', header: 'Ítems', accessor: (r) => String(r.items.length) },
-    { key: 'quotes', header: 'Cotizaciones', accessor: (r) => String(r.quotes.length) },
     {
       key: 'status',
       header: 'Estado',
-      filterable: true,
-      filterOptions: [
-        { value: 'OPEN', label: 'Abierta' },
-        { value: 'AWARDED', label: 'Adjudicada' },
-        { value: 'CANCELLED', label: 'Cancelada' },
-      ],
       mobilePriority: 'highlight',
+      accessor: (r) => <RfqStatusBadge status={r.status} />,
+      exportValue: (r) => r.status,
+    },
+    {
+      key: 'items',
+      header: 'Items',
+      mobilePriority: 'meta',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (r) => <span className="font-bold">{r._count.items}</span>,
+      exportValue: (r) => String(r._count.items),
+    },
+    {
+      key: 'invitations',
+      header: 'Invitados',
+      mobilePriority: 'meta',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (r) => <span className="text-slate-600">{r._count.invitations}</span>,
+      exportValue: (r) => String(r._count.invitations),
+    },
+    {
+      key: 'quotes',
+      header: 'Cotizaciones',
+      mobilePriority: 'meta',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (r) => <span className="text-slate-600">{r._count.quotes}</span>,
+      exportValue: (r) => String(r._count.quotes),
+    },
+    {
+      key: 'responseDeadline',
+      header: 'Fecha límite',
+      mobilePriority: 'hidden',
+      accessor: (r) =>
+        r.responseDeadline ? (
+          <span className="text-xs font-mono text-slate-500">
+            {format(new Date(r.responseDeadline), 'dd/MM/yyyy')}
+          </span>
+        ) : (
+          <span className="text-slate-300">-</span>
+        ),
+      exportValue: (r) =>
+        r.responseDeadline ? format(new Date(r.responseDeadline), 'dd/MM/yyyy') : '',
+    },
+    {
+      key: 'createdAt',
+      header: 'Creación',
+      mobilePriority: 'meta',
       accessor: (r) => (
-        <span
-          className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg border ${
-            STATUS_BADGE[r.status] || 'bg-slate-100'
-          }`}
-        >
-          {STATUS_LABEL[r.status] || r.status}
+        <span className="text-xs font-mono text-slate-500">
+          {format(new Date(r.createdAt), "dd MMM yy", { locale: es })}
         </span>
       ),
-      exportValue: (r) => STATUS_LABEL[r.status] || r.status,
+      exportValue: (r) => format(new Date(r.createdAt), 'dd/MM/yyyy'),
     },
   ];
 
-  const filtered = filters.status ? rfqs.filter((r) => r.status === filters.status) : rfqs;
-
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Compras', href: '/purchases' },
+          { label: 'RFQ' },
+        ]}
+      />
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-            <ScrollText className="w-6 h-6 text-blue-600" />
-            Cotizaciones (RFQ)
+            <ScrollText className="w-6 h-6 text-blue-600" /> Cotizaciones (RFQ)
           </h1>
           <p className="text-[13px] text-slate-500 font-medium mt-1">
             Solicita cotización a varios proveedores y adjudica al mejor.
           </p>
         </div>
         <button
-          onClick={() => setShowNew(true)}
+          type="button"
+          onClick={() => router.push('/purchases/rfq/new')}
           className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
         >
-          <Plus className="w-4 h-4" /> Nuevo RFQ
+          <Plus className="w-4 h-4" /> Nueva RFQ
         </button>
       </div>
 
       <DataTable
         columns={columns}
-        data={filtered}
-        loading={isLoading}
+        data={table.data}
+        total={table.pagination.total}
+        page={table.pagination.page}
+        pageSize={table.pagination.limit}
+        onPageChange={table.pagination.onPageChange}
+        onPageSizeChange={table.pagination.onLimitChange}
+        loading={table.loading}
         getRowId={(r) => r.id}
-        onRowClick={(r) => setSelected(r)}
+        onRowClick={(r) => router.push(`/purchases/rfq/${r.id}`)}
+        filters={externalFilters}
         enableCsvExport
         enablePdfExport
         exportFileName="rfqs"
-        emptyMessage="No hay solicitudes de cotización."
-        onFilter={setFilters}
-      />
-
-      {showNew && (
-        <NewRFQModal
-          onClose={() => setShowNew(false)}
-          onCreated={() => {
-            setShowNew(false);
-            void fetchRFQs();
-            toast({ tone: 'success', message: 'RFQ creada.' });
-          }}
-        />
-      )}
-
-      {selected && (
-        <RFQDetailModal
-          rfq={selected}
-          onClose={() => setSelected(null)}
-          onRefresh={() => {
-            void fetchRFQs();
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function NewRFQModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [reason, setReason] = useState('');
-  const [items, setItems] = useState<Array<{ productId: string; quantity: number; specifications: string; productName: string; productSku: string }>>([]);
-  const [search, setSearch] = useState('');
-  const [results, setResults] = useState<Array<{ id: string; name: string; sku: string }>>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!search.trim()) {
-      setResults([]);
-      return;
-    }
-    const t = setTimeout(() => {
-      fetch(`/api/products?q=${encodeURIComponent(search.trim())}&limit=10`)
-        .then((r) => r.json())
-        .then((d) => setResults(d.products || []))
-        .catch(() => setResults([]));
-    }, 300);
-    return () => clearTimeout(t);
-  }, [search]);
-
-  const submit = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      if (!reason.trim()) throw new Error('Asunto obligatorio');
-      if (items.length === 0) throw new Error('Agrega al menos un ítem');
-      const res = await fetch('/api/purchases/rfq', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reason,
-          items: items.map((i) => ({
-            productId: i.productId,
-            quantity: i.quantity,
-            specifications: i.specifications || null,
-          })),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Error');
-      onCreated();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        <div className="p-6 flex justify-between items-start border-b border-slate-100">
-          <h3 className="text-xl font-bold text-slate-900">Nuevo RFQ</h3>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="p-6 space-y-4 overflow-auto flex-1">
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Asunto</label>
-            <input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-slate-100 rounded-xl outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Buscar producto</label>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="SKU o nombre…"
-              className="w-full px-4 py-3 border-2 border-slate-100 rounded-xl outline-none"
-            />
-            {results.length > 0 && (
-              <div className="mt-2 bg-slate-50 rounded-xl divide-y divide-slate-100 max-h-40 overflow-auto">
-                {results.map((p) => (
-                  <button
-                    type="button"
-                    key={p.id}
-                    onClick={() => {
-                      if (!items.find((i) => i.productId === p.id)) {
-                        setItems((curr) => [...curr, { productId: p.id, quantity: 1, specifications: '', productName: p.name, productSku: p.sku }]);
-                      }
-                      setSearch('');
-                      setResults([]);
-                    }}
-                    className="w-full text-left px-3 py-2 hover:bg-white"
-                  >
-                    <span className="text-sm">{p.name}</span>{' '}
-                    <span className="text-xs text-slate-500">{p.sku}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          {items.length > 0 && (
-            <div className="bg-slate-50 rounded-xl p-3 space-y-2">
-              {items.map((it, idx) => (
-                <div key={idx} className="bg-white rounded-lg p-3 flex flex-wrap gap-2 items-center">
-                  <div className="flex-1 min-w-[160px]">
-                    <p className="text-sm font-bold">{it.productName}</p>
-                    <p className="text-[10px] text-slate-500">{it.productSku}</p>
-                  </div>
-                  <input
-                    type="number"
-                    min="1"
-                    value={it.quantity}
-                    onChange={(e) => {
-                      const v = parseFloat(e.target.value) || 0;
-                      setItems(items.map((x, i) => (i === idx ? { ...x, quantity: v } : x)));
-                    }}
-                    className="w-20 px-2 py-1.5 border border-slate-200 rounded-lg text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setItems(items.filter((_, i) => i !== idx))}
-                    className="p-1.5 text-rose-500 hover:bg-rose-50 rounded"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {error && <p className="text-rose-500 text-xs font-bold">{error}</p>}
-        </div>
-        <div className="p-6 border-t border-slate-100 flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 font-bold text-slate-500 bg-slate-50 rounded-xl">Cancelar</button>
-          <button
-            disabled={busy}
-            onClick={submit}
-            className="flex-1 py-3 font-bold text-white bg-slate-900 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-            Crear RFQ
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RFQDetailModal({ rfq, onClose, onRefresh }: { rfq: RFQ; onClose: () => void; onRefresh: () => void }) {
-  const { toast } = useToast();
-  const [showAddQuote, setShowAddQuote] = useState(false);
-  const [busy, setBusy] = useState(false);
-
-  const award = async (quoteId: string) => {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/purchases/rfq/${rfq.id}/award/${quoteId}`, { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Error');
-      toast({ tone: 'success', message: 'Cotización adjudicada.' });
-      onRefresh();
-      onClose();
-    } catch (e) {
-      toast({ tone: 'error', message: e instanceof Error ? e.message : 'Error' });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-        <div className="p-6 flex justify-between items-start border-b border-slate-100">
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">RFQ #{rfq.id.slice(0, 8).toUpperCase()}</h3>
-            <p className="text-xs text-slate-500 mt-1">{rfq.reason}</p>
-          </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="p-6 overflow-auto flex-1 space-y-6">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Ítems solicitados</p>
-            <div className="bg-slate-50 rounded-xl divide-y divide-slate-100">
-              {rfq.items.map((it) => (
-                <div key={it.id} className="p-3 flex justify-between items-center">
-                  <p className="text-sm font-bold">{it.product?.name || it.productId}</p>
-                  <p className="text-sm">{Number(it.quantity)} u.</p>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cotizaciones recibidas</p>
-              {rfq.status === 'OPEN' && (
-                <button
-                  onClick={() => setShowAddQuote(true)}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                >
-                  <Plus className="w-3 h-3" /> Agregar cotización
-                </button>
-              )}
-            </div>
-            {rfq.quotes.length === 0 ? (
-              <p className="text-sm text-slate-400 italic">Sin cotizaciones aún.</p>
-            ) : (
-              <div className="space-y-2">
-                {rfq.quotes.map((q) => (
-                  <div
-                    key={q.id}
-                    className={`rounded-xl p-4 border ${
-                      rfq.awardedQuoteId === q.id ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-100'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="flex-1">
-                        <p className="font-bold">{q.supplier.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {q.validUntil && `Vigente al ${format(new Date(q.validUntil), 'dd/MM/yyyy')}`}
-                        </p>
-                        {q.notes && <p className="text-xs text-slate-600 mt-1">{q.notes}</p>}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-slate-900">Q{Number(q.total).toFixed(2)}</p>
-                        {rfq.status === 'OPEN' && rfq.awardedQuoteId !== q.id && (
-                          <button
-                            disabled={busy}
-                            onClick={() => award(q.id)}
-                            className="mt-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition flex items-center gap-1"
-                          >
-                            <Award className="w-3 h-3" /> Adjudicar
-                          </button>
-                        )}
-                        {rfq.awardedQuoteId === q.id && (
-                          <span className="inline-block mt-2 px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg">
-                            Adjudicada
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {showAddQuote && (
-          <AddQuoteModal
-            rfq={rfq}
-            onClose={() => setShowAddQuote(false)}
-            onAdded={() => {
-              setShowAddQuote(false);
-              onRefresh();
-            }}
+        empty={
+          <EmptyState
+            icon={<ScrollText className="w-7 h-7" />}
+            title="No hay RFQs todavía"
+            description="Creá una RFQ para comparar precios entre proveedores."
           />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AddQuoteModal({ rfq, onClose, onAdded }: { rfq: RFQ; onClose: () => void; onAdded: () => void }) {
-  const { toast } = useToast();
-  const [suppliers, setSuppliers] = useState<SupplierOpt[]>([]);
-  const [supplierId, setSupplierId] = useState('');
-  const [validUntil, setValidUntil] = useState('');
-  const [notes, setNotes] = useState('');
-  const [items, setItems] = useState(
-    rfq.items.map((it) => ({
-      productId: it.productId,
-      productName: it.product?.name || 'Producto',
-      productSku: it.product?.sku || '',
-      quantity: Number(it.quantity),
-      unitPrice: 0,
-      deliveryDays: 0,
-    })),
-  );
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetch('/api/suppliers')
-      .then((r) => r.json())
-      .then((d) => setSuppliers((d.suppliers || []).map((s: { id: string; name: string }) => ({ id: s.id, name: s.name }))))
-      .catch(() => {});
-  }, []);
-
-  const total = items.reduce((acc, it) => acc + it.unitPrice * it.quantity, 0);
-
-  const submit = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      if (!supplierId) throw new Error('Proveedor obligatorio');
-      if (items.some((i) => i.unitPrice < 0)) throw new Error('Precio inválido');
-      const res = await fetch(`/api/purchases/rfq/${rfq.id}/quotes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supplierId,
-          validUntil: validUntil || undefined,
-          notes: notes || null,
-          items: items.map((i) => ({
-            productId: i.productId,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            deliveryDays: i.deliveryDays || null,
-          })),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Error');
-      toast({ tone: 'success', message: 'Cotización agregada.' });
-      onAdded();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        <div className="p-6 flex justify-between items-start border-b border-slate-100">
-          <h3 className="text-xl font-bold text-slate-900">Agregar cotización</h3>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="p-6 space-y-4 overflow-auto flex-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Proveedor</label>
-              <select
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-slate-100 rounded-xl outline-none"
-              >
-                <option value="">Selecciona…</option>
-                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Válida hasta</label>
-              <input
-                type="date"
-                value={validUntil}
-                onChange={(e) => setValidUntil(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-slate-100 rounded-xl outline-none"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Precios por ítem</p>
-            {items.map((it, idx) => (
-              <div key={idx} className="bg-slate-50 rounded-lg p-3 flex flex-wrap gap-2 items-center">
-                <div className="flex-1 min-w-[160px]">
-                  <p className="text-sm font-bold">{it.productName}</p>
-                  <p className="text-[10px] text-slate-500">{it.productSku} · {it.quantity} u.</p>
-                </div>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Precio unit."
-                  value={it.unitPrice}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value) || 0;
-                    setItems(items.map((x, i) => (i === idx ? { ...x, unitPrice: v } : x)));
-                  }}
-                  className="w-28 px-2 py-1.5 border border-slate-200 rounded-lg text-sm"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="Días"
-                  value={it.deliveryDays}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value) || 0;
-                    setItems(items.map((x, i) => (i === idx ? { ...x, deliveryDays: v } : x)));
-                  }}
-                  className="w-20 px-2 py-1.5 border border-slate-200 rounded-lg text-sm"
-                />
+        }
+        cardRenderer={(r) => (
+          <div className="p-4 space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-slate-800">
+                  {r.reference || `Borrador #${r.id.slice(0, 6).toUpperCase()}`}
+                </p>
+                <p className="text-xs text-slate-500 line-clamp-2">{r.reason}</p>
               </div>
-            ))}
+              <RfqStatusBadge status={r.status} />
+            </div>
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>{r._count.items} items</span>
+              <span>·</span>
+              <span>{r._count.invitations} invit.</span>
+              <span>·</span>
+              <span>{r._count.quotes} cotiz.</span>
+            </div>
+            <p className="text-[10px] text-slate-400 font-mono">
+              {format(new Date(r.createdAt), 'dd/MM/yyyy', { locale: es })}
+              {r.branch && ` · ${r.branch.name}`}
+            </p>
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Notas</label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-slate-100 rounded-xl outline-none resize-none text-sm"
-            />
-          </div>
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex justify-between items-center">
-            <span className="text-sm font-bold">Total</span>
-            <span className="text-xl font-bold text-blue-700">Q{total.toFixed(2)}</span>
-          </div>
-          {error && <p className="text-rose-500 text-xs font-bold">{error}</p>}
-        </div>
-        <div className="p-6 border-t border-slate-100 flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 font-bold text-slate-500 bg-slate-50 rounded-xl">Cancelar</button>
-          <button
-            disabled={busy}
-            onClick={submit}
-            className="flex-1 py-3 font-bold text-white bg-blue-600 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-            Guardar cotización
-          </button>
-        </div>
-      </div>
+        )}
+      />
     </div>
   );
 }

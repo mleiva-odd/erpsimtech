@@ -65,6 +65,12 @@ type AuditAction =
   | 'RFQ_CREATED'
   | 'RFQ_QUOTE_REGISTERED'
   | 'RFQ_AWARDED'
+  // Fase 22c-4 · RFQ workflow expansion
+  | 'RFQ_SENT'
+  | 'RFQ_CANCELLED'
+  | 'RFQ_INVITATION_SENT'
+  | 'RFQ_ITEM_AWARDED'
+  | 'RFQ_PO_GENERATED'
   // Fase 20 · Ventas enterprise
   | 'SALE_ORDER_ACCEPTED'
   | 'SALE_QUOTE_CANCELLED'

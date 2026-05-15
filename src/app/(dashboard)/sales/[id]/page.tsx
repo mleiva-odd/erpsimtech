@@ -13,6 +13,8 @@ import { TicketModal } from '@/components/pos/TicketModal';
 import { CreateDeliveryNoteModal } from '@/components/sales/CreateDeliveryNoteModal';
 import { FelStatusCard, type TaxDocumentLite } from '@/components/sales/FelStatusCard';
 import { useToast } from '@/components/ui/toast';
+import { AmountWithFx } from '@/components/currency';
+import { FUNCTIONAL_CURRENCY, normalizeCurrency } from '@/lib/currency';
 
 interface SaleDetail {
   id: string;
@@ -24,6 +26,10 @@ interface SaleDetail {
   channel: string;
   createdAt: string;
   invoiceNumber: string | null;
+  // Fase 21 · Multi-moneda snapshot
+  currency?: string | null;
+  exchangeRate?: number | string | null;
+  functionalAmount?: number | string | null;
   user: { name: string };
   customer: { name: string; nit: string | null; address: string | null } | null;
   branch: { name: string } | null;
@@ -368,9 +374,27 @@ export default function SaleDetailPage() {
             {Number(sale.discount) > 0 && (
               <tr><td colSpan={3} className="px-6 py-2 text-right text-sm text-slate-500">Descuento ({Number(sale.discount)}%)</td><td className="px-6 py-2 text-right text-sm text-green-600 font-bold">-Q{((Number(sale.subtotal) * Number(sale.discount)) / 100).toFixed(2)}</td></tr>
             )}
-            <tr><td colSpan={3} className="px-6 py-3 text-right text-sm font-bold text-slate-800 uppercase">Total</td><td className="px-6 py-3 text-right text-xl font-bold text-slate-900">Q{Number(sale.total).toFixed(2)}</td></tr>
+            <tr>
+              <td colSpan={3} className="px-6 py-3 text-right text-sm font-bold text-slate-800 uppercase">Total</td>
+              <td className="px-6 py-3 text-right">
+                <AmountWithFx
+                  amount={sale.total}
+                  currency={sale.currency ?? FUNCTIONAL_CURRENCY}
+                  functionalAmount={sale.functionalAmount}
+                  exchangeRate={sale.exchangeRate}
+                  size="md"
+                  className="inline-flex flex-col items-end leading-tight tabular-nums"
+                />
+              </td>
+            </tr>
           </tfoot>
         </table>
+        {normalizeCurrency(sale.currency) !== FUNCTIONAL_CURRENCY && sale.exchangeRate != null && (
+          <p className="px-6 py-3 text-[10px] text-slate-400 italic border-t border-slate-100">
+            Operación en {normalizeCurrency(sale.currency)} convertida al tipo de cambio Q {Number(sale.exchangeRate).toFixed(4)} vigente al emitirse.
+            Reportería SAT en Quetzales.
+          </p>
+        )}
       </div>
 
       {/* Payments */}

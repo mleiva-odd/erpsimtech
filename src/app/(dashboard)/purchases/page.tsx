@@ -35,6 +35,7 @@ interface PurchaseHistoryItem {
   reference?: string | null;
   supplier: { name: string };
   user?: { name?: string | null } | null;
+  sourceRfqId?: string | null;
 }
 
 export default function PurchasesPage() {
@@ -336,7 +337,24 @@ export default function PurchasesPage() {
       key: 'reference',
       header: 'Referencia',
       mobilePriority: 'meta',
-      accessor: (po) => <span className="text-slate-500">{po.reference || '-'}</span>,
+      accessor: (po) => (
+        <div className="flex items-center gap-2">
+          <span className="text-slate-500">{po.reference || '-'}</span>
+          {po.sourceRfqId && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/purchases/rfq/${po.sourceRfqId}`);
+              }}
+              className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100"
+              aria-label="Ver RFQ origen"
+            >
+              RFQ
+            </button>
+          )}
+        </div>
+      ),
       exportValue: (po) => po.reference || '',
     },
     {

@@ -51,30 +51,20 @@ export async function POST(
       },
     });
     if (!rfq) throw new ApiError(404, 'RFQ no encontrada.');
-    if (rfq.status !== 'OPEN') {
+    if (rfq.status !== 'OPEN' && rfq.status !== 'SENT') {
       throw new ApiError(
         400,
-        `Solo se puede adjudicar una RFQ OPEN (actual: ${rfq.status}).`,
+        `Solo se puede adjudicar una RFQ SENT (actual: ${rfq.status}).`,
       );
     }
     const quote = rfq.quotes[0];
     if (!quote) throw new ApiError(404, 'Cotización no encontrada.');
 
-    // Totales
-    type QuoteItemShape = {
-      productId: string;
-      variantId: string | null;
-      quantity: number | string | { toString(): string };
-      unitPrice: number | string | { toString(): string };
-    };
-    type SupplierShape = {
-      taxRegime?: 'GENERAL' | 'PEQUENO_CONTRIBUYENTE' | null;
-      withholdsIVA?: boolean;
-      withholdsISR?: boolean;
-      isrRate?: number;
-    };
+    // Fase 22c-4 verifier IM-3: cliente Prisma regenerado tras la migración
+    // 20260601000000_rfq_workflow_expansion — los tipos reales están disponibles,
+    // ya no se necesitan QuoteItemShape/SupplierShape como casts.
     let subtotalAmount = 0;
-    const itemsData = (quote.items as QuoteItemShape[]).map((it) => {
+    const itemsData = quote.items.map((it) => {
       const qty = Number(it.quantity);
       const unitCost = Number(it.unitPrice);
       const sub = round2(qty * unitCost);
@@ -85,28 +75,34 @@ export async function POST(
         quantity: qty,
         unitCost,
         subtotal: sub,
-        taxRate: 0,
+        // Fase 22c-4 verifier IM-2: aplicar IVA 12% LEY GT en cada línea
+        // (antes era 0, lo que generaba POs sin IVA — divergente con /generate-po).
+        taxRate: 0.12,
       };
     });
     subtotalAmount = round2(subtotalAmount);
 
-    const supplierShape = quote.supplier as unknown as SupplierShape;
+    // IM-2: calcular IVA total sobre subtotal antes de retenciones.
+    const tax = round2(subtotalAmount * 0.12);
+
+    const supplier = quote.supplier;
     const retention = calculateRetention({
       subtotal: subtotalAmount,
-      tax: 0,
-      supplierTaxRegime: supplierShape.taxRegime ?? null,
-      withholdsIVA: supplierShape.withholdsIVA ?? false,
-      withholdsISR: supplierShape.withholdsISR ?? false,
-      isrRate: Number(supplierShape.isrRate ?? 0.05),
+      tax,
+      supplierTaxRegime: supplier.taxRegime ?? null,
+      withholdsIVA: supplier.withholdsIVA,
+      withholdsISR: supplier.withholdsISR,
+      isrRate: Number(supplier.isrRate ?? 0.05),
     });
     const totalAmount = round2(retention.total);
 
     const company = await prisma.company.findUnique({
       where: { id: tenant.companyId },
-      select: { purchaseApprovalThreshold: true } as never,
-    }) as unknown as { purchaseApprovalThreshold?: PrismaNS.Decimal } | null;
+      select: { purchaseApprovalThreshold: true },
+    });
     const threshold = Number(company?.purchaseApprovalThreshold ?? 0);
-    const initialStatus = totalAmount > threshold ? 'PENDING_APPROVAL' : 'APPROVED';
+    const initialStatus =
+      threshold > 0 && totalAmount > threshold ? 'PENDING_APPROVAL' : 'APPROVED';
 
     const result2 = await prisma.$transaction(async (tx) => {
       const po = await tx.purchaseOrder.create({
@@ -115,16 +111,18 @@ export async function POST(
           branchId: rfq.branchId,
           supplierId: quote.supplierId,
           userId: tenant.userId,
-          reference: `RFQ-${rfq.id.slice(0, 8)}`,
+          reference: rfq.reference ?? `RFQ-${rfq.id.slice(0, 8)}`,
           total: new PrismaNS.Decimal(totalAmount),
           subtotal: new PrismaNS.Decimal(subtotalAmount),
-          tax: new PrismaNS.Decimal(0),
+          // IM-2: persistir IVA real (antes era 0).
+          tax: new PrismaNS.Decimal(tax),
           withheldIVA: new PrismaNS.Decimal(retention.withheldIVA),
           withheldISR: new PrismaNS.Decimal(retention.withheldISR),
           status: initialStatus,
-          taxRegime: supplierShape.taxRegime ?? null,
+          taxRegime: supplier.taxRegime ?? null,
           approvedById: initialStatus === 'APPROVED' ? tenant.userId : null,
           approvedAt: initialStatus === 'APPROVED' ? new Date() : null,
+          sourceRfqId: rfq.id,
           items: {
             create: itemsData.map((it) => ({
               productId: it.productId,
@@ -135,7 +133,7 @@ export async function POST(
               taxRate: new PrismaNS.Decimal(it.taxRate),
             })),
           },
-        } as never,
+        },
       });
 
       // Marcar quote ganadora y RFQ AWARDED

@@ -12,6 +12,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Loader2, PackageCheck, Receipt, FileMinus, Check } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/components/ui/toast';
+import { AmountWithFx } from '@/components/currency';
+import { FUNCTIONAL_CURRENCY, normalizeCurrency } from '@/lib/currency';
 
 interface POItem {
   id: string;
@@ -39,6 +41,11 @@ interface PO {
   user?: { name?: string | null };
   items: POItem[];
   hasInvoice?: boolean;
+  sourceRfqId?: string | null;
+  // Fase 21 · Multi-moneda snapshot.
+  currency?: string | null;
+  exchangeRate?: number | string | null;
+  functionalAmount?: number | string | null;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -116,6 +123,15 @@ export function PurchaseDetailModal({
                 {po.supplier.name}
               </p>
             )}
+            {po?.sourceRfqId && (
+              <a
+                href={`/purchases/rfq/${po.sourceRfqId}`}
+                className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100"
+                aria-label="Ver RFQ origen"
+              >
+                Ver RFQ origen
+              </a>
+            )}
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg">
             <X className="w-4 h-4" />
@@ -167,8 +183,21 @@ export function PurchaseDetailModal({
                   <div className="flex justify-between"><span className="text-slate-500">Landed cost</span><span>{formatQ(po.landedCost)}</span></div>
                 )}
                 <div className="flex justify-between border-t border-slate-200 pt-2 font-bold">
-                  <span>Total</span><span>{formatQ(po.total)}</span>
+                  <span>Total</span>
+                  <AmountWithFx
+                    amount={po.total}
+                    currency={po.currency ?? FUNCTIONAL_CURRENCY}
+                    functionalAmount={po.functionalAmount}
+                    exchangeRate={po.exchangeRate}
+                    size="sm"
+                  />
                 </div>
+                {normalizeCurrency(po.currency) !== FUNCTIONAL_CURRENCY && po.exchangeRate != null && (
+                  <p className="text-[10px] text-slate-400 mt-1 italic">
+                    Operación en {normalizeCurrency(po.currency)} convertida al tipo de cambio Q {Number(po.exchangeRate).toFixed(4)} vigente al emitirse.
+                    Contabilidad SAT siempre en Quetzales.
+                  </p>
+                )}
               </div>
             </div>
             <div className="p-6 border-t border-slate-100 flex flex-wrap gap-2 justify-end">

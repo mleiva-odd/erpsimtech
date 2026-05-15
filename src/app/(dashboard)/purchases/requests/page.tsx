@@ -12,6 +12,7 @@ import { ClipboardList, Plus, X, Loader2, ArrowRight, Trash2 } from 'lucide-reac
 import { format } from 'date-fns';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { useToast } from '@/components/ui/toast';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface PRItem {
   id: string;
@@ -146,6 +147,15 @@ export default function PurchaseRequestsPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Compras', href: '/purchases' },
+          { label: 'Solicitudes (PR)' },
+        ]}
+        className="mb-6"
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">

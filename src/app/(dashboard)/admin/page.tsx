@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Shield, Building2, Plus, Loader2, Check, X, AlertTriangle, Edit2 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface CompanyData {
   id: string;
@@ -210,6 +211,13 @@ export default function AdminPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Panel Global' },
+        ]}
+      />
+
       <div className="flex justify-between items-center mb-10">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">

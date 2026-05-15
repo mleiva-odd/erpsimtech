@@ -6,6 +6,7 @@ import { Plus, Landmark, Wallet, CreditCard, Edit2, ShieldAlert, Banknote, Histo
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { BankModal } from '@/components/accounting/BankModal';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { format } from 'date-fns';
 
 interface BankRecord {
@@ -153,6 +154,14 @@ export default function BanksPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Contabilidad', href: '/accounting' },
+          { label: 'Tesorería y Bancos' },
+        ]}
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-3">

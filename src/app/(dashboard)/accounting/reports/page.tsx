@@ -19,6 +19,7 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useToast } from '@/components/ui/toast';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 type ReportTab = 'balance-sheet' | 'profit-loss' | 'trial-balance' | 'general-journal' | 'general-ledger';
 
@@ -148,6 +149,14 @@ export default function AccountingReportsPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-8 space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Contabilidad', href: '/accounting' },
+          { label: 'Reportes' },
+        ]}
+      />
+
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Reportes Contables</h1>
         <p className="text-sm text-slate-500">Estados financieros y libros contables</p>

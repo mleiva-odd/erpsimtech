@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Package, BookOpen, Activity, Snowflake, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 type TabKey = 'kardex' | 'valuation' | 'slow-movers';
 
@@ -26,6 +27,15 @@ export default function InventoryReportsPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Reportes', href: '/reports' },
+          { label: 'Inventario' },
+        ]}
+        className="mb-6"
+      />
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
           <Package className="w-6 h-6 text-blue-600" /> Reportes de inventario

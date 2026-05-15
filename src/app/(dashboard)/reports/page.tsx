@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Printer, RefreshCw, BarChart3, TrendingUp, AlertCircle, Download, FileText, Lock } from 'lucide-react';
 import { TicketModal } from '@/components/pos/TicketModal';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { useBranchStore } from '@/stores/branchStore';
 import { useToast } from '@/components/ui/toast';
 import jsPDF from 'jspdf';
@@ -224,6 +225,13 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Reportes' },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>

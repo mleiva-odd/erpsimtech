@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { PayrollModal } from '@/components/hr/PayrollModal';
 import { useToast } from '@/components/ui/toast';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface PayrollSummary {
   id: string;
@@ -144,6 +145,15 @@ export default function PayrollListPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'RRHH', href: '/hr/employees' },
+          { label: 'Planillas' },
+        ]}
+        className="mb-6"
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">

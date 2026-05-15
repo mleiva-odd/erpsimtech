@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import { useToast } from '@/components/ui/toast';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface Employee {
   id: string;
@@ -114,10 +115,20 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'RRHH', href: '/hr/employees' },
+          { label: 'Empleados', href: '/hr/employees' },
+          { label: `${employee.firstName} ${employee.lastName}` },
+        ]}
+        className="mb-6"
+      />
+
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={() => router.back()}
-          className="p-2 hover:bg-slate-100 rounded-xl transition-all"
+          className="p-2 hover:bg-slate-100 rounded-xl transition-all hidden md:inline-flex"
           aria-label="Volver"
         >
           <ArrowLeft className="w-5 h-5 text-slate-500" />

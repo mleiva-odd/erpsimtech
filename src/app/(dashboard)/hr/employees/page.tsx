@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, UserPlus, Search, Filter, Loader2, Mail, Phone, MapPin, Briefcase, DollarSign, Edit2 } from 'lucide-react';
 import { EmployeeModal } from '@/components/hr/EmployeeModal';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface EmployeeRecord {
   id: string;
@@ -53,6 +54,15 @@ export default function EmployeesPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto h-full flex flex-col">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'RRHH', href: '/hr/employees' },
+          { label: 'Empleados' },
+        ]}
+        className="mb-6"
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">

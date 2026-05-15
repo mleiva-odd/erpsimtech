@@ -15,6 +15,7 @@ import { FelStatusCard, type TaxDocumentLite } from '@/components/sales/FelStatu
 import { useToast } from '@/components/ui/toast';
 import { AmountWithFx } from '@/components/currency';
 import { FUNCTIONAL_CURRENCY, normalizeCurrency } from '@/lib/currency';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface SaleDetail {
   id: string;
@@ -241,10 +242,18 @@ export default function SaleDetailPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-8 space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Ventas', href: '/sales' },
+          { label: `Venta #${sale.id.split('-')[0].toUpperCase()}` },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/sales')} className="p-2 hover:bg-slate-100 rounded-xl transition">
+          <button onClick={() => router.push('/sales')} className="p-2 hover:bg-slate-100 rounded-xl transition hidden md:inline-flex">
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </button>
           <div>

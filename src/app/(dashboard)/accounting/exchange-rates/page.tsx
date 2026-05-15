@@ -24,6 +24,7 @@ import { es } from 'date-fns/locale';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { useToast } from '@/components/ui/toast';
 import { DEFAULT_ENABLED_CURRENCIES } from '@/components/currency';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface ExchangeRate {
   id: string;
@@ -241,6 +242,15 @@ export default function ExchangeRatesPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Contabilidad', href: '/accounting' },
+          { label: 'Tipos de Cambio' },
+        ]}
+        className="mb-6"
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">

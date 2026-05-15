@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Receipt, FileText, BookOpen, Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 type TabKey = 'sales-book' | 'purchases-book' | 'iva-summary';
 
@@ -26,6 +27,15 @@ export default function TaxReportsPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Reportes', href: '/reports' },
+          { label: 'SAT' },
+        ]}
+        className="mb-6"
+      />
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
           <Receipt className="w-6 h-6 text-blue-600" /> Reportes SAT

@@ -218,7 +218,7 @@ export default function AttendancePage() {
       <Breadcrumbs
         items={[
           { label: 'Inicio', href: '/dashboard' },
-          { label: 'RR.HH.', href: '/hr/employees' },
+          { label: 'RRHH', href: '/hr/employees' },
           { label: 'Asistencia' },
         ]}
       />

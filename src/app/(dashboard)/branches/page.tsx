@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { MapPin, Plus, Edit2, Star, Loader2, Building2, Users, Package, ShoppingCart } from 'lucide-react';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface BranchData {
   id: string;
@@ -107,6 +108,13 @@ export default function BranchesPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Sucursales' },
+        ]}
+      />
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">

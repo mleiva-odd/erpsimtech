@@ -473,7 +473,7 @@ export default function PayrollDetailPage({
         <Breadcrumbs
           items={[
             { label: 'Inicio', href: '/dashboard' },
-            { label: 'RR.HH.', href: '/hr/employees' },
+            { label: 'RRHH', href: '/hr/employees' },
             { label: 'Planillas', href: '/hr/payroll' },
             { label: 'No encontrada' },
           ]}
@@ -498,7 +498,7 @@ export default function PayrollDetailPage({
       <Breadcrumbs
         items={[
           { label: 'Inicio', href: '/dashboard' },
-          { label: 'RR.HH.', href: '/hr/employees' },
+          { label: 'RRHH', href: '/hr/employees' },
           { label: 'Planillas', href: '/hr/payroll' },
           { label: payroll.name },
         ]}

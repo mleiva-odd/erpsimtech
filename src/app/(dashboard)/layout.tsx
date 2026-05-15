@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { MobileNavigation } from "@/components/layout/MobileNavigation";
+import { CommandPaletteProvider } from "@/components/command-palette";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -12,17 +13,19 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const isSuperAdmin = role === 'SUPER_ADMIN';
 
   return (
-    <div className="h-screen bg-slate-50 flex overflow-hidden">
-      <MobileNavigation
-        session={session}
-        role={role || ''}
-        isAdmin={isAdmin}
-        isSupervisor={isSupervisor}
-        isSuperAdmin={isSuperAdmin}
-        permissions={permissions}
-      >
-        {children}
-      </MobileNavigation>
-    </div>
+    <CommandPaletteProvider>
+      <div className="h-screen bg-slate-50 flex overflow-hidden">
+        <MobileNavigation
+          session={session}
+          role={role || ''}
+          isAdmin={isAdmin}
+          isSupervisor={isSupervisor}
+          isSuperAdmin={isSuperAdmin}
+          permissions={permissions}
+        >
+          {children}
+        </MobileNavigation>
+      </div>
+    </CommandPaletteProvider>
   );
 }

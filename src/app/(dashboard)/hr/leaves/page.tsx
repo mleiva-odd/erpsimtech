@@ -141,7 +141,7 @@ export default function LeavesPage() {
       <Breadcrumbs
         items={[
           { label: 'Inicio', href: '/dashboard' },
-          { label: 'RR.HH.', href: '/hr/employees' },
+          { label: 'RRHH', href: '/hr/employees' },
           { label: 'Permisos' },
         ]}
       />

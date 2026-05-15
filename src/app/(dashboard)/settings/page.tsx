@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { IntArrayInput } from '@/components/forms/IntArrayInput';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 type SettingsFormData = {
   storeName: string;
@@ -264,6 +265,13 @@ export default function SettingsPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Configuración' },
+        ]}
+      />
+
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Configuración del Negocio</h1>
         <p className="text-sm text-slate-500">Datos fiscales, operativos y métodos de pago</p>

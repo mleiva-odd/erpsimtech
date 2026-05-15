@@ -9,6 +9,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Search, Trash2 } from 'lucide-react';
+import { useDragSort } from '@/hooks/useDragSort';
+import { DragHandle } from '@/components/ui/drag-handle';
 
 export interface RfqItemDraft {
   productId: string;
@@ -88,6 +90,9 @@ export function RfqItemsForm({ items, onChange }: RfqItemsFormProps) {
     onChange(items.filter((_, i) => i !== idx));
   };
 
+  const { draggedIndex, hoveredIndex, onDragStart, onDragOver, onDrop, onDragEnd } =
+    useDragSort(items, onChange);
+
   return (
     <div className="space-y-4">
       <div>
@@ -127,9 +132,23 @@ export function RfqItemsForm({ items, onChange }: RfqItemsFormProps) {
         </div>
       ) : (
         <div className="bg-slate-50 rounded-xl p-3 space-y-2">
-          {items.map((it, idx) => (
-            <div key={`${it.productId}-${idx}`} className="bg-white rounded-lg p-3 space-y-2">
+          {items.map((it, idx) => {
+            const isDragged = draggedIndex === idx;
+            const isHovered = hoveredIndex === idx && draggedIndex !== null && draggedIndex !== idx;
+            return (
+            <div
+              key={`${it.productId}-${idx}`}
+              draggable
+              onDragStart={onDragStart(idx)}
+              onDragOver={onDragOver(idx)}
+              onDrop={onDrop(idx)}
+              onDragEnd={onDragEnd}
+              className={`bg-white rounded-lg p-3 space-y-2 transition ${
+                isDragged ? 'opacity-50' : ''
+              } ${isHovered ? 'border-t-2 border-blue-500' : 'border-t-2 border-transparent'}`}
+            >
               <div className="flex justify-between gap-2 items-start">
+                <DragHandle className="mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-bold text-slate-800">{it.productName}</p>
                   <p className="text-[10px] text-slate-500">{it.productSku}</p>
@@ -206,7 +225,8 @@ export function RfqItemsForm({ items, onChange }: RfqItemsFormProps) {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

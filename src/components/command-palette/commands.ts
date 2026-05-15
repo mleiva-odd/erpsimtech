@@ -46,7 +46,7 @@ import {
   Hourglass,
 } from 'lucide-react';
 
-export type CommandCategory = 'pages' | 'actions' | 'recent';
+export type CommandCategory = 'pages' | 'actions' | 'recent' | 'entities';
 
 /**
  * Comando que se renderiza dentro del Command Palette.
@@ -716,4 +716,191 @@ export function searchCommands(
   }
   scored.sort((a, b) => b.score - a.score);
   return scored;
+}
+
+/* ------------------------------------------------------------------ */
+/* Recientes (Fase 22d-3 · A)                                          */
+/* ------------------------------------------------------------------ */
+
+const RECENTS_STORAGE_KEY = 'simtech.commandPalette.recents';
+const MAX_RECENTS = 5;
+
+interface RecentEntry {
+  id: string;
+  at: number;
+}
+
+/**
+ * Lee de localStorage la lista cruda (sin validar contra el catálogo).
+ * Devuelve [] si:
+ *  - corremos en SSR (no hay window),
+ *  - localStorage falla (modo incógnito / quota),
+ *  - el JSON está corrupto.
+ */
+function readRecentsRaw(): RecentEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(RECENTS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const cleaned: RecentEntry[] = [];
+    for (const item of parsed) {
+      if (
+        item &&
+        typeof item === 'object' &&
+        typeof (item as { id?: unknown }).id === 'string' &&
+        typeof (item as { at?: unknown }).at === 'number'
+      ) {
+        cleaned.push({
+          id: (item as { id: string }).id,
+          at: (item as { at: number }).at,
+        });
+      }
+    }
+    return cleaned;
+  } catch {
+    return [];
+  }
+}
+
+function writeRecentsRaw(entries: RecentEntry[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      RECENTS_STORAGE_KEY,
+      JSON.stringify(entries),
+    );
+  } catch {
+    /* silencioso: localStorage puede estar bloqueado */
+  }
+}
+
+/**
+ * Registra el `id` de un comando como reciente. Sube el ID al tope,
+ * desduplica, recorta a `MAX_RECENTS`.
+ *
+ * Persistencia best-effort: si localStorage no está disponible (modo
+ * incógnito, quota, SSR), la llamada es no-op silenciosa.
+ */
+export function pushRecent(id: string): void {
+  if (!id) return;
+  const current = readRecentsRaw().filter((entry) => entry.id !== id);
+  const next: RecentEntry[] = [
+    { id, at: Date.now() },
+    ...current,
+  ].slice(0, MAX_RECENTS);
+  writeRecentsRaw(next);
+}
+
+/**
+ * Devuelve los comandos recientes en orden (más nuevo primero),
+ * filtrando IDs que ya no existen en el catálogo `allCommands`.
+ * No incluye entities (sólo páginas/acciones) porque las entities
+ * son dinámicas y no se persisten entre sesiones.
+ */
+export function getRecentCommands(allCommands: Command[]): Command[] {
+  const entries = readRecentsRaw();
+  if (entries.length === 0) return [];
+  const byId = new Map<string, Command>();
+  for (const cmd of allCommands) {
+    byId.set(cmd.id, cmd);
+  }
+  const recents: Command[] = [];
+  for (const entry of entries) {
+    const cmd = byId.get(entry.id);
+    if (cmd) {
+      recents.push({ ...cmd, category: 'recent' });
+    }
+  }
+  return recents;
+}
+
+/* ------------------------------------------------------------------ */
+/* Entities (Fase 22d-3 · C)                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Tipos mínimos que esperamos de cada endpoint. Mantenemos sólo los
+ * campos que el palette renderiza: el resto se ignora.
+ */
+export interface ProductEntity {
+  id: string;
+  name: string;
+  sku?: string | null;
+}
+
+export interface CustomerEntity {
+  id: string;
+  name: string;
+  nit?: string | null;
+  email?: string | null;
+}
+
+export interface SaleEntity {
+  id: string;
+  invoiceNumber?: string | null;
+  total?: number | string | null;
+  customer?: { name?: string | null } | null;
+}
+
+/**
+ * Construye los comandos `entities` a partir de los resultados de los
+ * fetches paralelos. Mantenemos esta función pura para poder testearla
+ * sin DOM/fetch.
+ *
+ * Como no existen rutas de detalle (`/products/[id]`) en el dashboard
+ * actual, navegamos a la lista correspondiente con un query param
+ * `?focus={id}` o, en sales, al detalle real (`/sales/[id]`).
+ */
+export function buildEntityCommands(input: {
+  products: ProductEntity[];
+  customers: CustomerEntity[];
+  sales: SaleEntity[];
+}): Command[] {
+  const out: Command[] = [];
+
+  for (const p of input.products) {
+    out.push({
+      id: `entity:product:${p.id}`,
+      category: 'entities',
+      title: p.name,
+      description: p.sku ? `SKU ${p.sku}` : 'Producto',
+      icon: Package,
+      perform: (r) => r.push(`/inventory?productId=${encodeURIComponent(p.id)}`),
+    });
+  }
+
+  for (const c of input.customers) {
+    const descParts: string[] = [];
+    if (c.nit) descParts.push(`NIT ${c.nit}`);
+    if (c.email) descParts.push(c.email);
+    out.push({
+      id: `entity:customer:${c.id}`,
+      category: 'entities',
+      title: c.name,
+      description: descParts.length > 0 ? descParts.join(' · ') : 'Cliente',
+      icon: Users,
+      perform: (r) =>
+        r.push(`/customers?customerId=${encodeURIComponent(c.id)}`),
+    });
+  }
+
+  for (const s of input.sales) {
+    const ref = s.invoiceNumber || s.id.split('-')[0].toUpperCase();
+    const customerName = s.customer?.name ?? '';
+    const descParts: string[] = [];
+    if (customerName) descParts.push(customerName);
+    if (s.total != null) descParts.push(`Q${Number(s.total).toFixed(2)}`);
+    out.push({
+      id: `entity:sale:${s.id}`,
+      category: 'entities',
+      title: `Venta ${ref}`,
+      description: descParts.length > 0 ? descParts.join(' · ') : 'Venta',
+      icon: ReceiptText,
+      perform: (r) => r.push(`/sales/${s.id}`),
+    });
+  }
+
+  return out;
 }

@@ -32,6 +32,7 @@ export async function GET(
         supplier: { select: { id: true, name: true, nit: true, phone: true } },
         user: { select: { id: true, name: true } },
         items: {
+          orderBy: { sortOrder: 'asc' },
           include: {
             product: { select: { id: true, name: true, sku: true, unitOfMeasure: true } },
             variant: { select: { id: true, name: true, sku: true } },

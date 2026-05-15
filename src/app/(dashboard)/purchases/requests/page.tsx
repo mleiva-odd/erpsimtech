@@ -8,11 +8,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ClipboardList, Plus, X, Loader2, ArrowRight, Trash2 } from 'lucide-react';
+import { ClipboardList, Plus, X, Loader2, ArrowRight, Trash2, BookmarkPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { useToast } from '@/components/ui/toast';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { useDragSort } from '@/hooks/useDragSort';
+import { DragHandle } from '@/components/ui/drag-handle';
+import { TemplateSelector } from '@/components/templates/TemplateSelector';
+import { SaveAsTemplateModal } from '@/components/templates/SaveAsTemplateModal';
+import type { TemplateItem, TemplateMetadata } from '@/lib/templates/types';
 
 interface PRItem {
   id: string;
@@ -221,6 +226,7 @@ export default function PurchaseRequestsPage() {
 }
 
 function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { toast } = useToast();
   const [suppliers, setSuppliers] = useState<SupplierOpt[]>([]);
   const [supplierId, setSupplierId] = useState('');
   const [reason, setReason] = useState('');
@@ -229,6 +235,64 @@ function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
   const [results, setResults] = useState<Array<{ id: string; name: string; sku: string; cost: number | string }>>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [showSaveTpl, setShowSaveTpl] = useState(false);
+
+  const itemsDragSort = useDragSort(items, setItems);
+
+  /**
+   * Fase 22d-5 · Resolver una plantilla y reemplazar los items.
+   * Hace lookup contra /api/products/[id] para traer name/sku/cost.
+   */
+  const applyTemplate = useCallback(
+    async (templateItems: TemplateItem[], metadata: TemplateMetadata | null) => {
+      try {
+        const resolved: Array<{
+          productId: string;
+          quantity: number;
+          estimatedUnitCost: number;
+          notes: string;
+          productName: string;
+          productSku: string;
+        }> = [];
+        for (const it of templateItems) {
+          const res = await fetch(`/api/products/${encodeURIComponent(it.productId)}`);
+          if (!res.ok) continue;
+          const p = await res.json().catch(() => null);
+          if (!p?.id) continue;
+          resolved.push({
+            productId: p.id,
+            quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
+            estimatedUnitCost: Number(it.estimatedUnitCost ?? p.cost ?? 0) || 0,
+            notes: it.notes ?? '',
+            productName: p.name ?? '',
+            productSku: p.sku ?? '',
+          });
+        }
+        if (resolved.length === 0) {
+          toast({ tone: 'error', message: 'Ningún producto de la plantilla está disponible.' });
+          return;
+        }
+        setItems(resolved);
+        if (metadata?.reason) setReason(metadata.reason);
+      } catch (err) {
+        toast({
+          tone: 'error',
+          message: err instanceof Error ? err.message : 'No se pudo aplicar la plantilla.',
+        });
+      }
+    },
+    [toast],
+  );
+
+  const templateItemsPayload: TemplateItem[] = items.map((it) => ({
+    productId: it.productId,
+    quantity: it.quantity,
+    estimatedUnitCost: it.estimatedUnitCost || null,
+    notes: it.notes || null,
+  }));
+  const templateMetadataPayload: TemplateMetadata = {
+    reason: reason || undefined,
+  };
 
   useEffect(() => {
     fetch('/api/suppliers')
@@ -311,7 +375,27 @@ function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
             />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Agregar producto</label>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase">Agregar producto</label>
+              <div className="flex flex-wrap gap-2">
+                <TemplateSelector
+                  type="PURCHASE_REQUEST"
+                  onApply={(tplItems, tplMeta) => {
+                    void applyTemplate(tplItems, tplMeta);
+                  }}
+                  buttonLabel="Usar plantilla"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSaveTpl(true)}
+                  disabled={items.length === 0}
+                  aria-label="Guardar como plantilla"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition disabled:opacity-50"
+                >
+                  <BookmarkPlus className="w-3.5 h-3.5" /> Guardar como plantilla
+                </button>
+              </div>
+            </div>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -352,8 +436,25 @@ function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
           </div>
           {items.length > 0 && (
             <div className="bg-slate-50 rounded-xl p-3 space-y-2">
-              {items.map((it, idx) => (
-                <div key={idx} className="bg-white rounded-lg p-3 flex flex-wrap gap-2 items-center">
+              {items.map((it, idx) => {
+                const isDragged = itemsDragSort.draggedIndex === idx;
+                const isHovered =
+                  itemsDragSort.hoveredIndex === idx &&
+                  itemsDragSort.draggedIndex !== null &&
+                  itemsDragSort.draggedIndex !== idx;
+                return (
+                <div
+                  key={idx}
+                  draggable
+                  onDragStart={itemsDragSort.onDragStart(idx)}
+                  onDragOver={itemsDragSort.onDragOver(idx)}
+                  onDrop={itemsDragSort.onDrop(idx)}
+                  onDragEnd={itemsDragSort.onDragEnd}
+                  className={`bg-white rounded-lg p-3 flex flex-wrap gap-2 items-center transition ${
+                    isDragged ? 'opacity-50' : ''
+                  } ${isHovered ? 'border-t-2 border-blue-500' : 'border-t-2 border-transparent'}`}
+                >
+                  <DragHandle />
                   <div className="flex-1 min-w-[160px]">
                     <p className="text-sm font-bold">{it.productName}</p>
                     <p className="text-[10px] text-slate-500">{it.productSku}</p>
@@ -386,7 +487,8 @@ function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
           {error && <p className="text-rose-500 text-xs font-bold">{error}</p>}
@@ -410,6 +512,15 @@ function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
           </button>
         </div>
       </div>
+
+      {showSaveTpl && (
+        <SaveAsTemplateModal
+          type="PURCHASE_REQUEST"
+          items={templateItemsPayload}
+          metadata={templateMetadataPayload}
+          onClose={() => setShowSaveTpl(false)}
+        />
+      )}
     </div>
   );
 }
@@ -608,6 +719,8 @@ function ConvertToPOModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  const itemsDragSort = useDragSort(items, setItems);
+
   useEffect(() => {
     fetch('/api/suppliers')
       .then((r) => r.json())
@@ -679,8 +792,25 @@ function ConvertToPOModal({
           </div>
           <div className="space-y-2">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ítems</p>
-            {items.map((it, idx) => (
-              <div key={idx} className="bg-slate-50 rounded-lg p-3 flex flex-wrap gap-2 items-center">
+            {items.map((it, idx) => {
+              const isDragged = itemsDragSort.draggedIndex === idx;
+              const isHovered =
+                itemsDragSort.hoveredIndex === idx &&
+                itemsDragSort.draggedIndex !== null &&
+                itemsDragSort.draggedIndex !== idx;
+              return (
+              <div
+                key={idx}
+                draggable
+                onDragStart={itemsDragSort.onDragStart(idx)}
+                onDragOver={itemsDragSort.onDragOver(idx)}
+                onDrop={itemsDragSort.onDrop(idx)}
+                onDragEnd={itemsDragSort.onDragEnd}
+                className={`bg-slate-50 rounded-lg p-3 flex flex-wrap gap-2 items-center transition ${
+                  isDragged ? 'opacity-50' : ''
+                } ${isHovered ? 'border-t-2 border-blue-500' : 'border-t-2 border-transparent'}`}
+              >
+                <DragHandle />
                 <div className="flex-1 min-w-[160px]">
                   <p className="text-sm font-bold">{it.productName}</p>
                   <p className="text-[10px] text-slate-500">{it.productSku}</p>
@@ -706,7 +836,8 @@ function ConvertToPOModal({
                   className="w-24 px-2 py-1.5 border border-slate-200 rounded-lg text-sm"
                 />
               </div>
-            ))}
+              );
+            })}
           </div>
           {error && <p className="text-rose-500 text-xs font-bold">{error}</p>}
         </div>

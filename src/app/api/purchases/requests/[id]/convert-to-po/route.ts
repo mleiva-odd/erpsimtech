@@ -148,13 +148,15 @@ export async function POST(
           approvedAt: initialStatus === 'APPROVED' ? new Date() : null,
           purchaseRequestId: pr.id,
           items: {
-            create: itemsData.map((it) => ({
+            create: itemsData.map((it, idx) => ({
               productId: it.productId,
               variantId: it.variantId,
               quantity: new PrismaNS.Decimal(it.quantity),
               unitCost: new PrismaNS.Decimal(it.unitCost),
               subtotal: new PrismaNS.Decimal(it.subtotal),
               taxRate: new PrismaNS.Decimal(it.taxRate),
+              // Fase 22d-5
+              sortOrder: idx,
             })),
           },
         } as never,

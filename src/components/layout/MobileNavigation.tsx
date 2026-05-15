@@ -20,6 +20,7 @@ import { MobileDrawer } from '@/components/ui/mobile-drawer';
 import { HamburgerButton } from './HamburgerButton';
 import { shouldCloseDrawer } from './mobile-nav.helpers';
 import { Store } from 'lucide-react';
+import { CommandPaletteTrigger } from '@/components/command-palette';
 
 interface Props {
   session: Session | null;
@@ -42,14 +43,19 @@ export function MobileNavigation(props: Props) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        {/* Mobile Header con hamburguesa */}
-        <header className="md:hidden h-16 bg-white border-b border-slate-200 flex items-center px-4 justify-between z-10 sticky top-0">
-          <div className="flex items-center gap-3">
+        {/* Header global. Visible en TODOS los breakpoints:
+            - Mobile (< md): hamburguesa + logo SIMTECH a la izquierda, trigger CMD+K a la derecha.
+            - Desktop (md+): vacío a la izquierda (el sidebar muestra el logo); trigger CMD+K a la derecha. */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 justify-between z-10 sticky top-0">
+          <div className="flex items-center gap-3 md:hidden">
             <HamburgerButton onClick={() => setDrawerOpen(true)} />
             <div className="flex items-center gap-2">
               <Store className="w-6 h-6 text-blue-600" />
               <span className="font-bold text-slate-900">SIMTECH</span>
             </div>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <CommandPaletteTrigger />
           </div>
         </header>
 

@@ -31,8 +31,14 @@ import { cn } from '@/lib/utils';
 import {
   type Command,
   type CommandCategory,
+  type CustomerEntity,
+  type ProductEntity,
+  type SaleEntity,
+  buildEntityCommands,
   filterCommandsByPermissions,
   getAllCommands,
+  getRecentCommands,
+  pushRecent,
   searchCommands,
 } from './commands';
 
@@ -44,9 +50,33 @@ const CATEGORY_LABELS: Record<CommandCategory, string> = {
   pages: 'Páginas',
   actions: 'Acciones',
   recent: 'Recientes',
+  entities: 'Resultados',
 };
 
-const CATEGORY_ORDER: CommandCategory[] = ['actions', 'pages', 'recent'];
+/**
+ * Orden de las categorías en el render.
+ *  - Sin query: priorizamos `recent` arriba, luego páginas y acciones.
+ *  - Con query: el orden es el mismo pero las entidades aparecen al final
+ *    como "Resultados" (búsqueda async).
+ *
+ * El render computa dinámicamente cuáles van arriba según haya o no
+ * query (ver `groupedCategories` abajo).
+ */
+const CATEGORY_ORDER_NO_QUERY: CommandCategory[] = [
+  'recent',
+  'actions',
+  'pages',
+  'entities',
+];
+const CATEGORY_ORDER_WITH_QUERY: CommandCategory[] = [
+  'actions',
+  'pages',
+  'entities',
+  'recent',
+];
+
+const ENTITY_DEBOUNCE_MS = 200;
+const ENTITY_MIN_QUERY = 2;
 
 export function CommandPalette({ onClose }: CommandPaletteProps) {
   const router = useRouter();
@@ -56,6 +86,9 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
 
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
+  // Entidades dinámicas resultantes del fetch async. Se setean desde un
+  // handler de useEffect (debounce) — no es state derivado.
+  const [entityCommands, setEntityCommands] = useState<Command[]>([]);
 
   // 1) Universo de comandos filtrado por permisos del usuario actual.
   const visibleCommands = useMemo<Command[]>(() => {
@@ -65,15 +98,42 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     return filterCommandsByPermissions(all, { role, permissions });
   }, [session]);
 
-  // 2) Resultados aplicando fuzzy search.
-  const results = useMemo(() => {
+  // 2) Comandos recientes leídos de localStorage. Sólo válidos cuando
+  //    NO hay query (al abrir el palette). Los obtenemos del catálogo
+  //    filtrado por permisos para no exponer páginas a las que el usuario
+  //    perdió acceso.
+  const recentCommands = useMemo<Command[]>(() => {
+    if (query.trim().length > 0) return [];
+    return getRecentCommands(visibleCommands);
+  }, [visibleCommands, query]);
+
+  // 3) Resultados de comandos fijos (páginas/acciones) aplicando fuzzy.
+  const baseResults = useMemo(() => {
     const scored = searchCommands(visibleCommands, query);
     return scored.map((s) => s.cmd);
   }, [visibleCommands, query]);
 
-  // 3) Agrupado por categoría (para render). Mantiene orden por score
-  //    dentro de cada grupo gracias a que `searchCommands` ya devolvió
-  //    ordenado.
+  // 4) Mezcla final: base + entidades dinámicas (sólo con query) +
+  //    recientes (sólo sin query). Sin duplicar IDs.
+  const results = useMemo<Command[]>(() => {
+    const merged: Command[] = [];
+    const seen = new Set<string>();
+    const push = (cmd: Command) => {
+      if (seen.has(cmd.id)) return;
+      seen.add(cmd.id);
+      merged.push(cmd);
+    };
+    for (const c of recentCommands) push(c);
+    for (const c of baseResults) push(c);
+    if (query.trim().length >= ENTITY_MIN_QUERY) {
+      for (const c of entityCommands) push(c);
+    }
+    return merged;
+  }, [recentCommands, baseResults, entityCommands, query]);
+
+  // 5) Agrupado por categoría (para render). El orden de categorías
+  //    cambia según haya o no query (recientes arriba sin query;
+  //    resultados al fondo con query).
   const grouped = useMemo(() => {
     const map = new Map<CommandCategory, Command[]>();
     for (const cmd of results) {
@@ -81,17 +141,21 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
       bucket.push(cmd);
       map.set(cmd.category, bucket);
     }
+    const order =
+      query.trim().length === 0
+        ? CATEGORY_ORDER_NO_QUERY
+        : CATEGORY_ORDER_WITH_QUERY;
     const ordered: { category: CommandCategory; items: Command[] }[] = [];
-    for (const cat of CATEGORY_ORDER) {
+    for (const cat of order) {
       const items = map.get(cat);
       if (items && items.length > 0) {
         ordered.push({ category: cat, items });
       }
     }
     return ordered;
-  }, [results]);
+  }, [results, query]);
 
-  // 4) Lista plana (en el mismo orden visible) para indexar con ↑/↓.
+  // 6) Lista plana (en el mismo orden visible) para indexar con ↑/↓.
   const flatList = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
 
   // safeActiveIndex deriva del state — si cambian los resultados y el
@@ -120,8 +184,48 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     }
   }, [safeActiveIndex, flatList.length]);
 
+  // Fetch async de entidades (productos, clientes, ventas) con debounce
+  // y AbortController. Se dispara recién cuando hay ≥ ENTITY_MIN_QUERY
+  // caracteres. Los errores se silencian (no rompemos UX por una red caída).
+  //
+  // Nota sobre set-state-in-effect: el setState aquí es el patrón estándar
+  // para data fetching nativo (sin librería de queries). NO está derivando
+  // state — pone en state el RESULTADO de un side-effect (la red), que es
+  // el caso de uso legítimo de useEffect. Cuando la query es muy corta o
+  // se borra, NO limpiamos el state — las entities huérfanas se ignoran
+  // en el merge (`results`) porque sólo se incluyen si la query es válida.
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < ENTITY_MIN_QUERY) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void runEntityFetch(trimmed, controller.signal)
+        .then((cmds) => {
+          if (controller.signal.aborted) return;
+          setEntityCommands(cmds);
+        })
+        .catch(() => {
+          /* silencioso: errores de red no se muestran al usuario */
+        });
+    }, ENTITY_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
+
   const runCommand = useCallback(
     (cmd: Command) => {
+      // Persistir como reciente sólo si NO es ya un comando "recent"
+      // (que es un re-rendered de uno fijo) ni una entidad dinámica
+      // (las entities no se persisten — sus IDs son volátiles).
+      if (!cmd.id.startsWith('entity:')) {
+        pushRecent(cmd.id);
+      }
       onClose();
       // perform es síncrono y arbitrario; ejecutarlo después del
       // onClose evita parpadeos si dispara navegación.
@@ -359,4 +463,169 @@ function KbdLabel({ text }: { text: string }) {
       {text}
     </kbd>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Fetch entidades                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lanza los fetches en paralelo y devuelve la lista plana de Commands.
+ * Cualquier endpoint que falle o devuelva una shape inesperada se ignora
+ * (su slice queda vacío). El AbortSignal corta todas las requests cuando
+ * el caller decide (cambio de query, unmount).
+ *
+ * Endpoints utilizados (Fase 22d-3):
+ *   - GET /api/products?q={q}&limit=5     → `{ products: [...] }`
+ *   - GET /api/customers?q={q}&limit=5    → `{ data: [...] }`
+ *   - GET /api/sales?search={q}&limit=5   → `{ data: [...] }`
+ *
+ * `/api/suppliers` se omite porque su GET actual no acepta query string.
+ */
+async function runEntityFetch(
+  q: string,
+  signal: AbortSignal,
+): Promise<Command[]> {
+  const encoded = encodeURIComponent(q);
+
+  const [productsResult, customersResult, salesResult] = await Promise.all([
+    fetchProducts(encoded, signal),
+    fetchCustomers(encoded, signal),
+    fetchSales(encoded, signal),
+  ]);
+
+  return buildEntityCommands({
+    products: productsResult,
+    customers: customersResult,
+    sales: salesResult,
+  });
+}
+
+async function fetchProducts(
+  encodedQuery: string,
+  signal: AbortSignal,
+): Promise<ProductEntity[]> {
+  try {
+    const res = await fetch(
+      `/api/products?q=${encodedQuery}&limit=5`,
+      { signal, credentials: 'same-origin' },
+    );
+    if (!res.ok) return [];
+    const json: unknown = await res.json();
+    if (
+      json &&
+      typeof json === 'object' &&
+      Array.isArray((json as { products?: unknown }).products)
+    ) {
+      const raw = (json as { products: unknown[] }).products;
+      return raw
+        .map(toProductEntity)
+        .filter((p): p is ProductEntity => p !== null);
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchCustomers(
+  encodedQuery: string,
+  signal: AbortSignal,
+): Promise<CustomerEntity[]> {
+  try {
+    const res = await fetch(
+      `/api/customers?q=${encodedQuery}&limit=5`,
+      { signal, credentials: 'same-origin' },
+    );
+    if (!res.ok) return [];
+    const json: unknown = await res.json();
+    if (
+      json &&
+      typeof json === 'object' &&
+      Array.isArray((json as { data?: unknown }).data)
+    ) {
+      const raw = (json as { data: unknown[] }).data;
+      return raw
+        .map(toCustomerEntity)
+        .filter((c): c is CustomerEntity => c !== null);
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchSales(
+  encodedQuery: string,
+  signal: AbortSignal,
+): Promise<SaleEntity[]> {
+  try {
+    // /api/sales usa `search` (no `q`) y devuelve `{ data: [...] }`.
+    const res = await fetch(
+      `/api/sales?search=${encodedQuery}&limit=5`,
+      { signal, credentials: 'same-origin' },
+    );
+    if (!res.ok) return [];
+    const json: unknown = await res.json();
+    if (
+      json &&
+      typeof json === 'object' &&
+      Array.isArray((json as { data?: unknown }).data)
+    ) {
+      const raw = (json as { data: unknown[] }).data;
+      return raw
+        .map(toSaleEntity)
+        .filter((s): s is SaleEntity => s !== null);
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function toProductEntity(raw: unknown): ProductEntity | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== 'string' || typeof r.name !== 'string') return null;
+  return {
+    id: r.id,
+    name: r.name,
+    sku: typeof r.sku === 'string' ? r.sku : null,
+  };
+}
+
+function toCustomerEntity(raw: unknown): CustomerEntity | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== 'string' || typeof r.name !== 'string') return null;
+  return {
+    id: r.id,
+    name: r.name,
+    nit: typeof r.nit === 'string' ? r.nit : null,
+    email: typeof r.email === 'string' ? r.email : null,
+  };
+}
+
+function toSaleEntity(raw: unknown): SaleEntity | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== 'string') return null;
+  let customer: { name?: string | null } | null = null;
+  if (r.customer && typeof r.customer === 'object') {
+    const c = r.customer as Record<string, unknown>;
+    customer = {
+      name: typeof c.name === 'string' ? c.name : null,
+    };
+  }
+  let total: number | string | null = null;
+  if (typeof r.total === 'number' || typeof r.total === 'string') {
+    total = r.total;
+  }
+  return {
+    id: r.id,
+    invoiceNumber:
+      typeof r.invoiceNumber === 'string' ? r.invoiceNumber : null,
+    total,
+    customer,
+  };
 }

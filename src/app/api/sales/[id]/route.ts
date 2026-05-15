@@ -20,6 +20,7 @@ export async function GET(
         where: { id: resolvedParams.id, companyId: tenant.companyId },
         include: ({
           items: {
+            orderBy: { sortOrder: 'asc' },
             include: {
               product: { select: { id: true, name: true, sku: true } },
               variant: { select: { id: true, name: true, sku: true } },

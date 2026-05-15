@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProductSearch } from '@/components/pos/ProductSearch';
 import { CustomerSearch } from '@/components/pos/CustomerSearch';
@@ -9,8 +9,11 @@ import { Cart } from '@/components/pos/Cart';
 import { CheckoutModal } from '@/components/pos/CheckoutModal';
 import { ProductGrid } from '@/components/pos/ProductGrid';
 import { useCartStore } from '@/stores/cartStore';
-import { ShoppingCart, FileText, Wifi, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, FileText, Wifi, ArrowLeft, BookmarkPlus } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { TemplateSelector } from '@/components/templates/TemplateSelector';
+import { SaveAsTemplateModal } from '@/components/templates/SaveAsTemplateModal';
+import type { TemplateItem, TemplateMetadata } from '@/lib/templates/types';
 
 export default function NewRemoteSalePage() {
   const router = useRouter();
@@ -20,8 +23,74 @@ export default function NewRemoteSalePage() {
 
   const itemCount = useCartStore((s) => s.itemCount());
   const { items, discount, customerId, totalWithDiscount, clearCart, ensureCheckoutRequestId } = useCartStore();
+  const addItem = useCartStore((s) => s.addItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
   const [isQuoting, setIsQuoting] = useState(false);
+  const [showSaveTpl, setShowSaveTpl] = useState(false);
   const { toast } = useToast();
+
+  /**
+   * Fase 22d-5 · Aplicar plantilla al cart store.
+   *
+   * Para cada productId del template, hacemos lookup contra
+   * /api/products/[id] y empujamos al carrito con la quantity correcta.
+   * Si el producto no existe o está fuera de stock, se omite.
+   */
+  const applyTemplate = useCallback(
+    async (templateItems: TemplateItem[], _: TemplateMetadata | null) => {
+      try {
+        let added = 0;
+        for (const it of templateItems) {
+          const res = await fetch(`/api/products/${encodeURIComponent(it.productId)}`);
+          if (!res.ok) continue;
+          const p = await res.json().catch(() => null);
+          if (!p?.id) continue;
+          // Calcular stock disponible (suma de stocks en la sucursal/empresa).
+          const stocks = Array.isArray(p.stocks) ? p.stocks : [];
+          const stock = stocks.reduce(
+            (acc: number, s: { quantity?: number | string | null }) =>
+              acc + (Number(s?.quantity) || 0),
+            0,
+          );
+          if (stock <= 0) continue;
+          const desired = Math.min(
+            Math.max(1, Math.floor(Number(it.quantity) || 1)),
+            stock,
+          );
+          const unitPrice = Number(it.unitPrice ?? p.price ?? 0) || 0;
+          addItem({
+            id: p.id,
+            name: p.name ?? '',
+            sku: p.sku ?? '',
+            price: unitPrice,
+            stock,
+          });
+          if (desired > 1) {
+            updateQuantity(p.id, desired);
+          }
+          added += 1;
+        }
+        if (added === 0) {
+          toast({ tone: 'error', message: 'Ningún producto de la plantilla está disponible.' });
+        } else {
+          toast({ tone: 'success', message: `${added} ítem(s) agregados al carrito.` });
+        }
+      } catch (err) {
+        toast({
+          tone: 'error',
+          message: err instanceof Error ? err.message : 'No se pudo aplicar la plantilla.',
+        });
+      }
+    },
+    [addItem, updateQuantity, toast],
+  );
+
+  const templateItemsPayload: TemplateItem[] = items.map((it) => ({
+    productId: it.product.id,
+    variantId: it.product.variantId ?? null,
+    quantity: it.quantity,
+    unitPrice: it.unitPrice,
+  }));
 
   const getErrorMessage = (error: unknown, fallback: string) =>
     error instanceof Error ? error.message : fallback;
@@ -102,6 +171,22 @@ export default function NewRemoteSalePage() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <TemplateSelector
+                type="SALE"
+                onApply={(tplItems, tplMeta) => {
+                  void applyTemplate(tplItems, tplMeta);
+                }}
+                buttonLabel="Usar plantilla"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSaveTpl(true)}
+                disabled={items.length === 0}
+                aria-label="Guardar como plantilla"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition disabled:opacity-50"
+              >
+                <BookmarkPlus className="w-3.5 h-3.5" /> Guardar como plantilla
+              </button>
               <button
                 onClick={() => setShowQuotesModal(true)}
                 className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors shadow-sm active:scale-95"
@@ -236,6 +321,15 @@ export default function NewRemoteSalePage() {
 
       {showQuotesModal && (
         <QuotesModal onClose={() => setShowQuotesModal(false)} />
+      )}
+
+      {showSaveTpl && (
+        <SaveAsTemplateModal
+          type="SALE"
+          items={templateItemsPayload}
+          metadata={null}
+          onClose={() => setShowSaveTpl(false)}
+        />
       )}
     </div>
   );

@@ -255,13 +255,15 @@ export async function POST(
             approvedAt: initialStatus === 'APPROVED' ? new Date() : null,
             sourceRfqId: rfq.id,
             items: {
-              create: group.lines.map((l) => ({
+              create: group.lines.map((l, idx) => ({
                 productId: l.productId,
                 variantId: l.variantId,
                 quantity: new Prisma.Decimal(l.quantity),
                 unitCost: new Prisma.Decimal(l.unitCost),
                 subtotal: new Prisma.Decimal(l.subtotal),
                 taxRate: new Prisma.Decimal(0.12),
+                // Fase 22d-5
+                sortOrder: idx,
               })),
             },
           },

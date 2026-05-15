@@ -25,6 +25,7 @@ export async function GET(
         approvedBy: { select: { id: true, name: true } },
         supplier: { select: { id: true, name: true } },
         items: {
+          orderBy: { sortOrder: 'asc' },
           include: {
             product: { select: { id: true, name: true, sku: true } },
             variant: { select: { id: true, name: true } },

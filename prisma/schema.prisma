@@ -56,6 +56,8 @@ model Company {
   taxDocuments          TaxDocument[]
   creditNotes           CreditNote[]
   debitNotes            DebitNote[]
+  // Fase 22d-5 · Plantillas de documentos reusables (Quote/Sale/RFQ/PO/PR).
+  documentTemplates     DocumentTemplate[]
   // Fase 19 · Compras enterprise (PR/RFQ/PO/GRN/Invoice/CreditNote).
   // Umbral mínimo para que una PO requiera aprobación. Default 0 = todas
   // requieren aprobación. Para legacy se setea alto en onboarding.
@@ -186,6 +188,8 @@ model User {
   rfqQuotesCreated         RFQQuote[]                @relation("RFQQuoteBy")
   // Fase 22c-4 · RFQs donde este usuario es el comprador asignado
   rfqRequestsAsBuyer       RFQRequest[]              @relation("RFQBuyer")
+  // Fase 22d-5 · Plantillas creadas por este usuario.
+  documentTemplatesCreated DocumentTemplate[]        @relation("DocumentTemplateCreatedBy")
   goodsReceivedNotes       GoodsReceivedNote[]       @relation("GRNReceivedBy")
   supplierInvoicesRegistered SupplierInvoice[]       @relation("SupInvRegistered")
   supplierCreditNotesRegistered SupplierCreditNote[] @relation("SupCNRegistered")
@@ -490,6 +494,8 @@ model PurchaseOrderItem {
   unitCost        Decimal         @db.Decimal(10, 2)
   subtotal        Decimal         @db.Decimal(10, 2)
   variantId       String?
+  // Fase 22d-5 · orden visual del item dentro de la PO (drag-drop).
+  sortOrder       Int             @default(0)
   /// Cantidad acumulada efectivamente recibida (sum de GRN items).
   quantityReceived Decimal        @default(0) @db.Decimal(12, 3)
   /// Cantidad acumulada facturada (sum de SupplierInvoice items en el
@@ -662,6 +668,10 @@ model SaleItem {
   unitPrice Decimal         @db.Decimal(10, 2)
   unitCost  Decimal?        @db.Decimal(10, 2)
   discount  Decimal         @default(0) @db.Decimal(10, 2)
+  // Fase 22d-5 · orden visual del item dentro de la venta (drag-drop).
+  // Default 0 para registros legacy; el backfill ROW_NUMBER asigna orden
+  // estable por id. Lecturas usan `orderBy: { sortOrder: 'asc' }`.
+  sortOrder Int             @default(0)
   // Fase 20 · Tasa de descuento por línea (0..1). Permite registrar el % en
   // adición al monto absoluto en `discount` (que sigue siendo el descuento
   // efectivo en GTQ aplicado a la línea, para fines contables).
@@ -1924,10 +1934,14 @@ model PurchaseRequestItem {
   quantity          Decimal @db.Decimal(12, 3)
   estimatedUnitCost Decimal? @db.Decimal(10, 2)
   notes             String?
+  // Fase 22d-5 · orden visual del item dentro de la PR (drag-drop).
+  sortOrder         Int     @default(0)
 
   purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
   product           Product  @relation(fields: [productId], references: [id])
   variant           ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([purchaseRequestId, sortOrder])
 }
 
 /// Request For Quotation: pedir cotización a varios proveedores.
@@ -2005,6 +2019,8 @@ model RFQRequestItem {
   awardedQuoteItemId String?
   /// Timestamp de la adjudicación.
   awardedAt          DateTime?
+  // Fase 22d-5 · orden visual del item dentro del RFQ (drag-drop).
+  sortOrder          Int             @default(0)
 
   rfqRequest        RFQRequest    @relation(fields: [rfqRequestId], references: [id], onDelete: Cascade)
   product           Product       @relation(fields: [productId], references: [id])
@@ -2074,6 +2090,44 @@ model RFQInvitation {
   // UNIQUE (rfqRequestId, supplierId) WHERE supplierId IS NOT NULL.
   @@index([rfqRequestId])
   @@index([supplierId])
+}
+
+/// Fase 22d-5 · Plantilla reusable de documentos transaccionales.
+/// Permite a cualquier usuario de la empresa (con permisos) guardar un set
+/// de productos+cantidades+notas como plantilla y aplicarla al crear una
+/// nueva Quote/Sale/RFQ/PO/PR. Items en JSONB porque cada `type` define su
+/// propio shape mínimo y la plantilla es un snapshot inmutable.
+model DocumentTemplate {
+  id           String               @id @default(uuid())
+  companyId    String
+  type         DocumentTemplateType
+  name         String
+  description  String?
+  /// items: Array<{ productId, variantId?, quantity, notes?, unit?, ... }>
+  /// Shape mínimo por tipo definido en `src/lib/templates/types.ts`.
+  items        Json                 @default("[]")
+  /// metadata opcional (deliveryPlace, paymentTerms, etc. específicos por tipo).
+  metadata     Json?
+  createdById  String
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  company      Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy    User                 @relation("DocumentTemplateCreatedBy", fields: [createdById], references: [id])
+
+  // Unicidad por (company, type, name) sólo entre activas — enforce via
+  // índice único parcial creado en la migración SQL.
+  @@index([companyId, type])
+  @@index([createdById])
+}
+
+enum DocumentTemplateType {
+  QUOTE
+  SALE
+  RFQ
+  PURCHASE_ORDER
+  PURCHASE_REQUEST
 }
 
 /// Goods Received Note: documento de recepción de mercadería contra una PO.

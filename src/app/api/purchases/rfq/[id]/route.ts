@@ -53,6 +53,7 @@ export async function GET(
         buyer: { select: { id: true, name: true, email: true } },
         branch: { select: { id: true, name: true, code: true } },
         items: {
+          orderBy: { sortOrder: 'asc' },
           include: {
             product: {
               select: { id: true, name: true, sku: true, unitOfMeasure: true },
@@ -203,13 +204,15 @@ export async function PUT(
         ...(parsed.items
           ? {
               items: {
-                create: parsed.items.map((it) => ({
+                create: parsed.items.map((it, idx) => ({
                   productId: it.productId,
                   variantId: it.variantId ?? null,
                   quantity: new Prisma.Decimal(it.quantity),
                   specifications: it.specifications ?? null,
                   unit: it.unit ?? null,
                   observations: it.observations ?? null,
+                  // Fase 22d-5
+                  sortOrder: idx,
                 })),
               },
             }
@@ -219,7 +222,7 @@ export async function PUT(
       return tx.rFQRequest.update({
         where: { id },
         data: updateData,
-        include: { items: true },
+        include: { items: { orderBy: { sortOrder: 'asc' } } },
       });
     });
 

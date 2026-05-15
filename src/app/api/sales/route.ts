@@ -63,7 +63,10 @@ const CreateSaleSchema = z.object({
 });
 
 const saleResponseInclude = {
-  items: { include: { product: { select: { id: true, name: true, sku: true } }, variant: { select: { id: true, name: true } } } },
+  items: {
+    orderBy: { sortOrder: 'asc' },
+    include: { product: { select: { id: true, name: true, sku: true } }, variant: { select: { id: true, name: true } } },
+  },
   payments: true,
   user: { select: { id: true, name: true } },
   customer: { select: { id: true, name: true } },
@@ -532,6 +535,8 @@ export async function POST(req: NextRequest) {
               discountRate: lineCalcs[idx].lineDiscountRate,
               taxRate: lineCalcs[idx].taxRate,
               tax: lineCalcs[idx].tax,
+              // Fase 22d-5 · respetar orden visual del cliente.
+              sortOrder: idx,
             })),
           },
         } as unknown) as Prisma.SaleUncheckedCreateInput,
@@ -986,7 +991,10 @@ export async function GET(req: NextRequest) {
         user: { select: { id: true, name: true } },
         customer: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true } },
-        items: { include: { product: { select: { name: true, sku: true } }, variant: { select: { name: true } } } },
+        items: {
+          orderBy: { sortOrder: 'asc' },
+          include: { product: { select: { name: true, sku: true } }, variant: { select: { name: true } } },
+        },
         payments: true,
         returns: { select: { id: true, amount: true, createdAt: true } },
       },

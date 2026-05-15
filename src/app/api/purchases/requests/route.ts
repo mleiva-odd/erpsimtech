@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
       approvedBy: { select: { id: true, name: true } },
       supplier: { select: { id: true, name: true } },
       items: {
+        orderBy: { sortOrder: 'asc' },
         include: { product: { select: { id: true, name: true, sku: true } } },
       },
     },
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
         reason: parsed.reason,
         status: 'PENDING',
         items: {
-          create: parsed.items.map((it) => ({
+          create: parsed.items.map((it, idx) => ({
             productId: it.productId,
             variantId: it.variantId ?? null,
             quantity: new PrismaNS.Decimal(it.quantity),
@@ -120,6 +121,8 @@ export async function POST(req: NextRequest) {
                 ? new PrismaNS.Decimal(it.estimatedUnitCost)
                 : null,
             notes: it.notes ?? null,
+            // Fase 22d-5
+            sortOrder: idx,
           })),
         },
       },

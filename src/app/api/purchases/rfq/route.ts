@@ -203,17 +203,19 @@ export async function POST(req: NextRequest) {
         quoteValidityDays,
         buyerId: parsed.buyerId ?? tenant.userId,
         items: {
-          create: parsed.items.map((it) => ({
+          create: parsed.items.map((it, idx) => ({
             productId: it.productId,
             variantId: it.variantId ?? null,
             quantity: new Prisma.Decimal(it.quantity),
             specifications: it.specifications ?? null,
             unit: it.unit ?? null,
             observations: it.observations ?? null,
+            // Fase 22d-5
+            sortOrder: idx,
           })),
         },
       },
-      include: { items: true },
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
     });
 
     await createAuditLog({

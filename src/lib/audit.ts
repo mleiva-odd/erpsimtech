@@ -76,7 +76,11 @@ type AuditAction =
   | 'SALE_QUOTE_CANCELLED'
   | 'SALE_ORDER_CANCELLED'
   | 'SALE_DELIVERED'
-  | 'SALE_INVOICED';
+  | 'SALE_INVOICED'
+  // Fase 22d-5 · Plantillas de documentos
+  | 'DOCUMENT_TEMPLATE_CREATED'
+  | 'DOCUMENT_TEMPLATE_UPDATED'
+  | 'DOCUMENT_TEMPLATE_DELETED';
 
 interface AuditLogParams {
   companyId: string;

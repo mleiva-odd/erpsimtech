@@ -15,10 +15,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ChevronLeft, ChevronRight, Loader2, Save, Send, Plus, X, Mail, Store } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, Save, Send, Plus, X, Mail, Store, BookmarkPlus } from 'lucide-react';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { useToast } from '@/components/ui/toast';
 import { RfqItemsForm, type RfqItemDraft } from '@/components/purchases/RfqItemsForm';
+import { TemplateSelector } from '@/components/templates/TemplateSelector';
+import { SaveAsTemplateModal } from '@/components/templates/SaveAsTemplateModal';
+import type { TemplateItem, TemplateMetadata } from '@/lib/templates/types';
 
 interface SupplierOpt {
   id: string;
@@ -51,6 +54,7 @@ export default function NewRfqPage() {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [busy, setBusy] = useState(false);
+  const [showSaveTpl, setShowSaveTpl] = useState(false);
 
   const [items, setItems] = useState<RfqItemDraft[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<SupplierOpt[]>([]);
@@ -132,6 +136,69 @@ export default function NewRfqPage() {
       }
     })();
   }, [session?.user?.id, session?.user?.branchId]);
+
+  /**
+   * Fase 22d-5 · Aplicar plantilla a step 1.
+   *
+   * TemplateItem no carga `productName`/`productSku`; los resolvemos uno
+   * por uno contra `/api/products/[id]`. Reemplaza el listado actual.
+   */
+  const applyTemplate = useCallback(
+    async (templateItems: TemplateItem[], metadata: TemplateMetadata | null) => {
+      try {
+        const resolved: RfqItemDraft[] = [];
+        for (const it of templateItems) {
+          const res = await fetch(`/api/products/${encodeURIComponent(it.productId)}`);
+          if (!res.ok) continue;
+          const p = await res.json().catch(() => null);
+          if (!p?.id) continue;
+          resolved.push({
+            productId: p.id,
+            productName: p.name ?? '',
+            productSku: p.sku ?? '',
+            variantId: it.variantId ?? null,
+            quantity: Number(it.quantity) > 0 ? Number(it.quantity) : 1,
+            unit: it.unit ?? p.unitOfMeasure ?? null,
+            specifications: it.specifications ?? null,
+            observations: it.observations ?? null,
+          });
+        }
+        if (resolved.length === 0) {
+          toast({ tone: 'error', message: 'Ningún producto de la plantilla está disponible.' });
+          return;
+        }
+        setItems(resolved);
+        if (metadata) {
+          setDetails((d) => ({
+            ...d,
+            deliveryPlace: metadata.deliveryPlace ?? d.deliveryPlace,
+            quoteValidityDays: metadata.quoteValidityDays ?? d.quoteValidityDays,
+            branchId: metadata.branchId ?? d.branchId,
+          }));
+        }
+      } catch (err) {
+        toast({
+          tone: 'error',
+          message: err instanceof Error ? err.message : 'No se pudo aplicar la plantilla.',
+        });
+      }
+    },
+    [toast],
+  );
+
+  const templateItemsPayload: TemplateItem[] = items.map((it) => ({
+    productId: it.productId,
+    variantId: it.variantId ?? null,
+    quantity: it.quantity,
+    unit: it.unit ?? null,
+    specifications: it.specifications ?? null,
+    observations: it.observations ?? null,
+  }));
+  const templateMetadataPayload: TemplateMetadata = {
+    deliveryPlace: details.deliveryPlace || undefined,
+    quoteValidityDays: details.quoteValidityDays || undefined,
+    branchId: details.branchId || undefined,
+  };
 
   const addExternalEmail = () => {
     const value = externalEmailDraft.trim();
@@ -289,7 +356,27 @@ export default function NewRfqPage() {
       <div className="bg-white rounded-2xl border border-slate-100 p-6">
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold text-slate-800">Items a cotizar</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-bold text-slate-800">Items a cotizar</h2>
+              <div className="flex flex-wrap gap-2">
+                <TemplateSelector
+                  type="RFQ"
+                  onApply={(tplItems, tplMeta) => {
+                    void applyTemplate(tplItems, tplMeta);
+                  }}
+                  buttonLabel="Usar plantilla"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSaveTpl(true)}
+                  disabled={items.length === 0}
+                  aria-label="Guardar como plantilla"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition disabled:opacity-50"
+                >
+                  <BookmarkPlus className="w-3.5 h-3.5" /> Guardar como plantilla
+                </button>
+              </div>
+            </div>
             <RfqItemsForm items={items} onChange={setItems} />
           </div>
         )}
@@ -545,6 +632,15 @@ export default function NewRfqPage() {
           )}
         </div>
       </div>
+
+      {showSaveTpl && (
+        <SaveAsTemplateModal
+          type="RFQ"
+          items={templateItemsPayload}
+          metadata={templateMetadataPayload}
+          onClose={() => setShowSaveTpl(false)}
+        />
+      )}
     </div>
   );
 }

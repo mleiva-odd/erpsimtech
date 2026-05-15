@@ -1,16 +1,27 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * Fase 22b · Accounting movements con DataTable + useDataTable.
+ *
+ * Endpoint `/api/accounting` ya soporta paginación servidor + filtro `type`.
+ * Mantenemos KPIs + charts + modal de movimiento manual; sólo la tabla
+ * "Movimientos" cambia al nuevo componente.
+ */
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import {
   TrendingUp, TrendingDown, DollarSign, Wallet,
-  ArrowUpCircle, ArrowDownCircle, Plus, RefreshCw,
-  ChevronLeft, ChevronRight, HandCoins, CreditCard, Download
+  ArrowUpCircle, ArrowDownCircle, Plus, HandCoins, CreditCard, Download,
 } from 'lucide-react';
 import { useBranchStore } from '@/stores/branchStore';
 import { useToast } from '@/components/ui/toast';
+import { useDataTable } from '@/hooks/useDataTable';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface Summary {
   monthlyIncome: number;
@@ -51,17 +62,12 @@ export default function AccountingPage() {
   const { selectedBranchId } = useBranchStore();
 
   const role = session?.user?.role;
-  const permissions = session?.user?.permissions ?? [];
+  const permissions = useMemo(() => session?.user?.permissions ?? [], [session]);
   const canManageTreasury = role === 'SUPER_ADMIN' || permissions.includes('treasury:manage');
   const canAccess = canManageTreasury || permissions.includes('treasury:view');
 
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [entries, setEntries] = useState<AccountingEntry[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [typeFilter, setTypeFilter] = useState('');
 
   // Manual entry form
   const [showForm, setShowForm] = useState(false);
@@ -72,63 +78,70 @@ export default function AccountingPage() {
   const [formDate, setFormDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [submitting, setSubmitting] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const table = useDataTable<AccountingEntry>({
+    defaultLimit: 20,
+    autoLoad: canAccess,
+    onFetch: async ({ page, limit, filters, signal }) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
+      if (filters.type) params.set('type', String(filters.type));
+      if (selectedBranchId) params.set('branchId', selectedBranchId);
+      const res = await fetch(`/api/accounting?${params}`, { signal });
+      if (!res.ok) throw new Error('Error al cargar movimientos.');
+      const json = await res.json();
+      return { data: json.data ?? [], total: json.total ?? 0 };
+    },
+  });
+
+  const loadSummary = useCallback(async () => {
     if (!canAccess) return;
-    setLoading(true);
     try {
-      const branchQ = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
-      const [sumRes, catRes, entRes] = await Promise.all([
-        fetch(`/api/accounting/summary?${branchQ}`),
-        fetch(`/api/accounting/categories`),
-        fetch(`/api/accounting?page=${page}&limit=20${typeFilter ? `&type=${typeFilter}` : ''}${branchQ}`),
+      const branchQ = selectedBranchId ? `?branchId=${selectedBranchId}` : '';
+      const [sumRes, catRes] = await Promise.all([
+        fetch(`/api/accounting/summary${branchQ}`),
+        fetch('/api/accounting/categories'),
       ]);
-      const [sumData, catData, entData] = await Promise.all([
-        sumRes.json(), catRes.json(), entRes.json(),
-      ]);
+      const sumData = await sumRes.json();
+      const catData = await catRes.json();
       setSummary(sumData);
       setCategories(Array.isArray(catData) ? catData : []);
-      setEntries(entData.data || []);
-      setTotalPages(entData.totalPages || 1);
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoading(false);
     }
-  }, [page, typeFilter, selectedBranchId, canAccess]);
+  }, [canAccess, selectedBranchId]);
 
   useEffect(() => {
-    if (authStatus !== 'loading') loadData();
-  }, [loadData, authStatus]);
+    void loadSummary();
+  }, [loadSummary]);
 
   const handleExportCSV = async () => {
     try {
       const branchQ = selectedBranchId ? `&branchId=${selectedBranchId}` : '';
-      const res = await fetch(`/api/accounting?page=1&limit=10000${typeFilter ? `&type=${typeFilter}` : ''}${branchQ}`);
+      const typeQ = table.filters.type ? `&type=${table.filters.type}` : '';
+      const res = await fetch(`/api/accounting?page=1&limit=10000${typeQ}${branchQ}`);
       const data = await res.json();
-      
       const allEntries: AccountingEntry[] = data.data || [];
-      
       const headers = ['Fecha', 'Tipo', 'Categoría', 'Descripción', 'Monto'];
-      const rows = allEntries.map(e => [
+      const rows = allEntries.map((e) => [
         format(new Date(e.date), 'dd/MM/yyyy HH:mm'),
         e.type === 'INCOME' ? 'Ingreso' : 'Egreso',
         e.category.name,
         e.description.replace(/"/g, '""'),
-        e.amount.toFixed(2)
+        e.amount.toFixed(2),
       ]);
-
       const csvContent = [
         headers.join(','),
-        ...rows.map(r => r.map(field => `"${field}"`).join(','))
+        ...rows.map((r) => r.map((f) => `"${f}"`).join(',')),
       ].join('\n');
-
-      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `Reporte_Contable_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
       link.click();
       toast({ tone: 'success', message: 'Reporte exportado correctamente.' });
-    } catch (e) {
+    } catch {
       toast({ tone: 'error', message: 'Error al exportar reporte.' });
     }
   };
@@ -157,7 +170,8 @@ export default function AccountingPage() {
       setShowForm(false);
       setFormDescription('');
       setFormAmount('');
-      loadData();
+      void loadSummary();
+      void table.refetch();
     } catch (e) {
       toast({ tone: 'error', message: e instanceof Error ? e.message : 'Error' });
     } finally {
@@ -165,7 +179,13 @@ export default function AccountingPage() {
     }
   };
 
-  if (authStatus === 'loading') return <div className="p-8 flex justify-center"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>;
+  if (authStatus === 'loading') {
+    return (
+      <div className="p-8 flex justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!canAccess) {
     return (
@@ -178,11 +198,71 @@ export default function AccountingPage() {
     );
   }
 
-  const filteredCats = categories.filter(c => !formType || c.type === formType);
-  const maxExpense = Math.max(...(summary?.expenseBreakdown?.map(e => e.amount) || [1]));
+  const filteredCats = categories.filter((c) => !formType || c.type === formType);
+  const maxExpense = Math.max(...(summary?.expenseBreakdown?.map((e) => e.amount) || [1]));
+
+  const columns: DataTableColumn<AccountingEntry>[] = [
+    {
+      key: 'type',
+      header: 'Tipo',
+      mobilePriority: 'meta',
+      accessor: (entry) =>
+        entry.type === 'INCOME' ? (
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-1 rounded-lg w-fit">
+            <ArrowUpCircle className="w-3 h-3" /> INGRESO
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-1 rounded-lg w-fit">
+            <ArrowDownCircle className="w-3 h-3" /> EGRESO
+          </span>
+        ),
+      exportValue: (entry) => (entry.type === 'INCOME' ? 'Ingreso' : 'Egreso'),
+    },
+    {
+      key: 'category',
+      header: 'Categoría',
+      mobilePriority: 'meta',
+      accessor: (entry) => <span className="text-sm text-slate-600">{entry.category.name}</span>,
+      exportValue: (entry) => entry.category.name,
+    },
+    {
+      key: 'description',
+      header: 'Descripción',
+      mobilePriority: 'title',
+      accessor: (entry) => <span className="text-sm text-slate-700">{entry.description}</span>,
+      exportValue: (entry) => entry.description,
+    },
+    {
+      key: 'date',
+      header: 'Fecha',
+      mobilePriority: 'meta',
+      accessor: (entry) => <span className="text-sm text-slate-500">{format(new Date(entry.date), 'dd/MM/yy')}</span>,
+      exportValue: (entry) => format(new Date(entry.date), 'dd/MM/yyyy'),
+    },
+    {
+      key: 'amount',
+      header: 'Monto',
+      mobilePriority: 'highlight',
+      cellClassName: 'text-right',
+      headerClassName: 'text-right',
+      accessor: (entry) => (
+        <span className={`text-sm font-bold ${entry.type === 'INCOME' ? 'text-green-700' : 'text-red-700'}`}>
+          {entry.type === 'INCOME' ? '+' : '-'}Q{Number(entry.amount).toFixed(2)}
+        </span>
+      ),
+      exportValue: (entry) => `${entry.type === 'INCOME' ? '+' : '-'}${Number(entry.amount).toFixed(2)}`,
+    },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-8 space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Contabilidad' },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -220,26 +300,23 @@ export default function AccountingPage() {
       {/* Charts Row */}
       {summary && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Monthly Bar Chart */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <h3 className="text-sm font-bold text-slate-700 mb-4">Ingresos vs Egresos</h3>
             <div className="space-y-3">
-              {summary.monthlySeries.map(m => {
-                return (
-                  <div key={m.month}>
-                    <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-1">
-                      <span>{m.month}</span>
-                      <span className={m.net >= 0 ? 'text-green-600' : 'text-red-600'}>
-                        {m.net >= 0 ? '+' : ''}Q{m.net.toFixed(0)}
-                      </span>
-                    </div>
-                    <div className="flex gap-1 h-5">
-                      <div className="bg-green-400 rounded-sm" style={{ width: `${(m.income / Math.max(...summary.monthlySeries.map(s => Math.max(s.income, s.expense)), 1)) * 100}%` }} />
-                      <div className="bg-red-400 rounded-sm" style={{ width: `${(m.expense / Math.max(...summary.monthlySeries.map(s => Math.max(s.income, s.expense)), 1)) * 100}%` }} />
-                    </div>
+              {summary.monthlySeries.map((m) => (
+                <div key={m.month}>
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-1">
+                    <span>{m.month}</span>
+                    <span className={m.net >= 0 ? 'text-green-600' : 'text-red-600'}>
+                      {m.net >= 0 ? '+' : ''}Q{m.net.toFixed(0)}
+                    </span>
                   </div>
-                );
-              })}
+                  <div className="flex gap-1 h-5">
+                    <div className="bg-green-400 rounded-sm" style={{ width: `${(m.income / Math.max(...summary.monthlySeries.map((s) => Math.max(s.income, s.expense)), 1)) * 100}%` }} />
+                    <div className="bg-red-400 rounded-sm" style={{ width: `${(m.expense / Math.max(...summary.monthlySeries.map((s) => Math.max(s.income, s.expense)), 1)) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="flex gap-4 mt-4 text-[10px] font-bold text-slate-400">
               <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-400 rounded-sm" /> Ingresos</span>
@@ -247,14 +324,13 @@ export default function AccountingPage() {
             </div>
           </div>
 
-          {/* Expense Breakdown */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <h3 className="text-sm font-bold text-slate-700 mb-4">Distribución de Gastos</h3>
             {summary.expenseBreakdown.length === 0 ? (
               <div className="text-sm text-slate-400 text-center py-8">Sin gastos este mes</div>
             ) : (
               <div className="space-y-3">
-                {summary.expenseBreakdown.slice(0, 8).map(e => (
+                {summary.expenseBreakdown.slice(0, 8).map((e) => (
                   <div key={e.category}>
                     <div className="flex justify-between text-xs mb-1">
                       <span className="font-medium text-slate-700">{e.category}</span>
@@ -271,64 +347,40 @@ export default function AccountingPage() {
         </div>
       )}
 
-      {/* Entries Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="font-bold text-slate-800">Movimientos</h3>
-          <div className="flex gap-2">
-            <select value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1); }} className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg">
-              <option value="">Todos</option>
-              <option value="INCOME">Ingresos</option>
-              <option value="EXPENSE">Egresos</option>
-            </select>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 text-xs text-slate-500 border-b border-slate-100">
-                <th className="px-6 py-3 font-bold uppercase">Tipo</th>
-                <th className="px-6 py-3 font-bold uppercase">Categoría</th>
-                <th className="px-6 py-3 font-bold uppercase">Descripción</th>
-                <th className="px-6 py-3 font-bold uppercase">Fecha</th>
-                <th className="px-6 py-3 font-bold uppercase text-right">Monto</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr><td colSpan={5} className="text-center py-12"><RefreshCw className="w-5 h-5 animate-spin mx-auto text-slate-400" /></td></tr>
-              ) : entries.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-12 text-sm text-slate-400">Sin movimientos registrados</td></tr>
-              ) : (
-                entries.map(entry => (
-                  <tr key={entry.id} className="hover:bg-slate-50/50 transition">
-                    <td className="px-6 py-3">
-                      {entry.type === 'INCOME' ? (
-                        <span className="flex items-center gap-1.5 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-1 rounded-lg w-fit"><ArrowUpCircle className="w-3 h-3" /> INGRESO</span>
-                      ) : (
-                        <span className="flex items-center gap-1.5 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-1 rounded-lg w-fit"><ArrowDownCircle className="w-3 h-3" /> EGRESO</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-3 text-sm text-slate-600">{entry.category.name}</td>
-                    <td className="px-6 py-3 text-sm text-slate-700">{entry.description}</td>
-                    <td className="px-6 py-3 text-sm text-slate-500">{format(new Date(entry.date), "dd/MM/yy")}</td>
-                    <td className={`px-6 py-3 text-sm font-bold text-right ${entry.type === 'INCOME' ? 'text-green-700' : 'text-red-700'}`}>
-                      {entry.type === 'INCOME' ? '+' : '-'}Q{Number(entry.amount).toFixed(2)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-100">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1} className="p-2 rounded-lg border border-slate-200 disabled:opacity-40"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="text-sm font-medium text-slate-700 px-3">{page} / {totalPages}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="p-2 rounded-lg border border-slate-200 disabled:opacity-40"><ChevronRight className="w-4 h-4" /></button>
-          </div>
-        )}
+      {/* Movimientos table */}
+      <div>
+        <h2 className="text-lg font-bold text-slate-800 mb-3">Movimientos</h2>
+        <DataTable
+          columns={columns}
+          data={table.data}
+          loading={table.loading}
+          total={table.pagination.total}
+          page={table.pagination.page}
+          pageSize={table.pagination.limit}
+          onPageChange={table.pagination.onPageChange}
+          onPageSizeChange={table.pagination.onLimitChange}
+          getRowId={(entry) => entry.id}
+          filters={[
+            {
+              key: 'type',
+              label: 'Tipo',
+              type: 'select',
+              options: [
+                { value: 'INCOME', label: 'Ingresos' },
+                { value: 'EXPENSE', label: 'Egresos' },
+              ],
+              value: (table.filters.type as string) ?? '',
+              onChange: (v) => table.setFilter('type', v ?? ''),
+            },
+          ]}
+          empty={
+            <EmptyState
+              icon={<Wallet className="w-7 h-7" />}
+              title="Sin movimientos"
+              description="No se registraron ingresos ni egresos para este período."
+            />
+          }
+        />
       </div>
 
       {/* Manual Entry Modal */}
@@ -349,23 +401,23 @@ export default function AccountingPage() {
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Categoría</label>
-                <select value={formCategoryId} onChange={e => setFormCategoryId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none">
+                <select value={formCategoryId} onChange={(e) => setFormCategoryId(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none">
                   <option value="">Seleccionar...</option>
-                  {filteredCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {filteredCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Descripción</label>
-                <input value={formDescription} onChange={e => setFormDescription(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none" placeholder="Detalle del movimiento..." />
+                <input value={formDescription} onChange={(e) => setFormDescription(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none" placeholder="Detalle del movimiento..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Monto (Q)</label>
-                  <input type="number" step="0.01" min="0.01" value={formAmount} onChange={e => setFormAmount(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none" />
+                  <input type="number" step="0.01" min="0.01" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Fecha</label>
-                  <input type="date" value={formDate} onChange={e => setFormDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none" />
+                  <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none" />
                 </div>
               </div>
             </div>

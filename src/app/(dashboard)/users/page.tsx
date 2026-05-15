@@ -1,11 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/**
+ * Fase 22b · Users con DataTable + useDataTable.
+ *
+ * El endpoint `/api/users` devuelve el array completo (sin paginación servidor
+ * ni búsqueda). Se aplica paginación + búsqueda client-side.
+ *
+ * TODO Fase 24: agregar paginación servidor a /api/users (params page, limit, q).
+ */
+
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { UserPlus, Edit2, Shield, ShieldOff, Loader2, CheckCircle, Key } from 'lucide-react';
+import { UserPlus, Edit2, Shield, ShieldOff, CheckCircle, Key, Users } from 'lucide-react';
 import { UserModal } from '@/components/users/UserModal';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useDataTable } from '@/hooks/useDataTable';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface UserData {
   id: string;
@@ -21,32 +34,33 @@ interface UserData {
 
 export default function UsersPage() {
   const { data: session } = useSession();
-  const canManageUsers = session?.user?.role === 'SUPER_ADMIN'
-    || session?.user?.permissions?.includes('users:manage')
-    || session?.user?.permissions?.includes('settings:manage');
-  const [users, setUsers] = useState<UserData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const canManageUsers =
+    session?.user?.role === 'SUPER_ADMIN' ||
+    session?.user?.permissions?.includes('users:manage') ||
+    session?.user?.permissions?.includes('settings:manage');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchUsers = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/users');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setUsers(data);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (canManageUsers) fetchUsers();
-  }, [canManageUsers]);
+  const table = useDataTable<UserData>({
+    defaultLimit: 25,
+    autoLoad: Boolean(canManageUsers),
+    onFetch: async ({ page, limit, search, signal }) => {
+      const res = await fetch('/api/users', { signal });
+      if (!res.ok) throw new Error('Error al cargar usuarios.');
+      const json = await res.json();
+      const all: UserData[] = Array.isArray(json) ? json : [];
+      const term = search.trim().toLowerCase();
+      const filtered = term
+        ? all.filter(
+            (u) =>
+              u.name.toLowerCase().includes(term) ||
+              u.email.toLowerCase().includes(term),
+          )
+        : all;
+      const start = (page - 1) * limit;
+      return { data: filtered.slice(start, start + limit), total: filtered.length };
+    },
+  });
 
   if (!canManageUsers) {
     return (
@@ -58,119 +72,183 @@ export default function UsersPage() {
     );
   }
 
+  const columns: DataTableColumn<UserData>[] = [
+    {
+      key: 'identity',
+      header: 'Identidad',
+      mobilePriority: 'title',
+      accessor: (u) => (
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center font-bold text-blue-600">
+            {u.name.charAt(0).toUpperCase()}
+          </div>
+          <span className="text-sm font-bold text-slate-900">{u.name}</span>
+        </div>
+      ),
+      exportValue: (u) => u.name,
+    },
+    {
+      key: 'email',
+      header: 'Correo',
+      mobilePriority: 'meta',
+      accessor: (u) => <span className="text-slate-500 font-medium">{u.email}</span>,
+      exportValue: (u) => u.email,
+    },
+    {
+      key: 'role',
+      header: 'Nivel de acceso',
+      mobilePriority: 'meta',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (u) => (
+        <span
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase border ${
+            u.role === 'SUPER_ADMIN'
+              ? 'bg-purple-50 text-purple-600 border-purple-100'
+              : u.customRole?.name === 'Administrador' || u.customRole?.name === 'Admin'
+                ? 'bg-blue-50 text-blue-600 border-blue-100'
+                : 'bg-slate-50 text-slate-500 border-slate-100'
+          }`}
+        >
+          {u.customRole?.name || u.role}
+        </span>
+      ),
+      exportValue: (u) => u.customRole?.name || u.role,
+    },
+    {
+      key: 'branch',
+      header: 'Sucursal base',
+      mobilePriority: 'meta',
+      accessor: (u) => (
+        u.branch?.name ? (
+          <span className="font-bold text-slate-800">{u.branch.name}</span>
+        ) : (
+          <span className="text-slate-400 italic">Sin asignar</span>
+        )
+      ),
+      exportValue: (u) => u.branch?.name || '',
+    },
+    {
+      key: 'active',
+      header: 'Estatus',
+      mobilePriority: 'highlight',
+      accessor: (u) =>
+        u.active ? (
+          <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-widest border border-emerald-100">
+            <CheckCircle className="w-3 h-3" /> Activo
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-500 text-[10px] font-bold uppercase tracking-widest border border-rose-100 opacity-70">
+            Suspendido
+          </span>
+        ),
+      exportValue: (u) => (u.active ? 'Activo' : 'Suspendido'),
+    },
+    {
+      key: 'createdAt',
+      header: 'Fecha de ingreso',
+      mobilePriority: 'hidden',
+      accessor: (u) => (
+        <span className="text-slate-400 font-mono text-xs">
+          {format(new Date(u.createdAt), 'dd/MM/yyyy', { locale: es })}
+        </span>
+      ),
+      exportValue: (u) => format(new Date(u.createdAt), 'dd/MM/yyyy'),
+    },
+    {
+      key: 'actions',
+      header: 'Opciones',
+      mobilePriority: 'hidden',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (u) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => { setSelectedUser(u); setIsModalOpen(true); }}
+            className="p-2 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-xl transition-all"
+            aria-label="Editar usuario"
+            title="Editar"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+      exportValue: () => '',
+    },
+  ];
+
   return (
-    <div className="p-8 max-w-7xl mx-auto h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Usuarios' },
+        ]}
+      />
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <Shield className="w-6 h-6 text-blue-600" />
             Equipo y Permisos
           </h1>
-          <p className="text-[13px] text-slate-500 font-medium mt-1">Gestión administrativa de roles y acceso a sucursales</p>
+          <p className="text-[13px] text-slate-500 font-medium mt-1">
+            Gestión administrativa de roles y acceso a sucursales
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <a
             href="/users/roles"
-            className="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 px-6 py-3 rounded-xl font-bold text-sm shadow-sm flex items-center gap-2.5 transition-all active:scale-95"
+            className="bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm flex items-center gap-2 transition-all"
           >
             <Key className="w-4 h-4 text-blue-500" /> Gestionar Roles
           </a>
           <button
             onClick={() => { setSelectedUser(null); setIsModalOpen(true); }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-blue-500/10 flex items-center gap-2.5 transition-all active:scale-95"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-xl shadow-blue-500/10 flex items-center gap-2 transition-all"
           >
             <UserPlus className="w-4 h-4" /> Nuevo Integrante
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm flex-1 overflow-hidden">
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-500 text-[10px] uppercase font-bold tracking-widest border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-5">Identidad</th>
-                <th className="px-6 py-5">Correo Electrónico</th>
-                <th className="px-6 py-5 text-center">Nivel de Acceso</th>
-                <th className="px-6 py-5 text-center">Sucursal Base</th>
-                <th className="px-6 py-5 text-center">Estatus</th>
-                <th className="px-6 py-5 text-center">Fecha Ingreso</th>
-                <th className="px-6 py-5 text-center">Opciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-600">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-                    Cargando equipo...
-                  </td>
-                </tr>
-              ) : users.length > 0 ? (
-                users.map(user => (
-                  <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-5 font-bold text-slate-900 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center font-bold text-blue-600 shadow-sm">
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-900">{user.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-slate-500 font-medium">{user.email}</td>
-                    <td className="px-6 py-5 text-center">
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase border ${
-                        user.role === 'SUPER_ADMIN' ? 'bg-purple-50 text-purple-600 border-purple-100' :
-                        (user.customRole?.name === 'Administrador' || user.customRole?.name === 'Admin') ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                        'bg-slate-50 text-slate-500 border-slate-100'
-                      }`}>
-                        {user.customRole?.name || user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-center">
-                      <div className="flex flex-col items-center">
-                        <span className="font-bold text-slate-800">{user.branch?.name || <span className="text-slate-400 italic font-normal">Sin asignar</span>}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-center">
-                      {user.active ? (
-                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-widest border border-emerald-100"><CheckCircle className="w-3 h-3" /> Activo</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-500 text-[10px] font-bold uppercase tracking-widest border border-rose-100 opacity-50">Suspendido</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-5 text-center text-slate-400 font-mono text-xs">
-                      {format(new Date(user.createdAt), "dd/MM/yyyy", { locale: es })}
-                    </td>
-                    <td className="px-6 py-5 text-center">
-                      <div className="flex justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
-                        <button 
-                          onClick={() => { setSelectedUser(user); setIsModalOpen(true); }}
-                          className="p-3 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-2xl transition-all shadow-sm hover:shadow-xl hover:shadow-blue-500/10 active:scale-90"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-600">
-                    Nadie más forma parte del equipo.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={table.data}
+        loading={table.loading}
+        total={table.pagination.total}
+        page={table.pagination.page}
+        pageSize={table.pagination.limit}
+        onPageChange={table.pagination.onPageChange}
+        onPageSizeChange={table.pagination.onLimitChange}
+        getRowId={(u) => u.id}
+        search={{
+          value: table.search.value,
+          onChange: table.search.onChange,
+          placeholder: 'Buscar por nombre o correo...',
+        }}
+        empty={
+          <EmptyState
+            icon={<Users className="w-7 h-7" />}
+            title="Sin integrantes"
+            description="Aún no se han registrado usuarios para este negocio."
+            action={
+              <button
+                onClick={() => { setSelectedUser(null); setIsModalOpen(true); }}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium inline-flex items-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" /> Nuevo Integrante
+              </button>
+            }
+          />
+        }
+      />
 
       {isModalOpen && (
         <UserModal
           user={selectedUser}
           onClose={() => setIsModalOpen(false)}
-          onSuccess={() => { setIsModalOpen(false); fetchUsers(); }}
+          onSuccess={() => { setIsModalOpen(false); void table.refetch(); }}
         />
       )}
     </div>

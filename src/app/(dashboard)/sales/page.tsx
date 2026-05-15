@@ -1,18 +1,28 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * Fase 22b · Sales con DataTable + useDataTable.
+ *
+ * Endpoint `/api/sales` ya soporta paginación servidor + filtros
+ * (status, channel, dateFrom, dateTo, search). KPIs siguen viviendo en
+ * `/api/sales/stats` y se recalculan cuando cambian los filtros.
+ */
+
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
-  Receipt, Search, Filter, FileText, RefreshCw,
-  TrendingUp, ArrowDownRight, DollarSign,
-  ChevronLeft, ChevronRight, Eye, Printer, Wifi
+  Receipt, FileText, RefreshCw, TrendingUp, ArrowDownRight, DollarSign,
+  Eye, Printer, Wifi, Filter as FilterIcon,
 } from 'lucide-react';
 import { useBranchStore } from '@/stores/branchStore';
-import { useToast } from '@/components/ui/toast';
 import { TicketModal } from '@/components/pos/TicketModal';
+import { useDataTable } from '@/hooks/useDataTable';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface SaleItem {
   id: string;
@@ -21,19 +31,12 @@ interface SaleItem {
   product: { name: string; sku: string };
   variant?: { name: string } | null;
 }
-
 interface Payment {
   method: string;
   amount: number;
   reference: string | null;
 }
-
-interface SaleReturn {
-  id: string;
-  amount: number;
-  createdAt: string;
-}
-
+interface SaleReturn { id: string; amount: number; createdAt: string; }
 interface Sale {
   id: string;
   total: number;
@@ -49,7 +52,6 @@ interface Sale {
   items: SaleItem[];
   returns: SaleReturn[];
 }
-
 interface Stats {
   totalSales: number;
   totalReturns: number;
@@ -90,80 +92,56 @@ const METHOD_LABELS: Record<string, string> = { CASH: 'Efectivo', CARD: 'Tarjeta
 export default function SalesPage() {
   const { data: session, status: authStatus } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
   const { selectedBranchId } = useBranchStore();
 
   const role = session?.user?.role;
-  const permissions = session?.user?.permissions || [];
+  const permissions = useMemo(() => session?.user?.permissions || [], [session]);
   const canAccess = role === 'SUPER_ADMIN' || permissions.includes('sales:view') || permissions.includes('reports:view');
 
-  const [sales, setSales] = useState<Sale[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-
-  // Filters
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [channelFilter, setChannelFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-
-  // Modals
   const [ticketSaleId, setTicketSaleId] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    if (!canAccess) return;
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.set('page', String(page));
-      params.set('limit', '25');
-      if (statusFilter) params.set('status', statusFilter);
-      if (channelFilter) params.set('channel', channelFilter);
-      if (dateFrom) params.set('dateFrom', dateFrom);
-      if (dateTo) params.set('dateTo', dateTo);
+  const table = useDataTable<Sale>({
+    defaultLimit: 25,
+    autoLoad: canAccess,
+    onFetch: async ({ page, limit, search, filters, signal }) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
       if (search.trim()) params.set('search', search.trim());
+      if (filters.status) params.set('status', String(filters.status));
+      if (filters.channel) params.set('channel', String(filters.channel));
+      if (filters.dateFrom) params.set('dateFrom', String(filters.dateFrom));
+      if (filters.dateTo) params.set('dateTo', String(filters.dateTo));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
 
-      const statsParams = new URLSearchParams();
-      if (dateFrom) statsParams.set('dateFrom', dateFrom);
-      if (dateTo) statsParams.set('dateTo', dateTo);
-      if (channelFilter) statsParams.set('channel', channelFilter);
-      if (selectedBranchId) statsParams.set('branchId', selectedBranchId);
+      const res = await fetch(`/api/sales?${params}`, { signal });
+      if (!res.ok) throw new Error('Error al cargar ventas.');
+      const json = await res.json();
+      return { data: json.data ?? [], total: json.total ?? 0 };
+    },
+  });
 
-      const [salesRes, statsRes] = await Promise.all([
-        fetch(`/api/sales?${params}`),
-        fetch(`/api/sales/stats?${statsParams}`),
-      ]);
-
-      const salesData = await salesRes.json();
-      const statsData = await statsRes.json();
-
-      setSales(salesData.data || []);
-      setTotal(salesData.total || 0);
-      setTotalPages(salesData.totalPages || 1);
-      setStats(statsData);
+  const loadStats = useCallback(async () => {
+    if (!canAccess) return;
+    try {
+      const params = new URLSearchParams();
+      if (table.filters.dateFrom) params.set('dateFrom', String(table.filters.dateFrom));
+      if (table.filters.dateTo) params.set('dateTo', String(table.filters.dateTo));
+      if (table.filters.channel) params.set('channel', String(table.filters.channel));
+      if (selectedBranchId) params.set('branchId', selectedBranchId);
+      const res = await fetch(`/api/sales/stats?${params}`);
+      if (res.ok) setStats(await res.json());
     } catch (e) {
       console.error(e);
-      toast({ tone: 'error', message: 'Error cargando datos de ventas.' });
-    } finally {
-      setIsLoading(false);
     }
-  }, [page, statusFilter, channelFilter, dateFrom, dateTo, search, selectedBranchId, canAccess, toast]);
+  }, [canAccess, table.filters, selectedBranchId]);
 
   useEffect(() => {
-    if (authStatus !== 'loading') loadData();
-  }, [loadData, authStatus]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    loadData();
-  };
+    void loadStats();
+  }, [loadStats]);
 
   if (authStatus === 'loading') {
     return (
@@ -184,8 +162,135 @@ export default function SalesPage() {
     );
   }
 
+  const columns: DataTableColumn<Sale>[] = [
+    {
+      key: 'ticket',
+      header: 'Ticket',
+      mobilePriority: 'title',
+      accessor: (sale) => (
+        <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg">
+          #{sale.id.split('-')[0].toUpperCase()}
+        </span>
+      ),
+      exportValue: (sale) => sale.id.split('-')[0].toUpperCase(),
+    },
+    {
+      key: 'createdAt',
+      header: 'Fecha',
+      mobilePriority: 'meta',
+      accessor: (sale) => (
+        <span className="text-sm text-slate-600">
+          {format(new Date(sale.createdAt), 'dd MMM, HH:mm', { locale: es })}
+        </span>
+      ),
+      exportValue: (sale) => format(new Date(sale.createdAt), 'dd/MM/yyyy HH:mm'),
+    },
+    {
+      key: 'customer',
+      header: 'Cliente',
+      mobilePriority: 'meta',
+      accessor: (sale) => sale.customer?.name || <span className="text-slate-400 italic">C/F</span>,
+      exportValue: (sale) => sale.customer?.name || 'C/F',
+    },
+    {
+      key: 'channel',
+      header: 'Canal',
+      mobilePriority: 'hidden',
+      accessor: (sale) => (
+        <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${CHANNEL_COLORS[sale.channel] || 'bg-slate-100 text-slate-600'}`}>
+          {CHANNEL_LABELS[sale.channel] || sale.channel}
+        </span>
+      ),
+      exportValue: (sale) => CHANNEL_LABELS[sale.channel] || sale.channel,
+    },
+    {
+      key: 'user',
+      header: 'Vendedor',
+      mobilePriority: 'hidden',
+      accessor: (sale) => sale.user?.name,
+      exportValue: (sale) => sale.user?.name ?? '',
+    },
+    {
+      key: 'method',
+      header: 'Método',
+      mobilePriority: 'hidden',
+      accessor: (sale) => (
+        <div className="flex flex-wrap gap-1">
+          {sale.payments?.map((p, i) => (
+            <span key={i} className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+              {METHOD_LABELS[p.method] || p.method}
+            </span>
+          ))}
+        </div>
+      ),
+      exportValue: (sale) => sale.payments?.map((p) => METHOD_LABELS[p.method] || p.method).join(' / ') ?? '',
+    },
+    {
+      key: 'total',
+      header: 'Total',
+      mobilePriority: 'highlight',
+      cellClassName: 'text-right',
+      headerClassName: 'text-right',
+      accessor: (sale) => (
+        <div className="text-right">
+          <span className="font-bold text-slate-800">Q{Number(sale.total).toFixed(2)}</span>
+          {sale.returns?.length > 0 && (
+            <div className="text-[10px] text-red-500 font-medium">-{sale.returns.length} dev.</div>
+          )}
+        </div>
+      ),
+      exportValue: (sale) => Number(sale.total).toFixed(2),
+    },
+    {
+      key: 'status',
+      header: 'Estado',
+      mobilePriority: 'meta',
+      accessor: (sale) => (
+        <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${STATUS_COLORS[sale.status] || 'bg-slate-100'}`}>
+          {STATUS_LABELS[sale.status] || sale.status}
+        </span>
+      ),
+      exportValue: (sale) => STATUS_LABELS[sale.status] || sale.status,
+    },
+    {
+      key: 'actions',
+      header: 'Acciones',
+      mobilePriority: 'hidden',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (sale) => (
+        <div className="flex justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => router.push(`/sales/${sale.id}`)}
+            className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition"
+            aria-label="Ver detalle"
+            title="Ver detalle"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setTicketSaleId(sale.id)}
+            className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg transition"
+            aria-label="Reimprimir"
+            title="Reimprimir"
+          >
+            <Printer className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+      exportValue: () => '',
+    },
+  ];
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Ventas' },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -207,15 +312,21 @@ export default function SalesPage() {
           </button>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition font-medium text-sm border ${showFilters ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition font-medium text-sm border ${
+              showFilters ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
           >
-            <Filter className="w-4 h-4" /> Filtros
+            <FilterIcon className="w-4 h-4" /> Filtros
           </button>
           <button
-            onClick={loadData}
+            onClick={() => {
+              void table.refetch();
+              void loadStats();
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition font-medium text-sm"
+            aria-label="Recargar"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${table.loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -230,13 +341,17 @@ export default function SalesPage() {
         </div>
       )}
 
-      {/* Filters Panel */}
+      {/* Filters Panel (toggle) */}
       {showFilters && (
         <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Estado</label>
-              <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 focus:ring-1 focus:ring-blue-200 outline-none">
+              <select
+                value={(table.filters.status as string) ?? ''}
+                onChange={(e) => table.setFilter('status', e.target.value || null)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none"
+              >
                 <option value="">Todos</option>
                 <option value="COMPLETED">Completada</option>
                 <option value="CANCELLED">Anulada</option>
@@ -249,7 +364,11 @@ export default function SalesPage() {
             </div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Canal</label>
-              <select value={channelFilter} onChange={e => { setChannelFilter(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 focus:ring-1 focus:ring-blue-200 outline-none">
+              <select
+                value={(table.filters.channel as string) ?? ''}
+                onChange={(e) => table.setFilter('channel', e.target.value || null)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none"
+              >
                 <option value="">Todos</option>
                 <option value="POS">POS (Tienda)</option>
                 <option value="REMOTE">Remota</option>
@@ -257,171 +376,79 @@ export default function SalesPage() {
             </div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Desde</label>
-              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 focus:ring-1 focus:ring-blue-200 outline-none" />
+              <input
+                type="date"
+                value={(table.filters.dateFrom as string) ?? ''}
+                onChange={(e) => table.setFilter('dateFrom', e.target.value || null)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none"
+              />
             </div>
             <div>
               <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Hasta</label>
-              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 focus:ring-1 focus:ring-blue-200 outline-none" />
+              <input
+                type="date"
+                value={(table.filters.dateTo as string) ?? ''}
+                onChange={(e) => table.setFilter('dateTo', e.target.value || null)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-300 outline-none"
+              />
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => { setStatusFilter('COMPLETED'); setChannelFilter(''); setDateFrom(''); setDateTo(''); setSearch(''); setPage(1); }} className="text-xs font-bold text-slate-500 hover:text-rose-600 transition">
+            <button
+              onClick={() => {
+                table.clearFilters();
+                table.search.onChange('');
+              }}
+              className="text-xs font-bold text-slate-500 hover:text-rose-600 transition"
+            >
               Limpiar filtros
             </button>
           </div>
         </div>
       )}
 
-      {/* Search */}
-      <form onSubmit={handleSearch} className="flex gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por ticket, cliente..."
-            className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-2xl text-sm focus:border-blue-300 focus:ring-1 focus:ring-blue-200 outline-none bg-white"
+      <DataTable
+        columns={columns}
+        data={table.data}
+        loading={table.loading}
+        total={table.pagination.total}
+        page={table.pagination.page}
+        pageSize={table.pagination.limit}
+        onPageChange={table.pagination.onPageChange}
+        onPageSizeChange={table.pagination.onLimitChange}
+        getRowId={(sale) => sale.id}
+        search={{
+          value: table.search.value,
+          onChange: table.search.onChange,
+          placeholder: 'Buscar por ticket, cliente...',
+        }}
+        empty={
+          <EmptyState
+            icon={<Receipt className="w-7 h-7" />}
+            title="Sin ventas"
+            description="No hay ventas que coincidan con los filtros aplicados."
           />
-        </div>
-      </form>
+        }
+      />
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 text-xs border-b border-slate-100">
-                <th className="px-5 py-4 font-bold uppercase tracking-wider">Ticket</th>
-                <th className="px-5 py-4 font-bold uppercase tracking-wider">Fecha</th>
-                <th className="px-5 py-4 font-bold uppercase tracking-wider">Cliente</th>
-                <th className="px-5 py-4 font-bold uppercase tracking-wider">Canal</th>
-                <th className="px-5 py-4 font-bold uppercase tracking-wider">Vendedor</th>
-                <th className="px-5 py-4 font-bold uppercase tracking-wider">Método</th>
-                <th className="px-5 py-4 font-bold uppercase tracking-wider text-right">Total</th>
-                <th className="px-5 py-4 font-bold uppercase tracking-wider">Estado</th>
-                <th className="px-5 py-4 font-bold uppercase tracking-wider text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <tr><td colSpan={9} className="text-center py-12 text-slate-400"><RefreshCw className="w-6 h-6 animate-spin mx-auto" /></td></tr>
-              ) : sales.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-slate-400 text-sm">No hay ventas que coincidan con los filtros.</td></tr>
-              ) : (
-                sales.map(sale => (
-                  <tr key={sale.id} className="hover:bg-slate-50/50 transition">
-                    <td className="px-5 py-3.5">
-                      <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg">
-                        #{sale.id.split('-')[0].toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-sm text-slate-600">
-                      {format(new Date(sale.createdAt), "dd MMM, HH:mm", { locale: es })}
-                    </td>
-                    <td className="px-5 py-3.5 text-sm text-slate-700 font-medium">
-                      {sale.customer?.name || <span className="text-slate-400 italic">C/F</span>}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${CHANNEL_COLORS[sale.channel] || 'bg-slate-100 text-slate-600'}`}>
-                        {CHANNEL_LABELS[sale.channel] || sale.channel}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-sm text-slate-600">{sale.user?.name}</td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex flex-wrap gap-1">
-                        {sale.payments?.map((p, i) => (
-                          <span key={i} className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
-                            {METHOD_LABELS[p.method] || p.method}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <span className="font-bold text-slate-800">Q{Number(sale.total).toFixed(2)}</span>
-                      {sale.returns?.length > 0 && (
-                        <div className="text-[10px] text-red-500 font-medium">
-                          -{sale.returns.length} dev.
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${STATUS_COLORS[sale.status] || 'bg-slate-100'}`}>
-                        {STATUS_LABELS[sale.status] || sale.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex justify-center gap-1">
-                        <button
-                          onClick={() => router.push(`/sales/${sale.id}`)}
-                          className="p-2 hover:bg-blue-50 text-slate-400 hover:text-blue-600 rounded-lg transition"
-                          title="Ver detalle"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setTicketSaleId(sale.id)}
-                          className="p-2 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg transition"
-                          title="Reimprimir"
-                        >
-                          <Printer className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
-            <p className="text-sm text-slate-500">
-              Mostrando {sales.length} de {total} ventas
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm font-medium text-slate-700 px-3">
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Ticket Reprint Modal */}
       {ticketSaleId && (
         <TicketModal saleId={ticketSaleId} onClose={() => setTicketSaleId(null)} />
       )}
     </div>
   );
-}
 
-function KPICard({ title, value, sub, icon, bg }: { title: string; value: string; sub: string; icon: React.ReactNode; bg: string }) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{title}</p>
-          <p className="text-2xl font-bold text-slate-900 tracking-tight">{value}</p>
+  function KPICard({ title, value, sub, icon, bg }: { title: string; value: string; sub: string; icon: React.ReactNode; bg: string }) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{title}</p>
+            <p className="text-2xl font-bold text-slate-900 tracking-tight">{value}</p>
+          </div>
+          <div className={`p-2.5 rounded-xl ${bg} shadow-sm`}>{icon}</div>
         </div>
-        <div className={`p-2.5 rounded-xl ${bg} shadow-sm`}>{icon}</div>
+        <p className="text-[11px] text-slate-500 font-medium mt-3">{sub}</p>
       </div>
-      <p className="text-[11px] text-slate-500 font-medium mt-3">{sub}</p>
-    </div>
-  );
+    );
+  }
 }

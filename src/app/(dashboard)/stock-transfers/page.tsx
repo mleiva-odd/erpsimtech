@@ -7,6 +7,9 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/components/ui/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface Branch { id: string; name: string; code: string; }
 interface StockEntry { branchId: string; quantity: number; }
@@ -253,7 +256,13 @@ export default function StockTransfersPage() {
 
   return (
     <>
-      <div className="p-8 max-w-7xl mx-auto h-full flex flex-col gap-6 print:hidden">
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto h-full flex flex-col gap-6 print:hidden">
+        <Breadcrumbs
+          items={[
+            { label: 'Inicio', href: '/dashboard' },
+            { label: 'Transferencias' },
+          ]}
+        />
         <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Módulo de Logística</h1>
@@ -389,70 +398,124 @@ export default function StockTransfersPage() {
         )}
 
         {/* --- PESTAÑA BITACORA --- */}
-        {activeTab === 'HISTORY' && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left whitespace-nowrap">
-                <thead className="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-4 font-semibold">Trazabilidad ID</th>
-                    <th className="px-6 py-4 font-semibold">Fecha / Hora</th>
-                    <th className="px-6 py-4 font-semibold">Ruta Operativa</th>
-                    <th className="px-6 py-4 font-semibold">Estado</th>
-                    <th className="px-6 py-4 font-semibold text-center">Unidades</th>
-                    <th className="px-6 py-4 font-semibold text-center">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {isLoadingHistory ? (
-                    <tr><td colSpan={6} className="py-12 text-center text-slate-600"><Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />Cargando historial...</td></tr>
-                  ) : history.length > 0 ? (
-                    history.map(record => (
-                      <tr key={record.id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4">
-                          <p className="font-mono text-xs font-bold text-slate-700">{record.id.split('-')[0].toUpperCase()}</p>
-                          {record.reference && <p className="text-xs text-slate-500 mt-1">{record.reference}</p>}
-                        </td>
-                        <td className="px-6 py-4 text-slate-600">{format(new Date(record.createdAt), "dd MMM yy - HH:mm", { locale: es })}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                             <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-xs font-bold text-slate-700">{record.fromBranch.name}</span>
-                             <ArrowRightLeft className="w-3 h-3 text-slate-600" />
-                             <span className="px-2 py-0.5 bg-blue-50 border border-blue-100 rounded text-xs font-bold text-blue-700">{record.toBranch.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                           {record.status === 'PENDING' ? (
-                              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded">En Tránsito</span>
-                           ) : (
-                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded">Recibido</span>
-                           )}
-                        </td>
-                        <td className="px-6 py-4 text-center font-bold text-slate-800">
-                           {record.items.reduce((acc, curr) => acc + curr.quantity, 0)} u.
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex gap-2 justify-center">
-                            {record.status === 'PENDING' && (isGlobalAdmin || session?.user?.branchId === record.toBranch.id) && (
-                              <button onClick={() => handleReceive(record.id)} className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded flex items-center gap-1 font-bold transition-all text-xs shadow-sm">
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Recibir
-                              </button>
-                            )}
-                            <button onClick={() => executePrint(record)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 hover:text-blue-700 text-slate-600 rounded flex items-center gap-2 font-bold transition-all text-xs">
-                              <Printer className="w-3.5 h-3.5" /> PDF
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr><td colSpan={6} className="py-12 text-center text-slate-600">No existen registros documentados en el sistema.</td></tr>
+        {/*
+          NOTA Fase 22b: Migrada a DataTable. El endpoint /api/stock-transfers/history
+          devuelve el array completo (sin paginación servidor); aquí lo recibimos
+          y rendereamos directamente — el DataTable maneja vista mobile card.
+          TODO Fase 24: agregar paginación servidor a /api/stock-transfers/history.
+        */}
+        {activeTab === 'HISTORY' && (() => {
+          const historyColumns: DataTableColumn<TransferHistory>[] = [
+            {
+              key: 'id',
+              header: 'Trazabilidad',
+              mobilePriority: 'meta',
+              accessor: (rec) => (
+                <div>
+                  <p className="font-mono text-xs font-bold text-slate-700">{rec.id.split('-')[0].toUpperCase()}</p>
+                  {rec.reference && <p className="text-xs text-slate-500 mt-1">{rec.reference}</p>}
+                </div>
+              ),
+              exportValue: (rec) => rec.id,
+            },
+            {
+              key: 'createdAt',
+              header: 'Fecha',
+              mobilePriority: 'meta',
+              accessor: (rec) => (
+                <span className="text-slate-600 text-xs">
+                  {format(new Date(rec.createdAt), 'dd MMM yy HH:mm', { locale: es })}
+                </span>
+              ),
+              exportValue: (rec) => format(new Date(rec.createdAt), 'dd/MM/yyyy HH:mm'),
+            },
+            {
+              key: 'route',
+              header: 'Ruta',
+              mobilePriority: 'title',
+              accessor: (rec) => (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-xs font-bold text-slate-700">
+                    {rec.fromBranch.name}
+                  </span>
+                  <ArrowRightLeft className="w-3 h-3 text-slate-600" />
+                  <span className="px-2 py-0.5 bg-blue-50 border border-blue-100 rounded text-xs font-bold text-blue-700">
+                    {rec.toBranch.name}
+                  </span>
+                </div>
+              ),
+              exportValue: (rec) => `${rec.fromBranch.name} -> ${rec.toBranch.name}`,
+            },
+            {
+              key: 'status',
+              header: 'Estado',
+              mobilePriority: 'meta',
+              accessor: (rec) =>
+                rec.status === 'PENDING' ? (
+                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded">En Tránsito</span>
+                ) : (
+                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-bold rounded">Recibido</span>
+                ),
+              exportValue: (rec) => rec.status || 'RECEIVED',
+            },
+            {
+              key: 'units',
+              header: 'Unidades',
+              mobilePriority: 'highlight',
+              cellClassName: 'text-center',
+              headerClassName: 'text-center',
+              accessor: (rec) => (
+                <span className="font-bold text-slate-800">
+                  {rec.items.reduce((acc, curr) => acc + curr.quantity, 0)} u.
+                </span>
+              ),
+              exportValue: (rec) =>
+                String(rec.items.reduce((acc, curr) => acc + curr.quantity, 0)),
+            },
+            {
+              key: 'actions',
+              header: 'Acciones',
+              mobilePriority: 'hidden',
+              cellClassName: 'text-center',
+              headerClassName: 'text-center',
+              accessor: (rec) => (
+                <div className="flex gap-2 justify-center" onClick={(e) => e.stopPropagation()}>
+                  {rec.status === 'PENDING' && (isGlobalAdmin || session?.user?.branchId === rec.toBranch.id) && (
+                    <button
+                      onClick={() => handleReceive(rec.id)}
+                      className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded flex items-center gap-1 font-bold transition-all text-xs shadow-sm"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Recibir
+                    </button>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                  <button
+                    onClick={() => executePrint(rec)}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 hover:text-blue-700 text-slate-600 rounded flex items-center gap-2 font-bold transition-all text-xs"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> PDF
+                  </button>
+                </div>
+              ),
+              exportValue: () => '',
+            },
+          ];
+
+          return (
+            <DataTable
+              columns={historyColumns}
+              data={history}
+              loading={isLoadingHistory}
+              getRowId={(rec) => rec.id}
+              empty={
+                <EmptyState
+                  icon={<History className="w-7 h-7" />}
+                  title="Sin transferencias"
+                  description="No hay traslados de inventario registrados todavía."
+                />
+              }
+            />
+          );
+        })()}
       </div>
 
       {/* --- MODO IMPRESIÓN (OCULTO EN PANTALLA, VISIBLE EN PDF) --- */}

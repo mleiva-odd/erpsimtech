@@ -1,12 +1,28 @@
 'use client';
 
+/**
+ * Fase 22b · Purchases History migrada a DataTable + useDataTable.
+ *
+ * El endpoint `/api/purchases` devuelve un array (sin paginación servidor).
+ * Se hace paginación + búsqueda client-side recortando el array completo.
+ *
+ * TODO Fase 24: agregar paginación servidor a /api/purchases (params page, limit, q)
+ * y eliminar el slice client-side.
+ */
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Inbox, Plus, Search, Trash2, ArrowLeft, Save, Loader2, PackageOpen, ClipboardList, ScrollText, Eye } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { VariantSelectionModal } from '@/components/pos/VariantSelectionModal';
 import { useToast } from '@/components/ui/toast';
 import { PurchaseDetailModal } from '@/components/purchases/PurchaseDetailModal';
+import { useDataTable } from '@/hooks/useDataTable';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface Supplier { id: string; name: string; }
 interface VariantOption { id: string; name: string; sku: string; price: string | number; stocks?: Array<{ quantity: number }>; }
@@ -24,8 +40,6 @@ interface PurchaseHistoryItem {
 export default function PurchasesPage() {
   const router = useRouter();
   const [view, setView] = useState<'history' | 'new'>('history');
-  const [purchases, setPurchases] = useState<PurchaseHistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
 
   // Mode toggle (Fast = compras directas / Enterprise = workflow PR-RFQ-PO con approval).
@@ -44,14 +58,27 @@ export default function PurchasesPage() {
 
   const debouncedSearch = useDebounce(searchQuery, 400);
 
-  const fetchHistory = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/purchases');
-      const data = await res.json();
-      setPurchases(data.purchases || []);
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
+  // Tabla servidor-side simulada (endpoint sin paginación real).
+  const table = useDataTable<PurchaseHistoryItem>({
+    defaultLimit: 25,
+    autoLoad: view === 'history',
+    onFetch: async ({ page, limit, search, signal }) => {
+      const res = await fetch('/api/purchases', { signal });
+      if (!res.ok) throw new Error('Error al cargar historial de compras.');
+      const json = await res.json();
+      const all: PurchaseHistoryItem[] = json.purchases ?? [];
+      const term = search.trim().toLowerCase();
+      const filtered = term
+        ? all.filter(
+            (p) =>
+              p.supplier.name.toLowerCase().includes(term) ||
+              (p.reference && p.reference.toLowerCase().includes(term)),
+          )
+        : all;
+      const start = (page - 1) * limit;
+      return { data: filtered.slice(start, start + limit), total: filtered.length };
+    },
+  });
 
   const fetchSuppliers = async () => {
     try {
@@ -62,8 +89,12 @@ export default function PurchasesPage() {
   };
 
   useEffect(() => {
-    if (view === 'history') fetchHistory();
-    else fetchSuppliers();
+    if (view === 'history') {
+      void table.refetch();
+    } else {
+      fetchSuppliers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
   useEffect(() => {
@@ -282,9 +313,65 @@ export default function PurchasesPage() {
   }
 
   // History View
+  const historyColumns: DataTableColumn<PurchaseHistoryItem>[] = [
+    {
+      key: 'createdAt',
+      header: 'Fecha',
+      mobilePriority: 'meta',
+      accessor: (po) => (
+        <span className="text-slate-600 font-mono text-xs">
+          {format(new Date(po.createdAt), "dd MMM yy HH:mm", { locale: es })}
+        </span>
+      ),
+      exportValue: (po) => format(new Date(po.createdAt), 'dd/MM/yyyy HH:mm'),
+    },
+    {
+      key: 'supplier',
+      header: 'Proveedor B2B',
+      mobilePriority: 'title',
+      accessor: (po) => <span className="font-bold text-slate-800">{po.supplier.name}</span>,
+      exportValue: (po) => po.supplier.name,
+    },
+    {
+      key: 'reference',
+      header: 'Referencia',
+      mobilePriority: 'meta',
+      accessor: (po) => <span className="text-slate-500">{po.reference || '-'}</span>,
+      exportValue: (po) => po.reference || '',
+    },
+    {
+      key: 'user',
+      header: 'Operador',
+      mobilePriority: 'hidden',
+      accessor: (po) => <span className="text-slate-500">{po.user?.name || 'Sistema'}</span>,
+      exportValue: (po) => po.user?.name || 'Sistema',
+    },
+    {
+      key: 'total',
+      header: 'Inversión',
+      mobilePriority: 'highlight',
+      cellClassName: 'text-right',
+      headerClassName: 'text-right',
+      accessor: (po) => (
+        <div className="flex items-center justify-end gap-2">
+          <span className="font-bold text-emerald-700">Q{Number(po.total).toFixed(2)}</span>
+          <Eye className="w-4 h-4 text-slate-300" />
+        </div>
+      ),
+      exportValue: (po) => Number(po.total).toFixed(2),
+    },
+  ];
+
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Compras' },
+        ]}
+      />
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Inbox className="w-6 h-6 text-emerald-600" /> Historial de Ingresos Logísticos
@@ -310,53 +397,36 @@ export default function PurchasesPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 overflow-hidden">
-        <div className="overflow-x-auto h-full">
-          <table className="w-full text-sm text-left whitespace-nowrap">
-            <thead className="text-xs text-slate-500 bg-slate-50 uppercase sticky top-0 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 font-semibold">Fecha</th>
-                <th className="px-6 py-4 font-semibold">Proveedor B2B</th>
-                <th className="px-6 py-4 font-semibold">Referencia</th>
-                <th className="px-6 py-4 font-semibold">Operador Bodega</th>
-                <th className="px-6 py-4 font-semibold text-right">Inversión (Valor Costo)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">Cargando bitácora de auditoría...</td></tr>
-              ) : purchases.length > 0 ? (
-                purchases.map(po => (
-                  <tr
-                    key={po.id}
-                    onClick={() => setSelectedDetailId(po.id)}
-                    className="hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    <td className="px-6 py-4 text-slate-600 font-mono text-xs">{new Date(po.createdAt).toLocaleString()}</td>
-                    <td className="px-6 py-4 font-bold text-slate-800">{po.supplier.name}</td>
-                    <td className="px-6 py-4 text-slate-500">{po.reference || '-'}</td>
-                    <td className="px-6 py-4 text-slate-500">{po.user?.name || 'Sistema'}</td>
-                    <td className="px-6 py-4 text-right font-bold text-emerald-700 bg-emerald-50/50">
-                      <div className="flex items-center justify-end gap-2">
-                        Q{Number(po.total).toFixed(2)}
-                        <Eye className="w-4 h-4 text-slate-300" />
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">No hay ingresos registrados a bodega.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={historyColumns}
+        data={table.data}
+        loading={table.loading}
+        total={table.pagination.total}
+        page={table.pagination.page}
+        pageSize={table.pagination.limit}
+        onPageChange={table.pagination.onPageChange}
+        onPageSizeChange={table.pagination.onLimitChange}
+        getRowId={(po) => po.id}
+        onRowClick={(po) => setSelectedDetailId(po.id)}
+        search={{
+          value: table.search.value,
+          onChange: table.search.onChange,
+          placeholder: 'Buscar por proveedor o referencia...',
+        }}
+        empty={
+          <EmptyState
+            icon={<Inbox className="w-7 h-7" />}
+            title="No hay ingresos registrados"
+            description="Las recepciones de mercadería que registres aparecerán acá."
+          />
+        }
+      />
 
       {selectedDetailId && (
         <PurchaseDetailModal
           purchaseId={selectedDetailId}
           onClose={() => setSelectedDetailId(null)}
-          onRefresh={fetchHistory}
+          onRefresh={() => void table.refetch()}
         />
       )}
     </div>

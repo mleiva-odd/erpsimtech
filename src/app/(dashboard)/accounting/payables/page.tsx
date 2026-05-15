@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { CreditCard, RefreshCw, Truck, AlertTriangle } from 'lucide-react';
+import { CreditCard, RefreshCw, Truck, AlertTriangle, BarChart3 } from 'lucide-react';
+import Link from 'next/link';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { bucketKeysFor } from '@/lib/ar-ap/aging';
@@ -147,13 +148,24 @@ export default function PayablesPage() {
             Antigüedad de saldos por proveedor {aging?.asOf && `· al ${format(new Date(aging.asOf), 'dd/MM/yyyy')}`}
           </p>
         </div>
-        <button
-          onClick={loadData}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
-          aria-label="Recargar"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/accounting/payables/aging"
+            className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-medium hover:bg-rose-700 transition"
+            aria-label="Ver antigüedad de saldos con drill-down"
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span className="hidden sm:inline">Antigüedad detallada</span>
+            <span className="sm:hidden">Antigüedad</span>
+          </Link>
+          <button
+            onClick={loadData}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+            aria-label="Recargar"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

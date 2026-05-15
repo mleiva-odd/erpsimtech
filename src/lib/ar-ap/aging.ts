@@ -76,6 +76,54 @@ export interface SupplierAging {
 export type BucketKey = string;
 
 /**
+ * Fase 22c · Definición declarativa de un bucket para que la UI renderice
+ * columnas dinámicas sin tener que parsear keys.
+ */
+export interface BucketDefinition {
+  /** Key estable del bucket (`current`, `d1_30`, `d31_60`, ... `d90_plus`). */
+  key: BucketKey;
+  /** Etiqueta humana en español ("Al día", "1-30 d", "+90 d"). */
+  label: string;
+  /** Límite inferior en días (inclusive). `null` para `current`. */
+  lower: number | null;
+  /** Límite superior en días (inclusive). `null` cuando es overflow (+N). */
+  upper: number | null;
+}
+
+/**
+ * Detalle de un documento (Sale a crédito o SupplierPayable) que la pantalla
+ * de aging puede mostrar en el drill-down de un cliente/proveedor.
+ */
+export interface AgingInvoiceDetail {
+  /** ID del documento (Sale.id o SupplierPayable.id). */
+  id: string;
+  /** Número visible: Sale.invoiceNumber || SupplierPayable.description corta. */
+  reference: string | null;
+  /** Fecha de emisión / creación. */
+  issuedAt: string;
+  /** Fecha de vencimiento. `null` si no aplica. */
+  dueDate: string | null;
+  /** Días vencidos a `asOf`. Negativo o 0 = no vencido. */
+  daysOverdue: number;
+  /** Bucket al que pertenece este documento. */
+  bucketKey: BucketKey;
+  /** Saldo pendiente del documento (CxP exacto; CxC = total venta a crédito). */
+  outstanding: number;
+  /** Monto total del documento (informativo). */
+  total: number;
+  /** Status crudo del documento (informativo). */
+  status: string | null;
+}
+
+export interface CustomerAgingDetailed extends CustomerAging {
+  invoices: AgingInvoiceDetail[];
+}
+
+export interface SupplierAgingDetailed extends SupplierAging {
+  invoices: AgingInvoiceDetail[];
+}
+
+/**
  * Determina la key del bucket según los umbrales configurados.
  *
  * Para los thresholds default `[30, 60, 90]` devuelve las keys legacy:
@@ -143,6 +191,51 @@ export function bucketKeysFor(
   return keys;
 }
 
+/**
+ * Fase 22c · Etiqueta legible (español) para una BucketKey.
+ *
+ * `current` → "Al día"
+ * `d1_30`   → "1-30 d"
+ * `d90_plus`→ "+90 d"
+ */
+export function formatBucketLabel(key: BucketKey): string {
+  if (key === 'current') return 'Al día';
+  const m = key.match(/^d(\d+)_(plus|\d+)$/);
+  if (!m) return key;
+  const [, lower, upper] = m;
+  if (upper === 'plus') return `+${Number(lower) - 1} d`;
+  return `${lower}-${upper} d`;
+}
+
+/**
+ * Fase 22c · Definiciones completas de buckets para una empresa.
+ *
+ * Devuelve `current` + un bucket por cada threshold + overflow,
+ * en orden ascendente de antigüedad. Es lo que la UI debe consumir
+ * para renderizar columnas dinámicas (sin parsear keys).
+ */
+export function bucketDefinitionsFor(
+  bucketDays: readonly number[] = DEFAULT_AGING_BUCKET_DAYS,
+): BucketDefinition[] {
+  const defs: BucketDefinition[] = [
+    { key: 'current', label: formatBucketLabel('current'), lower: null, upper: null },
+  ];
+  let prev = 0;
+  for (const t of bucketDays) {
+    const key = formatBucketKey(prev + 1, t);
+    defs.push({ key, label: formatBucketLabel(key), lower: prev + 1, upper: t });
+    prev = t;
+  }
+  const overflowKey = formatBucketKey(prev + 1, null);
+  defs.push({
+    key: overflowKey,
+    label: formatBucketLabel(overflowKey),
+    lower: prev + 1,
+    upper: null,
+  });
+  return defs;
+}
+
 /** Días vencidos entre dueDate y asOf (negativo si futuro). */
 export function daysOverdue(dueDate: Date, asOf: Date): number {
   const msPerDay = 24 * 60 * 60 * 1000;
@@ -198,8 +291,11 @@ function addToBucket(buckets: AgingBuckets, key: BucketKey, amount: number): voi
 /**
  * Lee `Company.agingBucketDays` (configurable). Fallback al default si la
  * empresa no tiene config o si tx no puede leerla.
+ *
+ * Exportada en Fase 22c para que los endpoints de aging puedan reportar
+ * `bucketDays` al frontend sin duplicar el `findUnique`.
  */
-async function getCompanyBucketDays(
+export async function getCompanyBucketDays(
   tx: Prisma.TransactionClient,
   companyId: string,
 ): Promise<readonly number[]> {
@@ -340,4 +436,205 @@ export async function computePayablesAging(
   return Array.from(bySupplier.values()).sort((a, b) =>
     a.supplierName.localeCompare(b.supplierName),
   );
+}
+
+/**
+ * Fase 22c · Aging de CxC con drill-down de facturas por cliente.
+ *
+ * Misma forma que `computeReceivablesAging` pero cada `CustomerAging`
+ * trae adicionalmente la lista `invoices` con las ventas a crédito
+ * abiertas (status COMPLETED|OVERDUE|PENDING con dueDate not null y
+ * payments.method=CREDIT).
+ *
+ * Limitación documentada del legacy (igual que la función base): el
+ * `outstanding` por factura se reporta como `total` de la venta porque
+ * no rastreamos saldo por documento. El total del bucket se sigue
+ * atribuyendo a la dueDate más antigua (conservador para cobranza)
+ * vía la función base, así los totales no cambian respecto al endpoint
+ * simple. Las facturas individuales sí muestran su bucket real.
+ */
+export async function computeReceivablesAgingDetailed(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  asOf: Date = new Date(),
+): Promise<{
+  customers: CustomerAgingDetailed[];
+  bucketDays: readonly number[];
+}> {
+  const bucketDays = await getCompanyBucketDays(tx, companyId);
+
+  const customers = (await (tx as any).customer.findMany({
+    where: {
+      companyId,
+      balance: { gt: 0 },
+    },
+    select: {
+      id: true,
+      name: true,
+      nit: true,
+      balance: true,
+      sales: {
+        where: {
+          status: { in: ['COMPLETED', 'OVERDUE', 'PENDING'] },
+          dueDate: { not: null },
+          payments: { some: { method: 'CREDIT' } },
+        },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          status: true,
+          dueDate: true,
+          total: true,
+          createdAt: true,
+        },
+        orderBy: { dueDate: 'asc' },
+      },
+    },
+    orderBy: { name: 'asc' },
+  })) as any[];
+
+  const detailed: CustomerAgingDetailed[] = customers.map((c) => {
+    const buckets = emptyBuckets(bucketDays);
+    const balance = Number(c.balance);
+    const sales = (c.sales ?? []) as Array<{
+      id: string;
+      invoiceNumber: string | null;
+      status: string;
+      dueDate: Date | null;
+      total: unknown;
+      createdAt: Date;
+    }>;
+    const oldestSale = sales[0];
+    const oldestDue: Date | null = oldestSale?.dueDate ?? null;
+    const overdueDays = oldestDue ? Math.max(0, daysOverdue(oldestDue, asOf)) : 0;
+    const bucketKey = computeBucket(oldestDue, asOf, bucketDays);
+    addToBucket(buckets, bucketKey, balance);
+
+    const invoices: AgingInvoiceDetail[] = sales.map((s) => {
+      const docDays = s.dueDate ? Math.max(0, daysOverdue(s.dueDate, asOf)) : 0;
+      const docBucket = computeBucket(s.dueDate, asOf, bucketDays);
+      const total = Number(s.total);
+      return {
+        id: s.id,
+        reference: s.invoiceNumber ?? null,
+        issuedAt: s.createdAt.toISOString(),
+        dueDate: s.dueDate ? s.dueDate.toISOString() : null,
+        daysOverdue: docDays,
+        bucketKey: docBucket,
+        outstanding: total,
+        total,
+        status: s.status,
+      };
+    });
+
+    return {
+      customerId: c.id,
+      customerName: c.name,
+      customerNit: c.nit ?? null,
+      totalBalance: balance,
+      oldestDueDate: oldestDue,
+      oldestOverdueDays: overdueDays,
+      buckets,
+      invoices,
+    };
+  });
+
+  return { customers: detailed, bucketDays };
+}
+
+/**
+ * Fase 22c · Aging de CxP con drill-down de payables por proveedor.
+ *
+ * Aging exacto: cada payable contribuye `totalAmount - paidAmount` a su
+ * bucket (mismo enfoque que la función base). Adicionalmente devuelve
+ * la lista de payables abiertos del proveedor.
+ */
+export async function computePayablesAgingDetailed(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  asOf: Date = new Date(),
+): Promise<{
+  suppliers: SupplierAgingDetailed[];
+  bucketDays: readonly number[];
+}> {
+  const bucketDays = await getCompanyBucketDays(tx, companyId);
+
+  const payables = (await (tx as any).supplierPayable.findMany({
+    where: {
+      companyId,
+      status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] },
+    },
+    select: {
+      id: true,
+      description: true,
+      status: true,
+      dueDate: true,
+      totalAmount: true,
+      paidAmount: true,
+      createdAt: true,
+      purchase: { select: { id: true, reference: true } },
+      supplier: { select: { id: true, name: true, nit: true } },
+    },
+    orderBy: { dueDate: 'asc' },
+  })) as any[];
+
+  const bySupplier = new Map<string, SupplierAgingDetailed>();
+
+  for (const p of payables) {
+    const total = Number(p.totalAmount);
+    const paid = Number(p.paidAmount);
+    const pendingAmount = total - paid;
+    if (pendingAmount <= 0) continue;
+    const key = p.supplier.id as string;
+
+    let entry = bySupplier.get(key);
+    if (!entry) {
+      entry = {
+        supplierId: p.supplier.id,
+        supplierName: p.supplier.name,
+        supplierNit: p.supplier.nit ?? null,
+        totalBalance: 0,
+        oldestDueDate: null,
+        oldestOverdueDays: 0,
+        buckets: emptyBuckets(bucketDays),
+        invoices: [],
+      };
+      bySupplier.set(key, entry);
+    }
+
+    const bucketKey = computeBucket(p.dueDate, asOf, bucketDays);
+    addToBucket(entry.buckets, bucketKey, pendingAmount);
+    entry.totalBalance += pendingAmount;
+
+    if (p.dueDate) {
+      const overdueDays = Math.max(0, daysOverdue(p.dueDate, asOf));
+      if (!entry.oldestDueDate || p.dueDate < entry.oldestDueDate) {
+        entry.oldestDueDate = p.dueDate;
+        entry.oldestOverdueDays = overdueDays;
+      }
+    }
+
+    const docDays = p.dueDate ? Math.max(0, daysOverdue(p.dueDate, asOf)) : 0;
+    entry.invoices.push({
+      id: p.id,
+      reference:
+        (p.purchase?.reference as string | null | undefined) ??
+        (p.description as string | null | undefined) ??
+        null,
+      issuedAt: (p.createdAt as Date).toISOString(),
+      dueDate: p.dueDate ? (p.dueDate as Date).toISOString() : null,
+      daysOverdue: docDays,
+      bucketKey,
+      outstanding: pendingAmount,
+      total,
+      status: (p.status as string) ?? null,
+    });
+  }
+
+  return {
+    suppliers: Array.from(bySupplier.values()).sort((a, b) =>
+      a.supplierName.localeCompare(b.supplierName),
+    ),
+    bucketDays,
+  };
 }

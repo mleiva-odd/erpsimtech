@@ -1,69 +1,182 @@
 'use client';
 
 /**
- * Fase 22b · Payroll detail (Fase 18).
+ * Fase 22c-3 · Payroll period dashboard.
  *
- * Editor de planilla con acciones por estado:
- *  - DRAFT: editar items (otherBonuses / commissions / otherDeductions),
- *           Recalcular, Aprobar.
- *  - APPROVED: Pagar (genera asiento contable).
- *  - Cualquiera: exportar IGSS CSV, planilla CSV, boleta PDF por empleado.
+ * Dashboard de detalle del periodo de planilla:
+ *   - Header con identidad, estado, KPIs primarios y por concepto, y
+ *     botones contextuales (Recalcular / Aprobar / Pagar / Cancelar).
+ *   - Toolbar adicional: export IGSS, export CSV.
+ *   - Tabla DataTable de payslips con cardRenderer mobile, click → drawer.
+ *   - Drawer con desglose completo (Devengado, Deducciones, Provisiones,
+ *     Carga patronal, Notes).
+ *   - Edición inline de overrides (otherBonuses / commissions /
+ *     otherDeductions) sólo si periodo en DRAFT.
+ *   - EmptyState cuando no hay items con CTA "Correr planilla".
+ *
+ * Modelo subyacente: Payroll + PayrollItem (NO Payslip/PayrollPeriod). El
+ * briefing original menciona estos nombres pero el schema real ya usa
+ * Payroll/PayrollItem desde Fase 18.
  */
 
-import { useState, useEffect, use, useCallback } from 'react';
+import { useState, useEffect, use, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Download, Save, Loader2, RefreshCw, FileSpreadsheet,
-  Receipt, BadgeCheck, Wallet,
+  ArrowLeft,
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  Save,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { useToast } from '@/components/ui/toast';
-import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import {
+  PayrollPeriodHeader,
+  type PayrollHeaderKpis,
+  type PayrollHeaderStatus,
+  type PayrollHeaderType,
+} from '@/components/payroll/PayrollPeriodHeader';
+import {
+  PayslipsTable,
+  type PayslipRow,
+} from '@/components/payroll/PayslipsTable';
+import {
+  PayslipDetailDrawer,
+  type PayslipDetailItem,
+} from '@/components/payroll/PayslipDetailDrawer';
 
-interface PayrollEmployee {
-  id?: string;
-  firstName: string;
-  lastName: string;
-  position: string;
-}
-
-interface PayrollItemData {
+interface PayrollItemApi {
   id: string;
-  employeeId?: string;
+  employeeId: string;
+  daysWorked: number;
   baseSalary: number | string;
   bonusIncentive: number | string;
+  overtimeRegularHours: number | string;
+  overtimeRegularAmount: number | string;
+  overtimeNightHours: number | string;
+  overtimeNightAmount: number | string;
+  overtimeHolidayHours: number | string;
+  overtimeHolidayAmount: number | string;
+  seventhDayAmount: number | string;
+  commissions: number | string;
   otherBonuses: number | string;
-  commissions?: number | string;
-  igss: number | string;
+  totalGross: number | string;
+  igssLaboral: number | string;
+  igss?: number | string;
   isr: number | string;
+  loanDeduction: number | string;
   otherDeductions: number | string;
+  totalDeductions: number | string;
   netSalary: number | string;
-  employee: PayrollEmployee;
+  bono14Provision: number | string;
+  aguinaldoProvision: number | string;
+  indemnizacionProvision: number | string;
+  vacacionesProvision: number | string;
+  igssPatronal: number | string;
+  irtra: number | string;
+  intecap: number | string;
+  totalCostoPatronal: number | string;
+  notes?: string | null;
+  employee: {
+    firstName: string;
+    lastName: string;
+    position?: string | null;
+    documentId?: string | null;
+    nit?: string | null;
+    igssNumber?: string | null;
+    hireDate?: string | null;
+  };
 }
 
-interface PayrollData {
+interface PayrollApi {
   id: string;
   name: string;
-  status: string;
+  status: PayrollHeaderStatus;
+  payrollType: PayrollHeaderType;
+  periodReference?: string | null;
   startDate: string;
   endDate: string;
-  payrollType?: string;
   totalGross: number | string;
   totalDeductions: number | string;
   totalNet: number | string;
-  items: PayrollItemData[];
+  items: PayrollItemApi[];
 }
 
-interface ConfirmConfig {
-  title: string;
-  message: string;
-  confirmText: string;
-  variant?: 'danger' | 'warning' | 'info';
-  onConfirm: () => void;
+function n(v: number | string | null | undefined): number {
+  return Number(v ?? 0) || 0;
 }
 
-function formatQ(n: number | string): string {
-  return `Q${Number(n).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function toPayslipRow(item: PayrollItemApi): PayslipRow {
+  return {
+    id: item.id,
+    employeeId: item.employeeId,
+    daysWorked: item.daysWorked,
+    baseSalary: n(item.baseSalary),
+    bonusIncentive: n(item.bonusIncentive),
+    otherBonuses: n(item.otherBonuses),
+    commissions: n(item.commissions),
+    bono14Provision: n(item.bono14Provision),
+    aguinaldoProvision: n(item.aguinaldoProvision),
+    vacacionesProvision: n(item.vacacionesProvision),
+    totalGross: n(item.totalGross),
+    igssLaboral: n(item.igssLaboral ?? item.igss),
+    isr: n(item.isr),
+    loanDeduction: n(item.loanDeduction),
+    otherDeductions: n(item.otherDeductions),
+    totalDeductions: n(item.totalDeductions),
+    netSalary: n(item.netSalary),
+    notes: item.notes ?? null,
+    employee: {
+      firstName: item.employee.firstName,
+      lastName: item.employee.lastName,
+      position: item.employee.position ?? null,
+    },
+  };
+}
+
+function toPayslipDetail(item: PayrollItemApi): PayslipDetailItem {
+  return {
+    id: item.id,
+    employeeId: item.employeeId,
+    daysWorked: item.daysWorked,
+    baseSalary: n(item.baseSalary),
+    bonusIncentive: n(item.bonusIncentive),
+    overtimeRegularHours: n(item.overtimeRegularHours),
+    overtimeRegularAmount: n(item.overtimeRegularAmount),
+    overtimeNightHours: n(item.overtimeNightHours),
+    overtimeNightAmount: n(item.overtimeNightAmount),
+    overtimeHolidayHours: n(item.overtimeHolidayHours),
+    overtimeHolidayAmount: n(item.overtimeHolidayAmount),
+    seventhDayAmount: n(item.seventhDayAmount),
+    commissions: n(item.commissions),
+    otherBonuses: n(item.otherBonuses),
+    totalGross: n(item.totalGross),
+    igssLaboral: n(item.igssLaboral ?? item.igss),
+    isr: n(item.isr),
+    loanDeduction: n(item.loanDeduction),
+    otherDeductions: n(item.otherDeductions),
+    totalDeductions: n(item.totalDeductions),
+    netSalary: n(item.netSalary),
+    bono14Provision: n(item.bono14Provision),
+    aguinaldoProvision: n(item.aguinaldoProvision),
+    indemnizacionProvision: n(item.indemnizacionProvision),
+    vacacionesProvision: n(item.vacacionesProvision),
+    igssPatronal: n(item.igssPatronal),
+    irtra: n(item.irtra),
+    intecap: n(item.intecap),
+    totalCostoPatronal: n(item.totalCostoPatronal),
+    notes: item.notes ?? null,
+    employee: {
+      firstName: item.employee.firstName,
+      lastName: item.employee.lastName,
+      position: item.employee.position ?? null,
+      documentId: item.employee.documentId ?? null,
+      nit: item.employee.nit ?? null,
+      igssNumber: item.employee.igssNumber ?? null,
+      hireDate: item.employee.hireDate ?? null,
+    },
+  };
 }
 
 async function downloadBlob(url: string, filename: string): Promise<void> {
@@ -77,384 +190,550 @@ async function downloadBlob(url: string, filename: string): Promise<void> {
   URL.revokeObjectURL(link.href);
 }
 
-export default function PayrollDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function PayrollDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = use(params);
   const router = useRouter();
   const { toast } = useToast();
-  const [payroll, setPayroll] = useState<PayrollData | null>(null);
+  const { confirm } = useConfirm();
+
+  const [payroll, setPayroll] = useState<PayrollApi | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
-  const [editingItem, setEditingItem] = useState<PayrollItemData | null>(null);
-  const [confirmConfig, setConfirmConfig] = useState<ConfirmConfig | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<PayrollItemApi | null>(null);
 
   const fetchPayroll = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch(`/api/hr/payroll/${id}`);
       const data = await res.json();
-      if (res.ok) setPayroll(data);
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string }).error || 'No se pudo cargar la planilla',
+        );
+      }
+      setPayroll(data as PayrollApi);
     } catch (e) {
-      console.error(e);
+      const msg = e instanceof Error ? e.message : 'Error';
+      toast({ tone: 'error', message: msg });
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, toast]);
 
-  useEffect(() => { void fetchPayroll(); }, [fetchPayroll]);
+  useEffect(() => {
+    void fetchPayroll();
+  }, [fetchPayroll]);
 
-  const callAction = async (path: string, label: string) => {
+  const callAction = useCallback(
+    async (path: string, label: string) => {
+      setIsBusy(true);
+      try {
+        const res = await fetch(path, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            (data as { error?: string }).error || 'Operación fallida',
+          );
+        }
+        toast({ tone: 'success', message: `${label} correctamente.` });
+        await fetchPayroll();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Error';
+        toast({ tone: 'error', message: msg });
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [toast, fetchPayroll],
+  );
+
+  const handleRecalculate = useCallback(async () => {
+    const ok = await confirm({
+      title: '¿Recalcular planilla?',
+      message:
+        'Se recomputarán todos los items desde los empleados activos. Tus ajustes manuales (bonos, comisiones, deducciones) se perderán.',
+      confirmText: 'Recalcular',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!ok) return;
+    await callAction(`/api/hr/payroll/${id}/recalculate`, 'Planilla recalculada');
+  }, [confirm, callAction, id]);
+
+  const handleApprove = useCallback(async () => {
+    const ok = await confirm({
+      title: '¿Aprobar planilla?',
+      message:
+        'Una vez aprobada los montos quedan inmutables y queda lista para pagar.',
+      confirmText: 'Aprobar',
+      cancelText: 'Cancelar',
+      tone: 'info',
+    });
+    if (!ok) return;
+    await callAction(`/api/hr/payroll/${id}/approve`, 'Planilla aprobada');
+  }, [confirm, callAction, id]);
+
+  const handlePay = useCallback(async () => {
+    const ok = await confirm({
+      title: '¿Marcar planilla como pagada?',
+      message:
+        'Se generará el asiento contable y se descontarán las cuotas de préstamo aplicadas. Esta acción no se puede revertir.',
+      confirmText: 'Pagar',
+      cancelText: 'Cancelar',
+      tone: 'warning',
+    });
+    if (!ok) return;
+    await callAction(`/api/hr/payroll/${id}/pay`, 'Planilla pagada');
+  }, [confirm, callAction, id]);
+
+  const handleCancel = useCallback(async () => {
+    const ok = await confirm({
+      title: '¿Cancelar planilla?',
+      message:
+        'La planilla quedará en estado CANCELLED. Una planilla PAID no puede cancelarse desde aquí (requiere reversa contable).',
+      confirmText: 'Cancelar planilla',
+      cancelText: 'Volver',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setIsBusy(true);
     try {
-      const res = await fetch(path, { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Operación fallida');
-      toast({ tone: 'success', message: `${label} OK.` });
-      void fetchPayroll();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error';
-      toast({ tone: 'error', message: msg });
-    } finally {
-      setIsBusy(false);
-      setConfirmConfig(null);
-    }
-  };
-
-  const handleUpdateItem = async (
-    itemId: string,
-    data: { otherBonuses: number; commissions: number; otherDeductions: number; netSalary: number },
-  ) => {
-    setIsBusy(true);
-    try {
-      const res = await fetch(`/api/hr/payroll-items/${itemId}`, {
+      const res = await fetch(`/api/hr/payroll/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ status: 'CANCELLED' }),
       });
-      if (!res.ok) throw new Error('Error al guardar');
-      void fetchPayroll();
-      toast({ tone: 'success', message: 'Item actualizado.' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string }).error || 'No se pudo cancelar',
+        );
+      }
+      toast({ tone: 'success', message: 'Planilla cancelada.' });
+      await fetchPayroll();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Error';
       toast({ tone: 'error', message: msg });
     } finally {
       setIsBusy(false);
-      setEditingItem(null);
     }
-  };
+  }, [confirm, id, toast, fetchPayroll]);
 
-  const exportIgss = async () => {
+  const handleSelect = useCallback((row: PayslipRow) => {
+    setSelectedId(row.id);
+  }, []);
+
+  const handleEdit = useCallback(
+    (row: PayslipRow) => {
+      const item = payroll?.items.find((it) => it.id === row.id) ?? null;
+      setEditingItem(item);
+      setSelectedId(null);
+    },
+    [payroll],
+  );
+
+  const handleDownloadPdf = useCallback(
+    async (row: PayslipRow) => {
+      try {
+        const filename = `boleta_${row.employee.firstName}_${row.employee.lastName}.pdf`.replace(
+          /\s+/g,
+          '_',
+        );
+        await downloadBlob(
+          `/api/hr/payroll/${id}/payslip/${row.employeeId}`,
+          filename,
+        );
+      } catch {
+        toast({ tone: 'error', message: 'No se pudo descargar la boleta.' });
+      }
+    },
+    [id, toast],
+  );
+
+  const handleDownloadDetail = useCallback(
+    async (detail: PayslipDetailItem) => {
+      try {
+        const filename = `boleta_${detail.employee.firstName}_${detail.employee.lastName}.pdf`.replace(
+          /\s+/g,
+          '_',
+        );
+        await downloadBlob(
+          `/api/hr/payroll/${id}/payslip/${detail.employeeId}`,
+          filename,
+        );
+      } catch {
+        toast({ tone: 'error', message: 'No se pudo descargar la boleta.' });
+      }
+    },
+    [id, toast],
+  );
+
+  const handleEditFromDrawer = useCallback(
+    (detail: PayslipDetailItem) => {
+      const item = payroll?.items.find((it) => it.id === detail.id) ?? null;
+      setEditingItem(item);
+      setSelectedId(null);
+    },
+    [payroll],
+  );
+
+  const exportIgss = useCallback(async () => {
     try {
       await downloadBlob(`/api/hr/payroll/${id}/report/igss`, `igss_${id}.csv`);
     } catch {
       toast({ tone: 'error', message: 'No se pudo exportar IGSS.' });
     }
-  };
+  }, [id, toast]);
 
-  const exportCsv = async () => {
+  const exportCsv = useCallback(async () => {
     try {
-      await downloadBlob(`/api/hr/payroll/${id}/report/csv`, `planilla_${id}.csv`);
+      await downloadBlob(
+        `/api/hr/payroll/${id}/report/csv`,
+        `planilla_${id}.csv`,
+      );
     } catch {
       toast({ tone: 'error', message: 'No se pudo exportar planilla.' });
     }
-  };
+  }, [id, toast]);
 
-  const downloadPayslip = async (employeeId: string, employeeName: string) => {
-    try {
-      await downloadBlob(
-        `/api/hr/payroll/${id}/payslip/${employeeId}`,
-        `boleta_${employeeName.replace(/\s+/g, '_')}.pdf`,
-      );
-    } catch {
-      toast({ tone: 'error', message: 'No se pudo descargar la boleta.' });
-    }
-  };
+  // Run = recalcular: para planillas DRAFT vacías es equivalente a generar
+  // los items por primera vez (la API ya cubre el caso de empty + active
+  // employees vía /recalculate).
+  const handleRunPayroll = useCallback(async () => {
+    const ok = await confirm({
+      title: '¿Correr planilla?',
+      message:
+        'Se generarán los recibos para todos los empleados activos del periodo.',
+      confirmText: 'Correr ahora',
+      cancelText: 'Cancelar',
+      tone: 'info',
+    });
+    if (!ok) return;
+    await callAction(`/api/hr/payroll/${id}/recalculate`, 'Planilla generada');
+  }, [confirm, callAction, id]);
+
+  const rows = useMemo<PayslipRow[]>(
+    () => (payroll?.items ?? []).map(toPayslipRow),
+    [payroll?.items],
+  );
+
+  const kpis = useMemo<PayrollHeaderKpis>(() => {
+    const items = payroll?.items ?? [];
+    type NumericItemKey =
+      | 'totalGross'
+      | 'totalDeductions'
+      | 'netSalary'
+      | 'igssLaboral'
+      | 'igssPatronal'
+      | 'isr'
+      | 'bono14Provision'
+      | 'aguinaldoProvision'
+      | 'vacacionesProvision'
+      | 'totalCostoPatronal';
+    const sum = (key: NumericItemKey): number =>
+      items.reduce((acc, it) => acc + n(it[key]), 0);
+    return {
+      totalEmployees: items.length,
+      totalGross: n(payroll?.totalGross) || sum('totalGross'),
+      totalDeductions: n(payroll?.totalDeductions) || sum('totalDeductions'),
+      totalNet: n(payroll?.totalNet) || sum('netSalary'),
+      totalIgssLaboral: sum('igssLaboral'),
+      totalIgssPatronal: sum('igssPatronal'),
+      totalIsr: sum('isr'),
+      totalBono14: sum('bono14Provision'),
+      totalAguinaldo: sum('aguinaldoProvision'),
+      totalVacaciones: sum('vacacionesProvision'),
+      totalCostoPatronal: sum('totalCostoPatronal'),
+    };
+  }, [payroll]);
+
+  const selectedDetail = useMemo<PayslipDetailItem | null>(() => {
+    if (!selectedId) return null;
+    const it = payroll?.items.find((x) => x.id === selectedId);
+    return it ? toPayslipDetail(it) : null;
+  }, [selectedId, payroll]);
 
   if (isLoading) {
     return (
-      <div className="p-20 text-center">
-        <Loader2 className="w-10 h-10 animate-spin mx-auto text-blue-500 opacity-30" />
+      <div className="flex h-full items-center justify-center p-20" role="status">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-500 opacity-40" />
+        <span className="sr-only">Cargando planilla…</span>
       </div>
     );
   }
+
   if (!payroll) {
-    return <div className="p-20 text-center text-slate-500">Planilla no encontrada</div>;
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 p-8">
+        <Breadcrumbs
+          items={[
+            { label: 'Inicio', href: '/dashboard' },
+            { label: 'RR.HH.', href: '/hr/employees' },
+            { label: 'Planillas', href: '/hr/payroll' },
+            { label: 'No encontrada' },
+          ]}
+        />
+        <div className="rounded-2xl border border-slate-100 bg-white p-10 text-center shadow-sm">
+          <p className="text-slate-500">Planilla no encontrada.</p>
+          <button
+            type="button"
+            onClick={() => router.push('/hr/payroll')}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver al listado
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto h-full flex flex-col">
-      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="p-2 hover:bg-slate-100 rounded-xl transition-all"
-            aria-label="Volver"
-          >
-            <ArrowLeft className="w-5 h-5 text-slate-500" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-blue-600" /> {payroll.name}
-            </h1>
-            <p className="text-xs font-medium text-slate-500">
-              {payroll.payrollType || 'REGULAR'} · {format(new Date(payroll.startDate), 'dd/MM/yyyy')} -{' '}
-              {format(new Date(payroll.endDate), 'dd/MM/yyyy')}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {payroll.status === 'DRAFT' && (
-            <button
-              onClick={() =>
-                setConfirmConfig({
-                  title: '¿Recalcular planilla?',
-                  message: 'Se recomputarán todos los items desde los empleados activos. Tus ajustes manuales se perderán.',
-                  confirmText: 'Recalcular',
-                  variant: 'warning',
-                  onConfirm: () => callAction(`/api/hr/payroll/${id}/recalculate`, 'Recalculada'),
-                })
-              }
-              disabled={isBusy}
-              className="px-3 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-100 transition flex items-center gap-1.5"
-            >
-              <RefreshCw className="w-4 h-4" /> Recalcular
-            </button>
-          )}
-          {payroll.status === 'DRAFT' && (
-            <button
-              onClick={() =>
-                setConfirmConfig({
-                  title: '¿Aprobar planilla?',
-                  message: 'Una vez aprobada, los montos quedan inmutables.',
-                  confirmText: 'Aprobar',
-                  variant: 'info',
-                  onConfirm: () => callAction(`/api/hr/payroll/${id}/approve`, 'Aprobada'),
-                })
-              }
-              disabled={isBusy}
-              className="px-3 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-500/20 hover:bg-blue-700 transition flex items-center gap-1.5"
-            >
-              <BadgeCheck className="w-4 h-4" /> Aprobar
-            </button>
-          )}
-          {payroll.status === 'APPROVED' && (
-            <button
-              onClick={() =>
-                setConfirmConfig({
-                  title: '¿Marcar como pagada?',
-                  message: 'Se generará el asiento contable correspondiente. Esta acción no se puede revertir.',
-                  confirmText: 'Pagar',
-                  variant: 'warning',
-                  onConfirm: () => callAction(`/api/hr/payroll/${id}/pay`, 'Pagada'),
-                })
-              }
-              disabled={isBusy}
-              className="px-3 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-500/20 hover:bg-emerald-700 transition flex items-center gap-1.5"
-            >
-              <Wallet className="w-4 h-4" /> Pagar
-            </button>
-          )}
-          <button
-            onClick={exportIgss}
-            className="px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition flex items-center gap-1.5"
-          >
-            <FileSpreadsheet className="w-4 h-4" /> IGSS
-          </button>
-          <button
-            onClick={exportCsv}
-            className="px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-50 transition flex items-center gap-1.5"
-          >
-            <Download className="w-4 h-4" /> CSV
-          </button>
-        </div>
-      </div>
+    <div className="mx-auto flex h-full max-w-7xl flex-col gap-6 p-4 sm:p-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'RR.HH.', href: '/hr/employees' },
+          { label: 'Planillas', href: '/hr/payroll' },
+          { label: payroll.name },
+        ]}
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Total Devengado</span>
-          <span className="text-2xl font-bold text-slate-900">{formatQ(payroll.totalGross)}</span>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Total Deducciones</span>
-          <span className="text-2xl font-bold text-rose-500">{formatQ(payroll.totalDeductions)}</span>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm border-b-4 border-b-emerald-500">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Total Líquido</span>
-          <span className="text-2xl font-bold text-emerald-600">{formatQ(payroll.totalNet)}</span>
-        </div>
-      </div>
+      <PayrollPeriodHeader
+        payroll={{
+          name: payroll.name,
+          status: payroll.status,
+          payrollType: payroll.payrollType,
+          startDate: payroll.startDate,
+          endDate: payroll.endDate,
+          periodReference: payroll.periodReference,
+        }}
+        kpis={kpis}
+        isBusy={isBusy}
+        onRecalculate={handleRecalculate}
+        onApprove={handleApprove}
+        onPay={handlePay}
+        onCancel={handleCancel}
+        toolbarExtra={
+          <>
+            <button
+              type="button"
+              onClick={exportIgss}
+              aria-label="Exportar reporte IGSS"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              IGSS
+            </button>
+            <button
+              type="button"
+              onClick={exportCsv}
+              aria-label="Exportar planilla CSV"
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+            >
+              <Download className="h-4 w-4" />
+              CSV
+            </button>
+          </>
+        }
+      />
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100 text-xs text-slate-500">
-                <th className="px-5 py-3 font-bold uppercase tracking-widest">Colaborador</th>
-                <th className="px-5 py-3 font-bold uppercase tracking-widest">Base</th>
-                <th className="px-5 py-3 font-bold uppercase tracking-widest">Bonos</th>
-                <th className="px-5 py-3 font-bold uppercase tracking-widest">Deducciones</th>
-                <th className="px-5 py-3 font-bold uppercase tracking-widest text-right">Neto</th>
-                <th className="px-5 py-3 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {payroll.items.map((item) => {
-                const employeeId = item.employeeId || item.employee.id || '';
-                const employeeName = `${item.employee.firstName} ${item.employee.lastName}`;
-                return (
-                  <tr key={item.id} className="hover:bg-slate-50/30 transition">
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xs">
-                          {item.employee.firstName.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-900">{employeeName}</p>
-                          <p className="text-[10px] text-slate-500 font-medium">{item.employee.position}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-sm font-medium text-slate-700">{formatQ(item.baseSalary)}</td>
-                    <td className="px-5 py-3">
-                      <div className="flex flex-col gap-0.5 text-xs">
-                        <span className="text-slate-600">Ley: {formatQ(item.bonusIncentive)}</span>
-                        {Number(item.otherBonuses) > 0 && (
-                          <span className="text-emerald-600 font-bold">Extra: {formatQ(item.otherBonuses)}</span>
-                        )}
-                        {Number(item.commissions || 0) > 0 && (
-                          <span className="text-indigo-600 font-bold">Comis.: {formatQ(item.commissions || 0)}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex flex-col gap-0.5 text-xs text-slate-600">
-                        <span>IGSS: {formatQ(item.igss)}</span>
-                        {Number(item.isr) > 0 && <span>ISR: {formatQ(item.isr)}</span>}
-                        {Number(item.otherDeductions) > 0 && (
-                          <span className="text-rose-500 font-bold">Otros: {formatQ(item.otherDeductions)}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-right font-bold text-slate-900">{formatQ(item.netSalary)}</td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {payroll.status === 'DRAFT' && (
-                          <button
-                            onClick={() => setEditingItem(item)}
-                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                            title="Ajustar"
-                          >
-                            <Save className="w-4 h-4" />
-                          </button>
-                        )}
-                        {employeeId && (
-                          <button
-                            onClick={() => downloadPayslip(employeeId, employeeName)}
-                            className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
-                            title="Boleta PDF"
-                          >
-                            <Receipt className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {payroll.items.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400 text-sm">
-                    No hay items en esta planilla.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <PayslipsTable
+        payslips={rows}
+        loading={isLoading}
+        payrollStatus={payroll.status}
+        isBusy={isBusy}
+        onSelect={handleSelect}
+        onEdit={handleEdit}
+        onDownloadPdf={handleDownloadPdf}
+        onRunPayroll={handleRunPayroll}
+      />
+
+      <PayslipDetailDrawer
+        open={Boolean(selectedDetail)}
+        item={selectedDetail}
+        payrollStatus={payroll.status}
+        onClose={() => setSelectedId(null)}
+        onDownloadPdf={handleDownloadDetail}
+        onEdit={handleEditFromDrawer}
+      />
 
       {editingItem && (
         <EditItemModal
           item={editingItem}
           onClose={() => setEditingItem(null)}
-          onSave={handleUpdateItem}
-          isBusy={isBusy}
-        />
-      )}
-
-      {confirmConfig && (
-        <ConfirmModal
-          isOpen
-          onClose={() => setConfirmConfig(null)}
-          onConfirm={confirmConfig.onConfirm}
-          title={confirmConfig.title}
-          message={confirmConfig.message}
-          confirmText={confirmConfig.confirmText}
-          variant={confirmConfig.variant || 'info'}
-          isLoading={isBusy}
+          onSaved={() => {
+            setEditingItem(null);
+            void fetchPayroll();
+          }}
         />
       )}
     </div>
   );
 }
 
+/**
+ * Modal de edición de overrides manuales del PayrollItem. Sólo permite
+ * tocar `otherBonuses`, `commissions`, `otherDeductions` y `notes` — el
+ * resto se calcula server-side. `baseSalary`, `igss`, `isr`, etc. son
+ * read-only.
+ */
 function EditItemModal({
   item,
   onClose,
-  onSave,
-  isBusy,
+  onSaved,
 }: {
-  item: PayrollItemData;
+  item: PayrollItemApi;
   onClose: () => void;
-  onSave: (
-    itemId: string,
-    data: { otherBonuses: number; commissions: number; otherDeductions: number; netSalary: number },
-  ) => void;
-  isBusy: boolean;
+  onSaved: () => void;
 }) {
-  const [bonuses, setBonuses] = useState(Number(item.otherBonuses) || 0);
-  const [commissions, setCommissions] = useState(Number(item.commissions || 0));
-  const [deductions, setDeductions] = useState(Number(item.otherDeductions) || 0);
+  const { toast } = useToast();
+  const [bonuses, setBonuses] = useState<number>(n(item.otherBonuses));
+  const [commissions, setCommissions] = useState<number>(n(item.commissions));
+  const [deductions, setDeductions] = useState<number>(n(item.otherDeductions));
+  const [notes, setNotes] = useState<string>(item.notes ?? '');
+  const [saving, setSaving] = useState(false);
 
-  const base = Number(item.baseSalary) || 0;
-  const incentive = Number(item.bonusIncentive) || 0;
-  const igss = Number(item.igss) || 0;
-  const isr = Number(item.isr) || 0;
-  const previewNet = base + incentive + bonuses + commissions - igss - isr - deductions;
+  const base = n(item.baseSalary);
+  const incentive = n(item.bonusIncentive);
+  const ot =
+    n(item.overtimeRegularAmount) +
+    n(item.overtimeNightAmount) +
+    n(item.overtimeHolidayAmount);
+  const seventh = n(item.seventhDayAmount);
+  const igss = n(item.igssLaboral ?? item.igss);
+  const isr = n(item.isr);
+  const loan = n(item.loanDeduction);
+
+  const previewGross = base + incentive + ot + seventh + bonuses + commissions;
+  const previewDeductions = igss + isr + loan + deductions;
+  const previewNet = previewGross - previewDeductions;
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/hr/payroll-items/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          otherBonuses: bonuses,
+          commissions,
+          otherDeductions: deductions,
+          notes: notes.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          (data as { error?: string }).error || 'No se pudo guardar',
+        );
+      }
+      toast({ tone: 'success', message: 'Boleta actualizada.' });
+      onSaved();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error';
+      toast({ tone: 'error', message: msg });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 sm:p-8">
-        <h3 className="text-xl font-bold text-slate-900 mb-4">
-          Ajustar pago: {item.employee.firstName} {item.employee.lastName}
+    <div
+      className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Editar boleta de ${item.employee.firstName} ${item.employee.lastName}`}
+    >
+      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+        <h3 className="text-lg font-bold text-slate-900">
+          Ajustar boleta
         </h3>
-        <div className="space-y-4">
-          <FieldNum label="Bonos extras" value={bonuses} onChange={setBonuses} />
-          <FieldNum label="Comisiones" value={commissions} onChange={setCommissions} />
-          <FieldNum label="Otras deducciones" value={deductions} onChange={setDeductions} />
-          <div className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Neto preview</span>
-            <span className="text-lg font-bold text-emerald-600">{formatQ(previewNet)}</span>
+        <p className="text-xs text-slate-500">
+          {item.employee.firstName} {item.employee.lastName}
+        </p>
+
+        <div className="mt-5 space-y-4">
+          <NumberField
+            label="Otros bonos (Q)"
+            value={bonuses}
+            onChange={setBonuses}
+          />
+          <NumberField
+            label="Comisiones (Q)"
+            value={commissions}
+            onChange={setCommissions}
+          />
+          <NumberField
+            label="Otras deducciones (Q)"
+            value={deductions}
+            onChange={setDeductions}
+          />
+          <div>
+            <label
+              htmlFor="payslip-notes"
+              className="block text-[10px] font-bold uppercase tracking-wider text-slate-500"
+            >
+              Observaciones
+            </label>
+            <textarea
+              id="payslip-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              maxLength={500}
+              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder="Notas internas (opcional)"
+            />
           </div>
+
+          <div className="rounded-2xl bg-slate-50 p-4 space-y-1.5 text-xs">
+            <PreviewRow label="Devengado" value={previewGross} />
+            <PreviewRow
+              label="Deducciones"
+              value={-previewDeductions}
+              tone="danger"
+            />
+            <div className="mt-1 flex items-center justify-between border-t border-slate-200 pt-2">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                Neto preview
+              </span>
+              <span className="text-lg font-bold text-emerald-600 tabular-nums">
+                Q
+                {previewNet.toLocaleString('es-GT', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button
+              type="button"
               onClick={onClose}
-              className="flex-1 py-3 font-bold text-slate-500 bg-slate-50 rounded-xl"
+              disabled={saving}
+              className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200 disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
-              disabled={isBusy}
-              onClick={() =>
-                onSave(item.id, {
-                  otherBonuses: bonuses,
-                  commissions,
-                  otherDeductions: deductions,
-                  netSalary: previewNet,
-                })
-              }
-              className="flex-1 py-3 font-bold text-white bg-blue-600 rounded-xl shadow-md shadow-blue-500/20 hover:bg-blue-700 transition disabled:opacity-50"
+              type="button"
+              onClick={submit}
+              disabled={saving}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-700 disabled:opacity-50"
             >
-              {isBusy ? 'Guardando…' : 'Guardar'}
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Guardar
             </button>
           </div>
         </div>
@@ -463,17 +742,52 @@ function EditItemModal({
   );
 }
 
-function FieldNum({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function NumberField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
   return (
     <div>
-      <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">{label}</label>
+      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        {label}
+      </label>
       <input
         type="number"
         step="0.01"
+        min="0"
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-        className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-50 outline-none"
+        className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100"
       />
+    </div>
+  );
+}
+
+function PreviewRow({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  label: string;
+  value: number;
+  tone?: 'neutral' | 'danger';
+}) {
+  const color = tone === 'danger' ? 'text-rose-500' : 'text-slate-700';
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-slate-500">{label}</span>
+      <span className={`tabular-nums font-bold ${color}`}>
+        Q
+        {value.toLocaleString('es-GT', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}
+      </span>
     </div>
   );
 }

@@ -7,28 +7,12 @@ import { es } from 'date-fns/locale';
 import {
   ArrowLeft, Printer, Undo2, XCircle, Package, User, Building2,
   CreditCard, Calendar, Wifi, Store, Truck, X, Loader2, AlertTriangle,
-  ShieldCheck, FileCheck2, FileX2
+  FileCheck2
 } from 'lucide-react';
 import { TicketModal } from '@/components/pos/TicketModal';
 import { CreateDeliveryNoteModal } from '@/components/sales/CreateDeliveryNoteModal';
+import { FelStatusCard, type TaxDocumentLite } from '@/components/sales/FelStatusCard';
 import { useToast } from '@/components/ui/toast';
-
-interface TaxDocumentLite {
-  id: string;
-  type: string;
-  numeroDisplay: string;
-  status: string;
-  dteUuid: string | null;
-  autorizacion: string | null;
-  fechaCertificacion: string | null;
-  emisorNit: string;
-  receptorNit: string;
-  receptorNombre: string;
-  taxRegime: string;
-  provider: string;
-  xmlFirmado: string | null;
-  cancelledById: string | null;
-}
 
 interface SaleDetail {
   id: string;
@@ -64,6 +48,7 @@ interface SaleDetail {
     createdAt: string;
     items: Array<{ quantity: number; amount: number; saleItemId: string }>;
   }>;
+  taxDocument?: TaxDocumentLite | null;
 }
 
 const CHANNEL_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -96,14 +81,6 @@ export default function SaleDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [showDeliveryNote, setShowDeliveryNote] = useState(false);
 
-  // FEL state
-  const [taxDocument, setTaxDocument] = useState<TaxDocumentLite | null>(null);
-  const [certifyingFel, setCertifyingFel] = useState(false);
-  const [felError, setFelError] = useState<string | null>(null);
-  const [showFelCancel, setShowFelCancel] = useState(false);
-  const [felCancelMotivo, setFelCancelMotivo] = useState('');
-  const [cancellingFel, setCancellingFel] = useState(false);
-
   // Return modal state
   const [returnItems, setReturnItems] = useState<Record<string, number>>({});
   const [returnReason, setReturnReason] = useState('');
@@ -126,30 +103,6 @@ export default function SaleDetailPage() {
     }
   }, [saleId]);
 
-  // Heurística para detectar FEL ya certificada: si Sale.invoiceNumber tiene
-  // formato "PREFIX-NNNNN" (definido por el endpoint de certify), hacemos un
-  // POST idempotente al certify para traer el TaxDocument completo.
-  const fetchTaxDocumentIfCertified = useCallback(
-    async (sale: SaleDetail) => {
-      if (!sale.invoiceNumber || sale.status !== 'COMPLETED') return;
-      try {
-        const res = await fetch(`/api/fel/certify/${sale.id}`, { method: 'POST' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.alreadyCertified && data.taxDocument) {
-            setTaxDocument(data.taxDocument);
-          } else if (data.taxDocument) {
-            setTaxDocument(data.taxDocument);
-          }
-        }
-        // Si no es OK, asumimos que aún no está certificada y se mostrará el botón.
-      } catch {
-        // silenciar
-      }
-    },
-    [],
-  );
-
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -158,11 +111,7 @@ export default function SaleDetailPage() {
         const res = await fetch(`/api/sales/${saleId}`);
         const data = await res.json();
         if (cancelled) return;
-        if (data.sale) {
-          setSale(data.sale);
-          // Probe FEL en background (no bloquea UI).
-          void fetchTaxDocumentIfCertified(data.sale);
-        }
+        if (data.sale) setSale(data.sale);
       } catch (e) {
         console.error(e);
       } finally {
@@ -173,70 +122,7 @@ export default function SaleDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [saleId, fetchTaxDocumentIfCertified]);
-
-  const handleCertifyFel = async () => {
-    if (!sale) return;
-    setCertifyingFel(true);
-    setFelError(null);
-    try {
-      const res = await fetch(`/api/fel/certify/${sale.id}`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        const msg = data.error || 'Error certificando FEL.';
-        setFelError(msg);
-        toast({ tone: 'error', message: msg });
-        return;
-      }
-      if (data.taxDocument) setTaxDocument(data.taxDocument);
-      toast({
-        tone: 'success',
-        message: `Factura certificada: ${data.taxDocument?.numeroDisplay ?? ''}`,
-      });
-      await fetchSale();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error de red';
-      setFelError(msg);
-      toast({ tone: 'error', message: msg });
-    } finally {
-      setCertifyingFel(false);
-    }
-  };
-
-  const handleCancelFel = async () => {
-    if (!taxDocument || !felCancelMotivo.trim()) {
-      setFelError('Ingresa un motivo de anulación.');
-      return;
-    }
-    setCancellingFel(true);
-    setFelError(null);
-    try {
-      const res = await fetch(`/api/fel/cancel/${taxDocument.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ motivo: felCancelMotivo.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const msg = data.error || 'No se pudo anular el DTE.';
-        setFelError(msg);
-        toast({ tone: 'error', message: msg });
-        return;
-      }
-      toast({ tone: 'success', message: 'DTE anulado. Se emitió NCRE asociada.' });
-      setShowFelCancel(false);
-      setFelCancelMotivo('');
-      // Re-fetch
-      await fetchSale();
-      if (sale) await fetchTaxDocumentIfCertified(sale);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error de red';
-      setFelError(msg);
-      toast({ tone: 'error', message: msg });
-    } finally {
-      setCancellingFel(false);
-    }
-  };
+  }, [saleId]);
 
   const handleCancel = async () => {
     setCancelling(true);
@@ -503,156 +389,12 @@ export default function SaleDetailPage() {
       </div>
 
       {/* FEL Section */}
-      {sale.status === 'COMPLETED' && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-          <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" /> Facturación Electrónica (FEL)
-          </h2>
-          {felError && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3 text-sm mb-4">
-              {felError}
-            </div>
-          )}
-          {taxDocument ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <InfoCard
-                  icon={<FileCheck2 className="w-4 h-4" />}
-                  label="Tipo · Número DTE"
-                  value={`${taxDocument.type} · ${taxDocument.numeroDisplay}`}
-                  sub={`Provider: ${taxDocument.provider}`}
-                />
-                <InfoCard
-                  icon={<ShieldCheck className="w-4 h-4" />}
-                  label="Estado"
-                  value={
-                    taxDocument.status === 'CERTIFIED'
-                      ? 'Certificado'
-                      : taxDocument.status === 'CANCELLED'
-                        ? 'Anulado'
-                        : taxDocument.status
-                  }
-                  sub={taxDocument.taxRegime}
-                />
-                <InfoCard
-                  icon={<Calendar className="w-4 h-4" />}
-                  label="Fecha certificación"
-                  value={
-                    taxDocument.fechaCertificacion
-                      ? format(new Date(taxDocument.fechaCertificacion), 'dd/MM/yyyy HH:mm', { locale: es })
-                      : '-'
-                  }
-                />
-                <InfoCard
-                  icon={<FileCheck2 className="w-4 h-4" />}
-                  label="UUID"
-                  value={taxDocument.dteUuid || '-'}
-                  sub={taxDocument.autorizacion ? `Autorización: ${taxDocument.autorizacion}` : ''}
-                />
-              </div>
-              <div className="flex flex-wrap gap-2 pt-2">
-                {taxDocument.xmlFirmado && (
-                  <a
-                    href={`data:application/xml;charset=utf-8,${encodeURIComponent(taxDocument.xmlFirmado)}`}
-                    download={`DTE_${taxDocument.numeroDisplay}.xml`}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
-                  >
-                    <Truck className="w-4 h-4" /> Descargar XML
-                  </a>
-                )}
-                {taxDocument.status === 'CERTIFIED' && !taxDocument.cancelledById && (
-                  <button
-                    type="button"
-                    onClick={() => setShowFelCancel(true)}
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
-                  >
-                    <FileX2 className="w-4 h-4" /> Anular DTE (NCRE)
-                  </button>
-                )}
-                {taxDocument.status === 'CANCELLED' && (
-                  <span className="inline-flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700">
-                    <FileX2 className="w-4 h-4" /> Documento anulado
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-              <p className="text-sm text-slate-500">
-                Esta venta aún no tiene DTE certificado. Genera la factura electrónica para el SAT.
-              </p>
-              <button
-                type="button"
-                onClick={handleCertifyFel}
-                disabled={certifyingFel}
-                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 transition disabled:opacity-50 active:scale-95 shadow-md shadow-emerald-600/20"
-              >
-                {certifyingFel ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                Certificar FEL
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* FEL Cancel modal */}
-      {showFelCancel && taxDocument && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-rose-50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
-                  <FileX2 className="w-5 h-5 text-rose-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-800 text-lg">Anular DTE</h3>
-                  <p className="text-xs text-rose-600 font-medium">{taxDocument.numeroDisplay}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowFelCancel(false)}
-                className="p-2 hover:bg-rose-100 rounded-xl text-slate-400 hover:text-rose-600 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-slate-600">
-                Se emitirá una Nota de Crédito (NCRE) asociada al DTE original y se marcará el DTE como anulado en el SAT.
-              </p>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Motivo de anulación *</label>
-                <textarea
-                  value={felCancelMotivo}
-                  onChange={(e) => setFelCancelMotivo(e.target.value)}
-                  rows={3}
-                  placeholder="Error de captura, devolución total, datos incorrectos..."
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 outline-none resize-none"
-                />
-              </div>
-            </div>
-            <div className="px-6 py-5 border-t border-slate-100 bg-slate-50 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowFelCancel(false)}
-                disabled={cancellingFel}
-                className="flex-1 py-3 rounded-2xl text-slate-500 font-bold hover:bg-slate-200 transition"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelFel}
-                disabled={cancellingFel || !felCancelMotivo.trim()}
-                className="flex-[1.4] py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {cancellingFel ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileX2 className="w-4 h-4" />}
-                Confirmar Anulación
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <FelStatusCard
+        saleId={sale.id}
+        saleStatus={sale.status}
+        taxDocument={sale.taxDocument ?? null}
+        onChanged={fetchSale}
+      />
 
       {/* Returns History */}
       {sale.returns.length > 0 && (

@@ -1,8 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Shield, Plus, Edit2, Trash2, Loader2, Key, Users } from 'lucide-react';
+/**
+ * Fase 22b · Roles con DataTable + useDataTable (cardRenderer para mobile y desktop).
+ *
+ * El endpoint `/api/settings/roles` devuelve el array completo (sin paginación
+ * servidor ni búsqueda). Paginación + búsqueda client-side.
+ *
+ * Reemplaza `confirm()`/`alert()` nativos por `useConfirm` + `useToast`.
+ *
+ * TODO Fase 24: agregar paginación servidor a /api/settings/roles si crece la lista.
+ */
+
+import { useState } from 'react';
+import { Shield, Plus, Edit2, Trash2, Key, Users } from 'lucide-react';
 import { RoleModal } from '@/components/users/RoleModal';
+import { useToast } from '@/components/ui/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useDataTable } from '@/hooks/useDataTable';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface CustomRole {
   id: string;
@@ -13,117 +30,189 @@ interface CustomRole {
 }
 
 export default function RolesPage() {
-  const [roles, setRoles] = useState<CustomRole[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<CustomRole | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
 
-  const fetchRoles = async () => {
-    setIsLoading(true);
+  const table = useDataTable<CustomRole>({
+    defaultLimit: 25,
+    onFetch: async ({ page, limit, search, signal }) => {
+      const res = await fetch('/api/settings/roles', { signal });
+      if (!res.ok) throw new Error('Error al cargar roles.');
+      const json = await res.json();
+      const all: CustomRole[] = Array.isArray(json) ? json : [];
+      const term = search.trim().toLowerCase();
+      const filtered = term
+        ? all.filter((r) => r.name.toLowerCase().includes(term))
+        : all;
+      const start = (page - 1) * limit;
+      return { data: filtered.slice(start, start + limit), total: filtered.length };
+    },
+  });
+
+  const handleDelete = async (role: CustomRole) => {
+    const accepted = await confirm({
+      title: 'Eliminar rol',
+      message: `¿Eliminar el rol "${role.name}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      tone: 'danger',
+    });
+    if (!accepted) return;
     try {
-      const res = await fetch('/api/settings/roles');
+      const res = await fetch(`/api/settings/roles/${role.id}`, { method: 'DELETE' });
       const data = await res.json();
-      if (Array.isArray(data)) setRoles(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
+      if (!res.ok) {
+        toast({ tone: 'error', message: data.error || 'Error al eliminar el rol.' });
+      } else {
+        toast({ tone: 'success', message: 'Rol eliminado correctamente.' });
+        void table.refetch();
+      }
+    } catch {
+      toast({ tone: 'error', message: 'Error de conexión al eliminar.' });
     }
   };
 
-  useEffect(() => {
-    fetchRoles();
-  }, []);
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este rol? Esta acción no se puede deshacer.')) return;
-    
-    try {
-      const res = await fetch(`/api/settings/roles/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) alert(data.error);
-      else fetchRoles();
-    } catch (e) {
-      alert('Error de conexión');
-    }
-  };
+  const columns: DataTableColumn<CustomRole>[] = [
+    {
+      key: 'name',
+      header: 'Rol',
+      mobilePriority: 'title',
+      accessor: (r) => (
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+            <Shield className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-900">{r.name}</p>
+            <p className="text-xs text-slate-500 line-clamp-1">{r.description || 'Sin descripción'}</p>
+          </div>
+        </div>
+      ),
+      exportValue: (r) => r.name,
+    },
+    {
+      key: 'users',
+      header: 'Usuarios',
+      mobilePriority: 'meta',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (r) => (
+        <span className="inline-flex items-center gap-1.5 text-slate-600 text-xs font-bold">
+          <Users className="w-3.5 h-3.5" /> {r._count?.users || 0}
+        </span>
+      ),
+      exportValue: (r) => String(r._count?.users ?? 0),
+    },
+    {
+      key: 'permissions',
+      header: 'Permisos',
+      mobilePriority: 'highlight',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (r) => (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-widest">
+          {r.permissions.length} permisos
+        </span>
+      ),
+      exportValue: (r) => String(r.permissions.length),
+    },
+    {
+      key: 'actions',
+      header: 'Acciones',
+      mobilePriority: 'hidden',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (r) => (
+        <div className="flex justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => { setSelectedRole(r); setIsModalOpen(true); }}
+            aria-label="Editar rol"
+            title="Editar"
+            className="p-2 hover:bg-slate-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => void handleDelete(r)}
+            aria-label="Eliminar rol"
+            title="Eliminar"
+            className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+      exportValue: () => '',
+    },
+  ];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Usuarios', href: '/users' },
+          { label: 'Roles' },
+        ]}
+      />
+
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
             <Key className="w-6 h-6 text-blue-600" />
             Roles y Privilegios
           </h1>
-          <p className="text-[13px] text-slate-500 font-medium mt-1">Define quién puede hacer qué dentro de tu plataforma</p>
+          <p className="text-[13px] text-slate-500 font-medium mt-1">
+            Define quién puede hacer qué dentro de tu plataforma
+          </p>
         </div>
         <button
           onClick={() => { setSelectedRole(null); setIsModalOpen(true); }}
-          className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl shadow-slate-500/10 flex items-center gap-2.5 transition-all active:scale-95"
+          className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-xl shadow-slate-500/10 flex items-center gap-2 transition-all"
         >
           <Plus className="w-4 h-4" /> Nuevo Rol
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading ? (
-          <div className="col-span-full py-20 text-center">
-            <Loader2 className="w-10 h-10 animate-spin mx-auto text-blue-500 opacity-20" />
-          </div>
-        ) : roles.length > 0 ? (
-          roles.map(role => (
-            <div key={role.id} className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all group flex flex-col">
-              <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
-                  <Shield className="w-6 h-6" />
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={() => { setSelectedRole(role); setIsModalOpen(true); }}
-                    className="p-2 hover:bg-slate-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(role.id)}
-                    className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <h3 className="text-lg font-bold text-slate-900 mb-1">{role.name}</h3>
-              <p className="text-xs text-slate-500 font-medium line-clamp-2 mb-6 flex-1">
-                {role.description || 'Sin descripción asignada.'}
-              </p>
-
-              <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                <div className="flex items-center gap-2 text-slate-400">
-                  <Users className="w-4 h-4" />
-                  <span className="text-[11px] font-bold uppercase tracking-wider">
-                    {role._count?.users || 0} Usuarios
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-widest">
-                  {role.permissions.length} Permisos
-                </div>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="col-span-full py-20 text-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-            <p className="text-slate-400 font-medium">No has creado roles personalizados aún.</p>
-          </div>
-        )}
-      </div>
+      <DataTable
+        columns={columns}
+        data={table.data}
+        loading={table.loading}
+        total={table.pagination.total}
+        page={table.pagination.page}
+        pageSize={table.pagination.limit}
+        onPageChange={table.pagination.onPageChange}
+        onPageSizeChange={table.pagination.onLimitChange}
+        getRowId={(r) => r.id}
+        search={{
+          value: table.search.value,
+          onChange: table.search.onChange,
+          placeholder: 'Buscar rol...',
+        }}
+        empty={
+          <EmptyState
+            icon={<Shield className="w-7 h-7" />}
+            title="Sin roles personalizados"
+            description="Crea un rol nuevo para empezar a asignar permisos por equipo."
+            action={
+              <button
+                onClick={() => { setSelectedRole(null); setIsModalOpen(true); }}
+                className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Nuevo Rol
+              </button>
+            }
+          />
+        }
+      />
 
       {isModalOpen && (
         <RoleModal
           role={selectedRole}
           onClose={() => setIsModalOpen(false)}
-          onSuccess={() => { setIsModalOpen(false); fetchRoles(); }}
+          onSuccess={() => { setIsModalOpen(false); void table.refetch(); }}
         />
       )}
     </div>

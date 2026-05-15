@@ -18,7 +18,7 @@ export async function GET(
     const [sale, settings] = await Promise.all([
       prisma.sale.findFirst({
         where: { id: resolvedParams.id, companyId: tenant.companyId },
-        include: {
+        include: ({
           items: {
             include: {
               product: { select: { id: true, name: true, sku: true } },
@@ -35,7 +35,31 @@ export async function GET(
           user: { select: { name: true } },
           customer: { select: { name: true, nit: true, address: true } },
           branch: { select: { name: true } },
-        },
+          // Fase 22c-2: incluir TaxDocument (FEL) para evitar round-trip extra
+          // desde el detalle de venta. El cast a `never` evita que el cliente
+          // Prisma se queje hasta el próximo `prisma generate`.
+          taxDocument: {
+            select: {
+              id: true,
+              type: true,
+              numeroDisplay: true,
+              status: true,
+              dteUuid: true,
+              autorizacion: true,
+              fechaCertificacion: true,
+              emisorNit: true,
+              receptorNit: true,
+              receptorNombre: true,
+              taxRegime: true,
+              provider: true,
+              xmlFirmado: true,
+              cancelledById: true,
+              providerResponseJson: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+        } as unknown) as never,
       }),
       prisma.companySettings.findUnique({ where: { companyId: tenant.companyId } }),
     ]);

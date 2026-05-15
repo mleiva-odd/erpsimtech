@@ -1,15 +1,25 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * Fase 22b · Delivery notes con DataTable + useDataTable.
+ *
+ * Endpoint `/api/delivery-notes` soporta paginación servidor + filtro `status`.
+ */
+
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   Truck, Package, MapPin, Phone, ChevronRight, RefreshCw,
-  CheckCircle2, Clock, Send, XCircle, Printer
+  CheckCircle2, Clock, Send, XCircle, Printer,
 } from 'lucide-react';
 import { useBranchStore } from '@/stores/branchStore';
 import { useToast } from '@/components/ui/toast';
 import { DeliveryNoteModal } from '@/components/sales/DeliveryNoteModal';
+import { useDataTable } from '@/hooks/useDataTable';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface DeliveryNoteItem {
   id: string;
@@ -46,31 +56,25 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
 export default function DeliveryNotesPage() {
   const { toast } = useToast();
   const { selectedBranchId } = useBranchStore();
-
-  const [notes, setNotes] = useState<DeliveryNote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
   const [selectedNote, setSelectedNote] = useState<DeliveryNote | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [showPrintNote, setShowPrintNote] = useState<string | null>(null);
 
-  const loadNotes = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter) params.set('status', statusFilter);
+  const table = useDataTable<DeliveryNote>({
+    defaultLimit: 25,
+    onFetch: async ({ page, limit, filters, signal }) => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
+      if (filters.status) params.set('status', String(filters.status));
       if (selectedBranchId) params.set('branchId', selectedBranchId);
-      const res = await fetch(`/api/delivery-notes?${params}`);
-      const data = await res.json();
-      setNotes(data.data || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, selectedBranchId]);
-
-  useEffect(() => { loadNotes(); }, [loadNotes]);
+      const res = await fetch(`/api/delivery-notes?${params}`, { signal });
+      if (!res.ok) throw new Error('Error al cargar notas de envío.');
+      const json = await res.json();
+      return { data: json.data ?? [], total: json.total ?? 0 };
+    },
+  });
 
   const updateStatus = async (noteId: string, newStatus: string) => {
     setUpdatingStatus(true);
@@ -85,7 +89,7 @@ export default function DeliveryNotesPage() {
         throw new Error(data.error);
       }
       toast({ tone: 'success', message: `Estado actualizado a ${STATUS_CONFIG[newStatus]?.label || newStatus}` });
-      loadNotes();
+      void table.refetch();
       setSelectedNote(null);
     } catch (e) {
       toast({ tone: 'error', message: e instanceof Error ? e.message : 'Error actualizando estado' });
@@ -94,9 +98,85 @@ export default function DeliveryNotesPage() {
     }
   };
 
+  const columns: DataTableColumn<DeliveryNote>[] = [
+    {
+      key: 'noteNumber',
+      header: 'No.',
+      mobilePriority: 'meta',
+      accessor: (n) => (
+        <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">
+          {n.noteNumber}
+        </span>
+      ),
+      exportValue: (n) => n.noteNumber || '',
+    },
+    {
+      key: 'recipient',
+      header: 'Destinatario',
+      mobilePriority: 'title',
+      accessor: (n) => (
+        <div>
+          <p className="font-bold text-slate-800">{n.recipientName}</p>
+          <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+            <MapPin className="w-3 h-3" /> {n.address}
+          </p>
+        </div>
+      ),
+      exportValue: (n) => `${n.recipientName} (${n.address})`,
+    },
+    {
+      key: 'status',
+      header: 'Estado',
+      mobilePriority: 'highlight',
+      accessor: (n) => {
+        const cfg = STATUS_CONFIG[n.status] || STATUS_CONFIG.PENDING;
+        return (
+          <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg flex items-center gap-1 border w-fit ${cfg.color}`}>
+            {cfg.icon} {cfg.label}
+          </span>
+        );
+      },
+      exportValue: (n) => STATUS_CONFIG[n.status]?.label || n.status,
+    },
+    {
+      key: 'items',
+      header: 'Productos',
+      mobilePriority: 'meta',
+      cellClassName: 'text-center',
+      headerClassName: 'text-center',
+      accessor: (n) => <span className="text-sm text-slate-600">{n.items.length}</span>,
+      exportValue: (n) => String(n.items.length),
+    },
+    {
+      key: 'createdAt',
+      header: 'Fecha',
+      mobilePriority: 'meta',
+      accessor: (n) => (
+        <span className="text-xs text-slate-500">
+          {format(new Date(n.createdAt), 'dd MMM yyyy, HH:mm', { locale: es })}
+        </span>
+      ),
+      exportValue: (n) => format(new Date(n.createdAt), 'dd/MM/yyyy HH:mm'),
+    },
+    {
+      key: 'phone',
+      header: 'Teléfono',
+      mobilePriority: 'hidden',
+      accessor: (n) => n.phone || '—',
+      exportValue: (n) => n.phone || '',
+    },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-8 space-y-6">
-      {/* Header */}
+      <Breadcrumbs
+        items={[
+          { label: 'Inicio', href: '/dashboard' },
+          { label: 'Ventas', href: '/sales' },
+          { label: 'Notas de envío' },
+        ]}
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
@@ -104,63 +184,77 @@ export default function DeliveryNotesPage() {
           </h1>
           <p className="text-sm text-slate-500">Gestión de despachos y entregas</p>
         </div>
-        <button onClick={loadNotes} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Actualizar
+        <button
+          onClick={() => void table.refetch()}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+          aria-label="Actualizar"
+        >
+          <RefreshCw className={`w-4 h-4 ${table.loading ? 'animate-spin' : ''}`} /> Actualizar
         </button>
       </div>
 
       {/* Status filter tabs */}
       <div className="flex gap-2 flex-wrap">
-        {[{ value: '', label: 'Todas' }, ...Object.entries(STATUS_CONFIG).map(([v, c]) => ({ value: v, label: c.label }))].map(tab => (
+        {[{ value: '', label: 'Todas' }, ...Object.entries(STATUS_CONFIG).map(([v, c]) => ({ value: v, label: c.label }))].map((tab) => (
           <button
-            key={tab.value}
-            onClick={() => setStatusFilter(tab.value)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition border ${statusFilter === tab.value ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+            key={tab.value || 'all'}
+            onClick={() => table.setFilter('status', tab.value || '')}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition border ${
+              (table.filters.status ?? '') === tab.value
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+            }`}
           >
             {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Notes list */}
-      <div className="space-y-3">
-        {loading ? (
-          <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-blue-500" /></div>
-        ) : notes.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center">
-            <Package className="w-12 h-12 text-slate-200 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm">No hay notas de envío.</p>
-          </div>
-        ) : (
-          notes.map(note => {
-            const statusCfg = STATUS_CONFIG[note.status] || STATUS_CONFIG.PENDING;
-            return (
-              <div key={note.id} onClick={() => setSelectedNote(note)} className="bg-white rounded-2xl border border-slate-100 p-5 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/5 transition cursor-pointer">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">{note.noteNumber}</span>
-                      <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg flex items-center gap-1 border ${statusCfg.color}`}>
-                        {statusCfg.icon} {statusCfg.label}
-                      </span>
-                      {note.sale && <span className="text-[10px] text-slate-400">• Venta #{note.sale.id.split('-')[0].toUpperCase()}</span>}
-                    </div>
-                    <h3 className="font-bold text-slate-800">{note.recipientName}</h3>
-                    <div className="flex items-center gap-4 text-xs text-slate-500 mt-1">
-                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {note.address}</span>
-                      {note.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {note.phone}</span>}
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-2">
-                      {note.items.length} producto{note.items.length > 1 ? 's' : ''} • {format(new Date(note.createdAt), "dd MMM yyyy, HH:mm", { locale: es })}
-                    </p>
+      <DataTable
+        columns={columns}
+        data={table.data}
+        loading={table.loading}
+        total={table.pagination.total}
+        page={table.pagination.page}
+        pageSize={table.pagination.limit}
+        onPageChange={table.pagination.onPageChange}
+        onPageSizeChange={table.pagination.onLimitChange}
+        getRowId={(n) => n.id}
+        onRowClick={(n) => setSelectedNote(n)}
+        cardRenderer={(n) => {
+          const cfg = STATUS_CONFIG[n.status] || STATUS_CONFIG.PENDING;
+          return (
+            <div className="bg-white rounded-2xl border border-slate-100 p-4 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/5 transition cursor-pointer">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg">{n.noteNumber}</span>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg flex items-center gap-1 border ${cfg.color}`}>
+                      {cfg.icon} {cfg.label}
+                    </span>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-slate-300" />
+                  <h3 className="font-bold text-slate-800">{n.recipientName}</h3>
+                  <div className="flex flex-col gap-1 text-xs text-slate-500 mt-1">
+                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {n.address}</span>
+                    {n.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {n.phone}</span>}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">
+                    {n.items.length} producto{n.items.length !== 1 ? 's' : ''} · {format(new Date(n.createdAt), 'dd MMM yyyy, HH:mm', { locale: es })}
+                  </p>
                 </div>
+                <ChevronRight className="w-5 h-5 text-slate-300 shrink-0" />
               </div>
-            );
-          })
-        )}
-      </div>
+            </div>
+          );
+        }}
+        empty={
+          <EmptyState
+            icon={<Package className="w-7 h-7" />}
+            title="Sin notas de envío"
+            description="No hay despachos registrados para los filtros actuales."
+          />
+        }
+      />
 
       {/* Detail Modal */}
       {selectedNote && (
@@ -170,11 +264,15 @@ export default function DeliveryNotesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-slate-800">Nota {selectedNote.noteNumber}</h2>
-                  <p className="text-xs text-slate-500 mt-1">{format(new Date(selectedNote.createdAt), "dd/MM/yyyy HH:mm")}</p>
+                  <p className="text-xs text-slate-500 mt-1">{format(new Date(selectedNote.createdAt), 'dd/MM/yyyy HH:mm')}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setShowPrintNote(selectedNote.id)} className="p-2 hover:bg-sky-50 text-sky-600 rounded-lg"><Printer className="w-5 h-5" /></button>
-                  <button onClick={() => setSelectedNote(null)} className="p-2 hover:bg-slate-100 rounded-lg"><XCircle className="w-5 h-5 text-slate-400" /></button>
+                  <button onClick={() => setShowPrintNote(selectedNote.id)} className="p-2 hover:bg-sky-50 text-sky-600 rounded-lg" aria-label="Imprimir">
+                    <Printer className="w-5 h-5" />
+                  </button>
+                  <button onClick={() => setSelectedNote(null)} className="p-2 hover:bg-slate-100 rounded-lg" aria-label="Cerrar">
+                    <XCircle className="w-5 h-5 text-slate-400" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -204,13 +302,11 @@ export default function DeliveryNotesPage() {
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Productos</p>
                 <div className="space-y-2">
-                  {selectedNote.items.map(item => (
+                  {selectedNote.items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3 border border-slate-100">
-                      <div>
-                        <p className="text-sm font-medium text-slate-700">
-                          {item.product.name}{item.variant && ` — ${item.variant.name}`}
-                        </p>
-                      </div>
+                      <p className="text-sm font-medium text-slate-700">
+                        {item.product.name}{item.variant && ` — ${item.variant.name}`}
+                      </p>
                       <span className="text-sm font-bold text-slate-800 bg-white px-3 py-1 rounded-lg border border-slate-200">
                         ×{item.quantity}
                       </span>
@@ -219,7 +315,6 @@ export default function DeliveryNotesPage() {
                 </div>
               </div>
 
-              {/* Status Actions */}
               <div className="flex gap-2 pt-2">
                 {selectedNote.status === 'PENDING' && (
                   <>

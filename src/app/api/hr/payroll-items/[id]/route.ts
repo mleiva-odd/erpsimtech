@@ -5,11 +5,14 @@ import { requirePermission } from '@/lib/tenant';
 import { ApiError, handleApiError } from '@/lib/api-error';
 import { createAuditLog } from '@/lib/audit';
 
+// Fase 22c-3 verifier H2: el ISR es LEY GT (escala SAT escalonada). NUNCA
+// debe ser editable manualmente por el cliente. Si una empresa necesita
+// ajustes (ej. viáticos no gravables que el cálculo no consideró), debe
+// recalcular cambiando el campo correspondiente, NO sobreescribiendo isr.
 const UpdateSchema = z.object({
   otherBonuses: z.coerce.number().nonnegative().optional(),
   commissions: z.coerce.number().nonnegative().optional(),
   otherDeductions: z.coerce.number().nonnegative().optional(),
-  isr: z.coerce.number().nonnegative().optional(),
   notes: z.string().trim().max(500).optional().nullable(),
 });
 
@@ -74,7 +77,8 @@ export async function PUT(
       const commissions = data.commissions ?? Number(item.commissions ?? 0);
       const otherDeductions =
         data.otherDeductions ?? Number(item.otherDeductions ?? 0);
-      const isr = data.isr ?? Number(item.isr ?? 0);
+      // ISR es LEY GT, no editable manualmente — siempre el snapshot calculado.
+      const isr = Number(item.isr ?? 0);
 
       const base = Number(item.baseSalary ?? 0);
       const bonus = Number(item.bonusIncentive ?? 0);
@@ -97,7 +101,6 @@ export async function PUT(
           otherBonuses,
           commissions,
           otherDeductions,
-          isr,
           notes: data.notes === undefined ? undefined : data.notes,
           totalGross,
           totalDeductions,

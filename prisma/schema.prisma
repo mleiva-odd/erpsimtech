@@ -184,6 +184,8 @@ model User {
   purchaseRequestsApproved PurchaseRequest[]         @relation("PRApprovedBy")
   rfqRequestsCreated       RFQRequest[]              @relation("RFQCreatedBy")
   rfqQuotesCreated         RFQQuote[]                @relation("RFQQuoteBy")
+  // Fase 22c-4 · RFQs donde este usuario es el comprador asignado
+  rfqRequestsAsBuyer       RFQRequest[]              @relation("RFQBuyer")
   goodsReceivedNotes       GoodsReceivedNote[]       @relation("GRNReceivedBy")
   supplierInvoicesRegistered SupplierInvoice[]       @relation("SupInvRegistered")
   supplierCreditNotesRegistered SupplierCreditNote[] @relation("SupCNRegistered")
@@ -414,6 +416,9 @@ model Supplier {
   rfqQuotes           RFQQuote[]           @relation("RFQQuoteSupplier")
   supplierInvoices    SupplierInvoice[]
   supplierCreditNotes SupplierCreditNote[]
+  // Fase 22c-4 · RFQ workflow expansion
+  rfqInvitations      RFQInvitation[]      @relation("RFQInvitations")
+  rfqItemAwards       RFQRequestItem[]     @relation("RFQItemAwardedSupplier")
 
   @@unique([companyId, nit])
   @@unique([companyId, name])
@@ -471,6 +476,9 @@ model PurchaseOrder {
   purchaseRequest       PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id])
   goodsReceivedNotes    GoodsReceivedNote[]
   supplierInvoice       SupplierInvoice?
+  // Fase 22c-4 · trazabilidad RFQ → PO (split award puede generar N POs por RFQ)
+  sourceRfqId           String?
+  sourceRfq             RFQRequest? @relation("RFQGeneratedPOs", fields: [sourceRfqId], references: [id])
 }
 
 model PurchaseOrderItem {
@@ -1923,32 +1931,57 @@ model PurchaseRequestItem {
 }
 
 /// Request For Quotation: pedir cotización a varios proveedores.
-/// Cada RFQ tiene N cotizaciones (RFQQuote). El comprador elige la mejor
-/// y convierte la quote ganadora en PO.
+/// Cada RFQ tiene N cotizaciones (RFQQuote). El comprador puede adjudicar
+/// la quote ganadora ENTERA (flujo legacy via awardedQuoteId) o adjudicar
+/// item por item a distintos proveedores (split award via
+/// RFQRequestItem.awardedSupplierId, Fase 22c-4).
 model RFQRequest {
   id             String @id @default(uuid())
   companyId      String
   branchId       String
   reason         String
   createdById    String
-  status         RFQStatus @default(OPEN)
+  /// DRAFT → SENT → CLOSED/AWARDED/CANCELLED. OPEN se mantiene como sinónimo
+  /// deprecado de SENT para compatibilidad con datos previos a Fase 22c-4.
+  status         RFQStatus @default(DRAFT)
   closedAt       DateTime?
   awardedQuoteId String?  @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  // Fase 22c-4 · operacional
+  /// Identificador legible "RFQ-YYYY-NNN" generado al pasar de DRAFT a SENT.
+  reference         String?
+  /// Fecha límite para que los proveedores envíen cotización.
+  responseDeadline  DateTime?
+  /// Días de validez esperados de cada cotización (snapshot al SEND;
+  /// default se hereda de Company.quoteValidDays).
+  quoteValidityDays Int?
+  /// Texto libre del lugar de entrega (puede ser branch.name o address).
+  deliveryPlace     String?
+  /// Comprador responsable (puede diferir de createdBy en empresas grandes).
+  buyerId           String?
+  /// Timestamp de la transición DRAFT → SENT.
+  sentAt            DateTime?
 
   company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   branch         Branch   @relation(fields: [branchId], references: [id])
   createdBy      User     @relation("RFQCreatedBy", fields: [createdById], references: [id])
+  buyer          User?    @relation("RFQBuyer", fields: [buyerId], references: [id])
   awardedQuote   RFQQuote? @relation("RFQAwarded", fields: [awardedQuoteId], references: [id])
   items          RFQRequestItem[]
   quotes         RFQQuote[]
+  invitations    RFQInvitation[]
+  generatedPurchaseOrders PurchaseOrder[] @relation("RFQGeneratedPOs")
 
   @@index([companyId, status])
+  @@index([buyerId])
+  @@index([responseDeadline])
 }
 
 enum RFQStatus {
+  DRAFT
   OPEN
+  SENT
   AWARDED
   CANCELLED
   CLOSED
@@ -1961,10 +1994,25 @@ model RFQRequestItem {
   variantId      String?
   quantity       Decimal @db.Decimal(12, 3)
   specifications String?  // ej "marca específica, calibre, etc."
+  // Fase 22c-4 · split award por item
+  /// Unidad de medida override (ej "kg", "u", "lb"). Si null, se usa la del producto.
+  unit               String?
+  /// Notas adicionales para el proveedor sobre este item puntual.
+  observations       String?
+  /// Proveedor adjudicado para este item (null = no adjudicado todavía).
+  awardedSupplierId  String?
+  /// Línea específica del RFQQuote ganador (precio + lead time snapshot).
+  awardedQuoteItemId String?
+  /// Timestamp de la adjudicación.
+  awardedAt          DateTime?
 
-  rfqRequest     RFQRequest @relation(fields: [rfqRequestId], references: [id], onDelete: Cascade)
-  product        Product  @relation(fields: [productId], references: [id])
-  variant        ProductVariant? @relation(fields: [variantId], references: [id])
+  rfqRequest        RFQRequest    @relation(fields: [rfqRequestId], references: [id], onDelete: Cascade)
+  product           Product       @relation(fields: [productId], references: [id])
+  variant           ProductVariant? @relation(fields: [variantId], references: [id])
+  awardedSupplier   Supplier?     @relation("RFQItemAwardedSupplier", fields: [awardedSupplierId], references: [id])
+  awardedQuoteItem  RFQQuoteItem? @relation("RFQItemAwardedQuoteItem", fields: [awardedQuoteItemId], references: [id])
+
+  @@index([awardedSupplierId])
 }
 
 model RFQQuote {
@@ -1997,6 +2045,35 @@ model RFQQuoteItem {
   rfqQuote     RFQQuote @relation(fields: [rfqQuoteId], references: [id], onDelete: Cascade)
   product      Product  @relation(fields: [productId], references: [id])
   variant      ProductVariant? @relation(fields: [variantId], references: [id])
+  awardedToItems RFQRequestItem[] @relation("RFQItemAwardedQuoteItem")
+}
+
+/// Invitación enviada a un proveedor (registrado o externo) para que cotice
+/// un RFQ. Sirve para saber quién no respondió. Fase 22c-4.
+model RFQInvitation {
+  id            String   @id @default(uuid())
+  rfqRequestId  String
+  /// Supplier registrado en la empresa. Null si se invita por email externo
+  /// (proveedor no registrado todavía).
+  supplierId    String?
+  /// Email del proveedor externo (alternativo a supplierId).
+  externalEmail String?
+  /// Timestamp en que se envió la invitación.
+  sentAt        DateTime?
+  /// Timestamp en que el proveedor respondió (primera cotización registrada).
+  respondedAt   DateTime?
+  /// Timestamp si el proveedor declinó explícitamente (opcional).
+  declinedAt    DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  rfqRequest    RFQRequest @relation(fields: [rfqRequestId], references: [id], onDelete: Cascade)
+  supplier      Supplier?  @relation("RFQInvitations", fields: [supplierId], references: [id])
+
+  // Unicidad enforzada vía índice único parcial en la migración SQL:
+  // UNIQUE (rfqRequestId, supplierId) WHERE supplierId IS NOT NULL.
+  @@index([rfqRequestId])
+  @@index([supplierId])
 }
 
 /// Goods Received Note: documento de recepción de mercadería contra una PO.

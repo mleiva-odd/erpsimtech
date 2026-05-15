@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/tenant';
 import { ApiError, handleApiError } from '@/lib/api-error';
+import { createAuditLog } from '@/lib/audit';
 
 const UpdatePayrollSchema = z.object({
   // status manual sólo permitido para CANCELLED desde DRAFT/APPROVED.
@@ -74,10 +75,23 @@ export async function PUT(
       updateData.periodReference = data.periodReference || null;
     }
 
+    const previousStatus = (payroll as { status: string }).status;
     const updated = await prisma.payroll.update({
       where: { id },
       data: updateData,
     });
+
+    // Fase 22c-3 verifier H1: auditar la cancelación de planilla.
+    if (data.status === 'CANCELLED') {
+      await createAuditLog({
+        companyId: tenant.companyId,
+        userId: tenant.userId,
+        action: 'PAYROLL_CANCELLED',
+        entity: 'Payroll',
+        entityId: id,
+        details: { previousStatus },
+      });
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

@@ -109,21 +109,32 @@ CREATE INDEX IF NOT EXISTS "RFQRequestItem_awardedSupplierId_idx"
 -- propagar la decisión a cada item del RFQ usando el RFQQuoteItem correspondiente.
 -- Match por (productId, variantId) — el RFQRequestItem y RFQQuoteItem
 -- comparten el producto.
+-- IMPORTANTE: Postgres no permite referenciar el alias de la tabla del UPDATE
+-- (ri) dentro de JOINs del FROM. Usamos subquery para resolver el match.
 UPDATE "RFQRequestItem" AS ri
 SET
-  "awardedSupplierId" = q."supplierId",
-  "awardedQuoteItemId" = qi."id",
-  "awardedAt" = COALESCE(r."closedAt", r."createdAt")
-FROM "RFQRequest" AS r
-JOIN "RFQQuote" AS q ON q."id" = r."awardedQuoteId"
-JOIN "RFQQuoteItem" AS qi ON qi."rfqQuoteId" = q."id"
-  AND qi."productId" = ri."productId"
-  AND (
-    (qi."variantId" IS NULL AND ri."variantId" IS NULL)
-    OR qi."variantId" = ri."variantId"
-  )
-WHERE ri."rfqRequestId" = r."id"
-  AND r."awardedQuoteId" IS NOT NULL
+  "awardedSupplierId" = sub."supplierId",
+  "awardedQuoteItemId" = sub."quoteItemId",
+  "awardedAt" = sub."awardedAt"
+FROM (
+  SELECT
+    ri2."id"                                     AS "riId",
+    q."supplierId"                               AS "supplierId",
+    qi."id"                                      AS "quoteItemId",
+    COALESCE(r."closedAt", r."createdAt")        AS "awardedAt"
+  FROM "RFQRequestItem" AS ri2
+  JOIN "RFQRequest" AS r  ON r."id" = ri2."rfqRequestId"
+  JOIN "RFQQuote"   AS q  ON q."id" = r."awardedQuoteId"
+  JOIN "RFQQuoteItem" AS qi
+    ON qi."rfqQuoteId" = q."id"
+   AND qi."productId" = ri2."productId"
+   AND (
+     (qi."variantId" IS NULL AND ri2."variantId" IS NULL)
+     OR qi."variantId" = ri2."variantId"
+   )
+  WHERE r."awardedQuoteId" IS NOT NULL
+) AS sub
+WHERE ri."id" = sub."riId"
   AND ri."awardedSupplierId" IS NULL;
 
 -- ──────────────────────────────────────────────────────────────────

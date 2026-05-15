@@ -39,7 +39,7 @@ const VALID_STATUS_SET = new Set<RFQStatus>([
   'AWARDED',
   'CANCELLED',
   'CLOSED',
-]);
+] as RFQStatus[]);
 
 function parseStatusFilter(raw: string | null): RFQStatus[] | null {
   if (!raw) return null;

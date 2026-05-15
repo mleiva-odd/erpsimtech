@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       });
 
       // 3. Log Origen
-      const txExp = await tx.bankTransaction.create({
+      await tx.bankTransaction.create({
         data: {
           bankAccountId: sourceBankId,
           userId: tenant.userId,

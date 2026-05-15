@@ -123,7 +123,6 @@ export async function POST(
       // cobro snapshotea el rate vigente "hoy" y compara para calcular FX.
       // Mutable: si bodyCurrency es null y encontramos una venta a crédito
       // reciente, adoptamos la currency de la venta como referencia.
-      // eslint-disable-next-line prefer-const
       let resolvedCurrency = normalizeCurrency(bodyCurrency ?? FUNCTIONAL_CURRENCY);
       let originalRate: number | null = null;
       if (!bodyCurrency) {

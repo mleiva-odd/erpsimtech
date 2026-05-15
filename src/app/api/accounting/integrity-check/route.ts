@@ -12,7 +12,8 @@ import { requireAnyPermission } from '@/lib/tenant';
  *   - totalsByType: suma global de DR/CR por tipo de cuenta
  *   - balanced: true si DR total == CR total global
  */
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  void req;
   const result = await requireAnyPermission(['treasury:view', 'treasury:manage', 'reports:view']);
   if ('error' in result) return result.error;
   const { tenant } = result;

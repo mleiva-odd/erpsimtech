@@ -48,6 +48,8 @@ interface TodayRate {
 interface TodayMissing {
   missing: true;
   currency: string;
+  /** Verifier MN: marca si el motivo es un error de la API (no 404 ni red). */
+  error?: boolean;
 }
 
 type TodayState = TodayRate | TodayMissing;
@@ -108,11 +110,18 @@ export default function ExchangeRatesPage() {
             next[cur] = { missing: true, currency: cur };
             return;
           }
-          if (!res.ok) return;
+          if (!res.ok) {
+            // Verifier MN: si la API responde con error no-404, marcar la
+            // moneda como error explícito (en vez de dejar undefined que
+            // resultaría en spinner "Cargando..." infinito).
+            next[cur] = { missing: true, currency: cur, error: true };
+            return;
+          }
           const body = (await res.json()) as TodayRate;
           next[cur] = body;
         } catch {
-          // Silently skip; KPI is best-effort.
+          // Network error: tratar igual que API error explícito.
+          next[cur] = { missing: true, currency: cur, error: true };
         }
       }),
     );

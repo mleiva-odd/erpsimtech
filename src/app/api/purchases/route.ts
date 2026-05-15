@@ -60,7 +60,8 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  void req;
   const result = await requireAnyPermission([
     'purchases:view',
     'purchases:create',

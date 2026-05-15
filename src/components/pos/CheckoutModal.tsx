@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, CreditCard, Banknote, ArrowLeftRight, Loader2, CheckCircle, UserCircle, Plus, Trash2 } from 'lucide-react';
 import { useCartStore } from '@/stores/cartStore';
-import { CurrencySelector, ExchangeRateBadge, AmountWithFx } from '@/components/currency';
+// Fase 22c-5 verifier crítico: el selector multi-moneda fue deshabilitado en
+// POS hasta que exista catálogo multi-moneda (deuda Fase 24). Si en el futuro
+// se reintroduce, re-importar: { CurrencySelector, ExchangeRateBadge, AmountWithFx } from '@/components/currency'.
 import { FUNCTIONAL_CURRENCY } from '@/lib/currency';
 
 interface CheckoutModalProps {
@@ -63,9 +65,9 @@ export function CheckoutModal({ onClose, onSuccess, channel = 'POS' }: CheckoutM
   // Fase 22c-5 · Multi-moneda. Default GTQ; si el usuario cambia a otra
   // moneda, hacemos fetch del rate del día (vía ExchangeRateBadge.onRateLoaded)
   // y bloqueamos el checkout si no hay rate cargado.
-  const [currency, setCurrency] = useState<string>(FUNCTIONAL_CURRENCY);
-  const [rateAvailable, setRateAvailable] = useState<boolean>(true);
-  const [currentRate, setCurrentRate] = useState<number>(1);
+  // Fase 22c-5 verifier crítico: moneda forzada a GTQ en POS. Setter no expuesto.
+  // Cuando se implemente catálogo multi-moneda (Fase 24), reactivar este state.
+  const currency = FUNCTIONAL_CURRENCY;
 
   const enabledMethods = METHODS.filter((method) => {
     if (method.value === 'CASH') return paymentSettings.acceptsCash;
@@ -165,10 +167,8 @@ export function CheckoutModal({ onClose, onSuccess, channel = 'POS' }: CheckoutM
        return;
     }
 
-    if (currency !== FUNCTIONAL_CURRENCY && !rateAvailable) {
-      setError(`No hay tipo de cambio cargado para ${currency}. Capturalo en Contabilidad → Tipos de Cambio antes de operar.`);
-      return;
-    }
+    // Fase 22c-5 verifier crítico: validación de rate eliminada porque currency
+    // está forzada a GTQ en POS. Se restaura cuando se reactive multi-moneda.
 
     if (totalPaid < total) {
       setError(`Pago insuficiente. Faltan Q${remaining.toFixed(2)}`);
@@ -265,62 +265,35 @@ export function CheckoutModal({ onClose, onSuccess, channel = 'POS' }: CheckoutM
           <div className="bg-blue-600 rounded-3xl p-6 text-center shadow-xl shadow-blue-500/20">
             <p className="text-xs text-blue-100 font-bold uppercase tracking-widest opacity-80">Total a liquidar</p>
             <p className="text-5xl font-bold text-white mt-2 tracking-tighter">
-              {currency === FUNCTIONAL_CURRENCY ? 'Q' : `${currency} `}
-              {total.toFixed(2)}
+              Q{total.toFixed(2)}
             </p>
-            {currency !== FUNCTIONAL_CURRENCY && rateAvailable && (
-              <p className="text-xs text-blue-100/90 font-medium mt-1">
-                ≈ <AmountWithFx
-                  amount={total * currentRate}
-                  currency={FUNCTIONAL_CURRENCY}
-                  size="sm"
-                  className="text-xs text-blue-50 font-semibold tabular-nums"
-                />
-              </p>
-            )}
           </div>
 
-          {/* Currency selector (Fase 22c-5) */}
-          <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-2">
+          {/* Currency info (Fase 22c-5 verifier crítico).
+              El selector multi-moneda en POS está DESHABILITADO porque el
+              catálogo de productos está fijo en GTQ. Si un cajero elige USD,
+              el carrito sigue con precios en Q pero el backend snapshotea
+              `currency=USD` y multiplica por la tasa USD→GTQ, inflando el
+              `functionalAmount` por factor rate (~7.85x). Riesgo crítico de
+              integridad contable.
+              Deuda Fase 24: implementar `PriceList.currency` + conversión
+              automática de precios de catálogo según moneda activa. Cuando
+              eso exista, reactivar `CurrencySelector` aquí.
+              Mantenemos `currency = FUNCTIONAL_CURRENCY (GTQ)` forzosamente. */}
+          <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col">
-                <label htmlFor="checkout-currency" className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   Moneda
-                </label>
+                </span>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {currency === FUNCTIONAL_CURRENCY
-                    ? 'Contabilidad en Quetzales.'
-                    : 'Se snapshoteará la tasa del día.'}
+                  Contabilidad en Quetzales.
                 </p>
               </div>
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                <ExchangeRateBadge
-                  currency={currency}
-                  onRateLoaded={(r) => {
-                    setRateAvailable(r !== null);
-                    if (r !== null) setCurrentRate(r);
-                  }}
-                />
-                <CurrencySelector
-                  id="checkout-currency"
-                  value={currency}
-                  onChange={(c) => {
-                    setCurrency(c);
-                    // Si vuelve a GTQ, no se necesita rate.
-                    if (c === FUNCTIONAL_CURRENCY) {
-                      setRateAvailable(true);
-                      setCurrentRate(1);
-                    }
-                  }}
-                  ariaLabel="Moneda de la venta"
-                />
-              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
+                Q · GTQ
+              </span>
             </div>
-            {currency !== FUNCTIONAL_CURRENCY && (
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                Los precios del catálogo están en Quetzales. Asegurate de que los montos ingresados ya estén convertidos a {currency}.
-              </p>
-            )}
           </div>
 
           {/* Payments */}
@@ -382,7 +355,7 @@ export function CheckoutModal({ onClose, onSuccess, channel = 'POS' }: CheckoutM
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-widest mb-1 px-1">
-                        Abono {currency === FUNCTIONAL_CURRENCY ? 'Q.' : currency}
+                        Abono Q.
                       </label>
                       <input
                         type="number"

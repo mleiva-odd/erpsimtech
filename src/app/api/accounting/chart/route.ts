@@ -6,7 +6,8 @@ import { requireAnyPermission } from '@/lib/tenant';
  * GET /api/accounting/chart — devuelve el plan de cuentas en forma de árbol.
  * Las cuentas padre (isPosting=false) agrupan a las hojas (isPosting=true).
  */
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  void req;
   const result = await requireAnyPermission(['treasury:view', 'treasury:manage', 'reports:view']);
   if ('error' in result) return result.error;
   const { tenant } = result;

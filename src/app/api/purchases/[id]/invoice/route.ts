@@ -62,8 +62,7 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const parsed = CreateInvoiceSchema.parse(body);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const po = (await prisma.purchaseOrder.findFirst({
+    const po = await prisma.purchaseOrder.findFirst({
       where: { id, companyId: tenant.companyId },
       include: {
         items: true,
@@ -75,11 +74,11 @@ export async function POST(
             withholdsIVA: true,
             withholdsISR: true,
             isrRate: true,
-          } as never,
+          },
         },
         supplierInvoice: { select: { id: true } },
-      } as never,
-    })) as any;
+      },
+    });
     if (!po) throw new ApiError(404, 'PO no encontrada.');
     if (po.supplierInvoice) {
       throw new ApiError(409, 'Esta PO ya tiene factura registrada.');

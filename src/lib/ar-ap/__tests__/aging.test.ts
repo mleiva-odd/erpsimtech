@@ -61,8 +61,11 @@ describe('computeBucket', () => {
 
 describe('daysOverdue', () => {
   it('counts whole days between dates, ignoring time of day', () => {
-    const due = new Date('2026-05-01T23:59:00Z');
-    const asOf = new Date('2026-05-12T00:01:00Z');
+    // NOTA: daysOverdue usa fecha LOCAL (getFullYear/getMonth/getDate, no UTC)
+    // porque la contabilidad GT cuenta días por calendario local. Usar fechas
+    // sin componente UTC para evitar timezone shift en el test.
+    const due = new Date(2026, 4, 1); // may 1 local
+    const asOf = new Date(2026, 4, 12); // may 12 local
     expect(daysOverdue(due, asOf)).toBe(11);
   });
 

@@ -143,6 +143,9 @@ describe('purchases/retention', () => {
     });
     // 333.33 * 0.05 = 16.6665 → round 16.67
     expect(r.withheldIVA).toBe(16.67);
-    expect(r.total).toBe(333.33 - 16.67);
+    // total ya viene redondeado a 2 decimales por la función. Usamos
+    // toBeCloseTo para evitar el bug clásico de floating point JS
+    // (333.33 - 16.67 = 316.65999999999997 sin redondear).
+    expect(r.total).toBeCloseTo(316.66, 2);
   });
 });

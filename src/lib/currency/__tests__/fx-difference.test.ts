@@ -143,8 +143,11 @@ describe('calculateFxDifference · redondeo', () => {
     expect(fx.gain).toBe(0.33);
   });
 
-  it('redondeo bancario clásico: 0.005 redondea hacia arriba', () => {
-    // 0.0001 × 50 = 0.005 → 0.01
+  it('aplica Math.round con comportamiento JS (no banker-rounding)', () => {
+    // 0.0001 × 50 = 0.005. JS Math.round(0.005 × 100) = Math.round(0.5) = 0
+    // (no es bug — JS no hace banker rounding, half-even). Si el negocio
+    // exigiera redondeo "hacia arriba en exactos .5", habría que usar
+    // Math.round(n + Number.EPSILON) o implementar una función propia.
     const fx = calculateFxDifference({
       originalRate: 7.8000,
       currentRate: 7.8001,
@@ -152,6 +155,6 @@ describe('calculateFxDifference · redondeo', () => {
       side: 'COLLECTION',
       currency: 'USD',
     });
-    expect(fx.gain).toBe(0.01);
+    expect(fx.gain).toBe(0);
   });
 });

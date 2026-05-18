@@ -184,6 +184,44 @@ export async function createTestBase() {
 }
 
 // ─────────────────────────────────────────
+// FEL fixtures (Fase 25-3d).
+// ─────────────────────────────────────────
+
+export interface CreateTaxSeriesOptions {
+  prefix?: string;
+  documentType?: 'FACT' | 'NCRE' | 'NDEB';
+  nextNumber?: number;
+  rangeFrom?: number | null;
+  rangeTo?: number | null;
+  authorization?: string | null;
+  active?: boolean;
+}
+
+/**
+ * Crea una TaxSeries autorizada SAT para tests de FEL.
+ * Default: serie "A" para facturas, nextNumber=1, sin rango.
+ */
+export async function createTestTaxSeries(
+  companyId: string,
+  branchId: string,
+  opts: CreateTaxSeriesOptions = {},
+) {
+  return prisma.taxSeries.create({
+    data: {
+      companyId,
+      branchId,
+      documentType: (opts.documentType ?? 'FACT') as never,
+      prefix: opts.prefix ?? 'A',
+      nextNumber: opts.nextNumber ?? 1,
+      rangeFrom: opts.rangeFrom ?? null,
+      rangeTo: opts.rangeTo ?? null,
+      authorization: opts.authorization ?? null,
+      active: opts.active ?? true,
+    },
+  });
+}
+
+// ─────────────────────────────────────────
 // Customer + Credit Sale fixtures (Fase 25-3c).
 // ─────────────────────────────────────────
 

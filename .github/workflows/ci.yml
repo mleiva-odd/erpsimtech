@@ -68,6 +68,63 @@ jobs:
       - run: npx prisma generate
       - run: npm run build
 
+  # ───────── Unit Tests (Vitest) ─────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test
+
+  # ───────── Integration Tests (Vitest + Postgres real) ─────────
+  # Fase 25-3a. Levanta Postgres 17 como service, aplica migraciones reales,
+  # corre los `*.integration.test.ts` que tocan la DB. Valida orquestadores
+  # Prisma que las pruebas unit no cubren.
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simtech_test
+        options: >-
+          --health-cmd "pg_isready -U postgres -d simtech_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5433:5432
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5433/simtech_test?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5433/simtech_test?schema=public
+      NEXTAUTH_SECRET: integration-test-secret-32-chars-min-1234
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_SUPABASE_URL: https://stub.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: stub_anon_key
+      SUPABASE_SERVICE_ROLE_KEY: stub_service_role_key
+      ALLOW_SEED_DESTRUCTIVE: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npm run test:integration
+
   # ───────── Tests E2E (Playwright) ─────────
   # Habilitado en Fase 13. Corre contra un Postgres efímero levantado en
   # el mismo workflow. Aplica migraciones reales (no `db push`) para que

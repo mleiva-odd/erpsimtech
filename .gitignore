@@ -33,6 +33,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# .env.test apunta a la DB efímera de docker-compose.test.yml (puerto 5433)
+# y NO contiene secretos reales; se commitea para que cualquier dev/CI
+# levante integration tests sin configuración extra.
+!.env.test
 
 # vercel
 .vercel

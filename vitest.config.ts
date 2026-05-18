@@ -18,9 +18,17 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     setupFiles: ['./vitest.setup.ts'],
-    // Excluir e2e (Playwright) y archivos no-test.
+    // Excluir e2e (Playwright), integration tests (config separada) y no-test.
     include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
-    exclude: ['node_modules', 'tests/e2e', '.next', 'dist'],
+    exclude: [
+      'node_modules',
+      'tests/e2e',
+      '.next',
+      'dist',
+      // Integration tests usan vitest.config.integration.ts + Postgres docker.
+      // NO deben correr con `npm test` (unit-only).
+      '**/*.integration.test.ts',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],

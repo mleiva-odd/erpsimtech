@@ -1,0 +1,28 @@
+# Fase 25-3a · Postgres efímero para integration tests.
+#
+# - Puerto 5433 para no chocar con un Postgres local del dev en 5432.
+# - tmpfs en /var/lib/postgresql/data: los datos viven en RAM y se pierden
+#   al hacer `docker compose down`. Garantiza estado limpio entre runs.
+# - Credenciales hardcoded "test/test/simtech_test": son SOLO para tests
+#   locales/CI, no son secretos. El guard de vitest.integration.setup.ts
+#   aborta si DATABASE_URL no apunta a `simtech_test` o `localhost:5433`.
+services:
+  postgres-test:
+    image: postgres:17
+    container_name: simtech-pg-test
+    environment:
+      # User `postgres` (matching producción): necesario para que la migración
+      # 20260511000000_app_user_role_activation_ready pueda ejecutar
+      # `ALTER DEFAULT PRIVILEGES FOR ROLE postgres`.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: simtech_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d simtech_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

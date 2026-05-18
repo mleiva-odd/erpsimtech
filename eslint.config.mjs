@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     ".agent/**",
     "prisma/seed.js",
     "scratch/**",
+    // Coverage report generado por v8 (Fase 25-2).
+    "coverage/**",
     "Rediseñar landing y login/**",
     "Rediseñar landing y login/**",
   ]),

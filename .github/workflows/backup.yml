@@ -22,6 +22,15 @@ on:
     - cron: '0 6 * * *'
   # Permite trigger manual desde la UI de Actions para backup on-demand.
   workflow_dispatch:
+  # push con filtro de path: solo corre cuando se modifica este workflow.
+  # Sirve dos propósitos:
+  #  1. Smoke test del workflow al editarlo (lo ejecuta una vez para validar).
+  #  2. Fuerza a GitHub a indexar el workflow en el sidebar (workflows que
+  #     solo tienen schedule+dispatch a veces no aparecen hasta su primer run).
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backup.yml'
 
 # Force Node 24 internamente en actions/checkout y actions/upload-artifact
 # (resuelve warning de deprecación Node 20).

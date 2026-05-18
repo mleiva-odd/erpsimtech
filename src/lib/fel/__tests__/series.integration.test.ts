@@ -14,7 +14,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { prisma } from '@/lib/prisma';
-import { reserveCorrelativo } from '@/lib/fel/series';
+import { reserveCorrelativo, type ReservedCorrelativo } from '@/lib/fel/series';
 import { FelError } from '@/lib/fel/types';
 import {
   createTestBase,
@@ -91,7 +91,10 @@ describe('reserveCorrelativo · integration', () => {
     );
 
     const succeeded = results
-      .filter((r): r is PromiseFulfilledResult<{ numero: number }> => r.status === 'fulfilled')
+      .filter(
+        (r): r is PromiseFulfilledResult<ReservedCorrelativo> =>
+          r.status === 'fulfilled',
+      )
       .map((r) => r.value);
 
     // Al menos 2 succeed (sino el test no valida nada).

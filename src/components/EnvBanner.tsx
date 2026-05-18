@@ -1,18 +1,26 @@
 /**
  * Fase 26 · Banner de entorno (Staging / Preview).
  *
- * Se muestra ÚNICAMENTE cuando `NEXT_PUBLIC_ENV` != 'production'. Evita
+ * Se muestra ÚNICAMENTE cuando el entorno != 'production'. Evita
  * confusiones del tipo "creí que estaba en prod" al operar en staging.
  *
- * Setup:
- *   - Producción (erp.simtechgt.com): NEXT_PUBLIC_ENV=production → no banner.
- *   - Staging/preview: NEXT_PUBLIC_ENV=staging → banner amarillo arriba.
- *   - Local dev: NEXT_PUBLIC_ENV no seteado → banner azul "LOCAL DEV".
+ * Resolución del entorno (en orden de prioridad):
+ *   1. VERCEL_ENV (auto-seteado por Vercel: 'production' / 'preview' / 'development').
+ *      Este es el SOURCE OF TRUTH cuando estamos en Vercel — no requiere
+ *      configuración manual y siempre es correcto.
+ *   2. NEXT_PUBLIC_ENV (manual override, útil para custom values como 'staging').
+ *   3. Fallback 'local' (cuando estamos en dev local sin Vercel).
  *
- * Configurar en Vercel → Project Settings → Environment Variables.
+ * NOTA: el componente es Server Component (no tiene 'use client') por eso
+ * puede leer VERCEL_ENV (variable server-only). Si en el futuro se migra
+ * a Client Component, hay que cambiar a NEXT_PUBLIC_VERCEL_ENV (Vercel
+ * también la expone, pero requiere setup separado).
  */
 
-const ENV = process.env.NEXT_PUBLIC_ENV ?? 'local';
+const ENV =
+  process.env.VERCEL_ENV ??
+  process.env.NEXT_PUBLIC_ENV ??
+  'local';
 
 interface BannerConfig {
   label: string;

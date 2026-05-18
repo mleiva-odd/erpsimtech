@@ -53,11 +53,23 @@ jobs:
             sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
+          # IMPORTANTE: Ubuntu 24.04 viene con postgresql-client-16 preinstalado.
+          # El comando `pg_dump` del PATH apunta al 16 que NO puede dumpear
+          # servers v17 (server version mismatch). Forzamos el binario 17 via
+          # update-alternatives con prioridad alta.
+          sudo update-alternatives --install /usr/bin/pg_dump pg_dump \
+            /usr/lib/postgresql/17/bin/pg_dump 100
+          pg_dump --version
 
       - name: pg_dump database
         env:
           DATABASE_URL_BACKUP: ${{ secrets.DATABASE_URL_BACKUP }}
         run: |
+          # set -euo pipefail: exit code de pg_dump propaga aunque vaya por
+          # pipe a gzip. Sin esto, pg_dump puede fallar silenciosamente y
+          # gzip de un stream vacío devuelve 0 → backup vacío sin error.
+          set -euo pipefail
+
           if [ -z "$DATABASE_URL_BACKUP" ]; then
             echo "::error::DATABASE_URL_BACKUP secret no configurado en repo Settings"
             exit 1
@@ -65,6 +77,10 @@ jobs:
           DATE=$(date -u +%Y-%m-%d_%H%M)
           FILE="simtech-backup-${DATE}.sql.gz"
           echo "Generando $FILE ..."
+
+          # Primero dump a archivo plano (separar pg_dump de gzip para mejor
+          # diagnóstico de errores), después comprimir.
+          DUMP_FILE="simtech-backup-${DATE}.sql"
           pg_dump \
             --no-owner \
             --no-privileges \
@@ -72,10 +88,29 @@ jobs:
             --clean \
             --if-exists \
             --quote-all-identifiers \
+            --verbose \
             "$DATABASE_URL_BACKUP" \
-            | gzip -9 > "$FILE"
-          SIZE=$(du -h "$FILE" | cut -f1)
-          echo "Backup completo: $FILE ($SIZE)"
+            > "$DUMP_FILE" 2> pg_dump.log
+
+          # Validar que el dump tiene contenido REAL (no solo headers).
+          # Un dump válido tiene CREATE TABLE statements.
+          if ! grep -q "CREATE TABLE" "$DUMP_FILE"; then
+            echo "::error::Backup vacío o inválido — pg_dump no generó CREATE TABLE statements"
+            echo "::group::pg_dump stderr"
+            cat pg_dump.log
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          TABLES=$(grep -c "CREATE TABLE" "$DUMP_FILE")
+          INSERTS=$(grep -c "INSERT INTO\|COPY .* FROM stdin" "$DUMP_FILE" || true)
+          DUMP_SIZE=$(du -h "$DUMP_FILE" | cut -f1)
+          echo "✓ Dump válido: $DUMP_SIZE, $TABLES tablas, $INSERTS bloques de data"
+
+          # Comprimir
+          gzip -9 "$DUMP_FILE"
+          GZ_SIZE=$(du -h "$FILE" | cut -f1)
+          echo "✓ Comprimido: $FILE ($GZ_SIZE)"
           echo "FILE=$FILE" >> $GITHUB_ENV
 
       - name: Upload artifact

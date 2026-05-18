@@ -11,16 +11,17 @@
  *   2. NEXT_PUBLIC_ENV (manual override, útil para custom values como 'staging').
  *   3. Fallback 'local' (cuando estamos en dev local sin Vercel).
  *
- * NOTA: el componente es Server Component (no tiene 'use client') por eso
- * puede leer VERCEL_ENV (variable server-only). Si en el futuro se migra
- * a Client Component, hay que cambiar a NEXT_PUBLIC_VERCEL_ENV (Vercel
- * también la expone, pero requiere setup separado).
+ * IMPORTANTE: este componente llama `headers()` para forzar dynamic
+ * rendering. Sin esto, páginas STATIC (/login, /apps, /, /onboarding) se
+ * prerenderean en build time donde VERCEL_ENV NO existe, lo que hace que
+ * el banner caiga al fallback 'local' incluso en producción.
+ *
+ * El costo es mínimo: el HTML del layout root se rendera en cada request
+ * en vez de cachearse. Pero como el resto de las páginas dashboard ya son
+ * dynamic, este overhead solo aplica a las 4 páginas static (poco tráfico).
  */
 
-const ENV =
-  process.env.VERCEL_ENV ??
-  process.env.NEXT_PUBLIC_ENV ??
-  'local';
+import { headers } from 'next/headers';
 
 interface BannerConfig {
   label: string;
@@ -35,7 +36,15 @@ const CONFIG: Record<string, BannerConfig | null> = {
   local: { label: 'LOCAL DEV', bg: 'bg-blue-400', text: 'text-blue-950' },
 };
 
-export function EnvBanner() {
+export async function EnvBanner() {
+  // Forza dynamic rendering — sin esto, VERCEL_ENV es undefined en páginas static.
+  await headers();
+
+  const ENV =
+    process.env.VERCEL_ENV ??
+    process.env.NEXT_PUBLIC_ENV ??
+    'local';
+
   const cfg = CONFIG[ENV] ?? CONFIG.local;
   if (!cfg) return null;
   return (

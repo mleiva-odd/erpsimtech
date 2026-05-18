@@ -30,7 +30,7 @@ env:
 
 jobs:
   backup:
-    name: pg_dump → artifact
+    name: pg_dump to artifact
     runs-on: ubuntu-latest
     if: ${{ github.repository_owner != '' }}  # skip en forks
     steps:
@@ -70,7 +70,7 @@ jobs:
           echo "FILE=$FILE" >> $GITHUB_ENV
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.FILE }}
           path: ${{ env.FILE }}

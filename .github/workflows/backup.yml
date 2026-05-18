@@ -23,6 +23,11 @@ on:
   # Permite trigger manual desde la UI de Actions para backup on-demand.
   workflow_dispatch:
 
+# Force Node 24 internamente en actions/checkout y actions/upload-artifact
+# (resuelve warning de deprecación Node 20).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   backup:
     name: pg_dump → artifact

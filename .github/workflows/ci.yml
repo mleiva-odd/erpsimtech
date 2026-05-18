@@ -14,6 +14,11 @@ concurrency:
 # Stub envs compartidos por todos los jobs.
 # Prisma resuelve env() del schema al validar/generar y falla si faltan.
 # NUNCA usar estos valores en producción.
+#
+# FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true → fuerza a actions/checkout,
+# actions/setup-node, actions/upload-artifact a usar Node 24 internamente
+# (en vez de Node 20 que está deprecado para junio 2026). Resuelve el
+# warning "Node.js 20 actions are deprecated" del último CI run.
 env:
   NEXTAUTH_SECRET: ci-stub-secret-32-chars-long-min-1234
   NEXTAUTH_URL: http://localhost:3000
@@ -22,6 +27,7 @@ env:
   NEXT_PUBLIC_SUPABASE_URL: https://stub.supabase.co
   NEXT_PUBLIC_SUPABASE_ANON_KEY: stub_anon_key
   SUPABASE_SERVICE_ROLE_KEY: stub_service_role_key
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   # ───────── Lint + Typecheck (rápido, falla rápido) ─────────

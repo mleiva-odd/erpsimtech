@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Providers } from "@/components/Providers";
+import { EnvBanner } from "@/components/EnvBanner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="h-full antialiased font-sans">
       <body className="min-h-full flex flex-col bg-slate-50">
+        <EnvBanner />
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -1,0 +1,73 @@
+name: Backup DB (Supabase)
+
+# Fase 26 · Backup automatizado diario de Supabase Postgres.
+#
+# Corre todos los días a las 06:00 UTC (00:00 hora GT) via pg_dump y sube
+# el archivo .sql.gz como artifact GitHub Actions (retención 30 días).
+#
+# REQUISITOS (configurar en GitHub repo Settings → Secrets):
+#   - DATABASE_URL_BACKUP: connection string Postgres (usar DIRECT_URL,
+#     NO pooler, para que pg_dump pueda hacer COPY).
+#
+# Para restaurar: descargar artifact, gunzip, psql DATABASE_URL < dump.sql.
+# Detalles completos en docs/runbook.md.
+#
+# NOTA: Supabase plan PRO ($25/mes) ofrece PITR backups que cubren esto sin
+# este workflow. En FREE plan (current setup), este workflow es la red de
+# seguridad. Migrar a PRO cuando el negocio lo justifique.
+
+on:
+  schedule:
+    # 06:00 UTC = 00:00 hora Guatemala (UTC-6).
+    - cron: '0 6 * * *'
+  # Permite trigger manual desde la UI de Actions para backup on-demand.
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: pg_dump → artifact
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner != '' }}  # skip en forks
+    steps:
+      - name: Install Postgres 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | \
+            sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+          echo "deb http://apt.postgresql.org/pub/repos/apt jammy-pgdg main" | \
+            sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      - name: pg_dump database
+        env:
+          DATABASE_URL_BACKUP: ${{ secrets.DATABASE_URL_BACKUP }}
+        run: |
+          if [ -z "$DATABASE_URL_BACKUP" ]; then
+            echo "::error::DATABASE_URL_BACKUP secret no configurado en repo Settings"
+            exit 1
+          fi
+          DATE=$(date -u +%Y-%m-%d_%H%M)
+          FILE="simtech-backup-${DATE}.sql.gz"
+          echo "Generando $FILE ..."
+          pg_dump \
+            --no-owner \
+            --no-privileges \
+            --format=plain \
+            --clean \
+            --if-exists \
+            --quote-all-identifiers \
+            "$DATABASE_URL_BACKUP" \
+            | gzip -9 > "$FILE"
+          SIZE=$(du -h "$FILE" | cut -f1)
+          echo "Backup completo: $FILE ($SIZE)"
+          echo "FILE=$FILE" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILE }}
+          path: ${{ env.FILE }}
+          retention-days: 30
+          if-no-files-found: error

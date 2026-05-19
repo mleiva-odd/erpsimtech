@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import Image from "next/image";
 import { getWhatsAppUrl } from "@/lib/utils";
+import { mapAuthError } from "@/lib/auth/error-messages";
 
 function BarChart3Icon({ className }: { className?: string }) {
   return (
@@ -58,22 +59,10 @@ function LoginPageInner() {
       });
 
       if (res?.error) {
-        // NextAuth devuelve el mensaje thrown desde authorize() en res.error
-        // (o el código "CredentialsSignin" como fallback). Mapeamos los casos
-        // conocidos al texto del usuario y caemos al genérico para todo lo
-        // demás, sin filtrar información técnica.
-        const raw = res.error.toLowerCase();
-        if (raw.includes("demasiados") || raw.includes("intentos")) {
-          setError(
-            "Demasiados intentos. Esperá unos minutos antes de volver a probar.",
-          );
-        } else if (raw.includes("suspendida")) {
-          setError("La empresa está suspendida. Contactá al administrador.");
-        } else if (raw.includes("inactivo")) {
-          setError("Usuario inactivo. Contactá al administrador.");
-        } else {
-          setError("Credenciales incorrectas. Verificá y volvé a intentar.");
-        }
+        // Centralizado en src/lib/auth/error-messages.ts — única fuente
+        // de verdad para mapear errores raw a mensajes user-facing seguros.
+        const mapped = mapAuthError(res.error);
+        setError(mapped.userMessage);
         setIsLoading(false);
       } else {
         router.push("/apps");

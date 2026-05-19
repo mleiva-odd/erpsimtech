@@ -230,13 +230,15 @@ export function ClientSidebar({ session: initialSession, role: propRole, isAdmin
         )}
 
         {isSuperAdmin && (
-          <MenuGroup 
-            icon={<Shield className="w-5 h-5" />} 
-            label="SaaS Global" 
+          <MenuGroup
+            icon={<Shield className="w-5 h-5" />}
+            label="SaaS Global"
             isCollapsed={isCollapsed}
             active={pathname?.startsWith('/admin')}
           >
             <NavItem href="/admin" icon={<Shield className="w-5 h-5" />} label="Empresas y Planes" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/admin/companies" icon={<Building2 className="w-5 h-5" />} label="Directorio Global" pathname={pathname || ''} isCollapsed={isCollapsed} />
+            <NavItem href="/admin/health" icon={<Activity className="w-5 h-5" />} label="Health Dashboard" pathname={pathname || ''} isCollapsed={isCollapsed} />
           </MenuGroup>
         )}
       </nav>

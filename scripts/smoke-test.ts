@@ -68,6 +68,77 @@ const CHECKS: Check[] = [
     method: 'GET',
     expectStatus: 200,
   },
+
+  // ─── Fase 31b · Auth recovery flow ───
+  {
+    name: 'Forgot password page renderiza',
+    path: '/forgot-password',
+    method: 'GET',
+    expectStatus: 200,
+  },
+  {
+    name: 'Reset password page renderiza (sin token muestra error)',
+    path: '/reset-password',
+    method: 'GET',
+    expectStatus: 200,
+  },
+
+  // ─── Fase 32 · Páginas legales públicas ───
+  {
+    name: 'Términos y condiciones disponibles',
+    path: '/legal/terms',
+    method: 'GET',
+    expectStatus: 200,
+  },
+  {
+    name: 'Política de privacidad disponible',
+    path: '/legal/privacy',
+    method: 'GET',
+    expectStatus: 200,
+  },
+  {
+    name: 'Página de soporte disponible',
+    path: '/legal/support',
+    method: 'GET',
+    expectStatus: 200,
+  },
+
+  // ─── Fase 36 · SEO ───
+  {
+    name: 'robots.txt servido',
+    path: '/robots.txt',
+    method: 'GET',
+    expectStatus: 200,
+  },
+  {
+    name: 'sitemap.xml servido',
+    path: '/sitemap.xml',
+    method: 'GET',
+    expectStatus: 200,
+  },
+
+  // ─── Fase 37 · Admin health (debe rechazar sin auth) ───
+  {
+    name: 'Admin health rechaza sin auth (401)',
+    path: '/api/admin/health',
+    method: 'GET',
+    expectStatus: 401,
+  },
+
+  // ─── Fase 38 · Cron maintenance (debe rechazar GET y POST sin secret) ───
+  {
+    name: 'Cron maintenance rechaza GET con 405',
+    path: '/api/cron/maintenance',
+    method: 'GET',
+    expectStatus: 405,
+  },
+  {
+    name: 'Cron maintenance rechaza POST sin Bearer (401 ó 503)',
+    path: '/api/cron/maintenance',
+    method: 'POST',
+    // 401 si CRON_SECRET está configurado, 503 si no.
+    expectStatus: [401, 503],
+  },
 ];
 
 interface CheckResult {

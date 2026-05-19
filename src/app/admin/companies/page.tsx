@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Download,
 } from 'lucide-react';
 
 interface CompanyRow {
@@ -105,6 +106,7 @@ export default function AdminCompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'active' | 'trial' | 'suspended' | 'paying'>('all');
 
   useEffect(() => {
     let aborted = false;
@@ -148,15 +150,59 @@ export default function AdminCompaniesPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return companies;
-    return companies.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        c.slug.toLowerCase().includes(q) ||
-        (c.nit ?? '').toLowerCase().includes(q),
+    let rows = companies;
+
+    // Filtro por estado
+    if (filter === 'active') rows = rows.filter((c) => c.active);
+    else if (filter === 'trial')
+      rows = rows.filter((c) => c.active && c.subscriptionStatus === 'TRIAL');
+    else if (filter === 'paying')
+      rows = rows.filter((c) => c.active && c.subscriptionStatus === 'ACTIVE');
+    else if (filter === 'suspended') rows = rows.filter((c) => !c.active);
+
+    // Filtro por texto
+    if (q) {
+      rows = rows.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.email.toLowerCase().includes(q) ||
+          c.slug.toLowerCase().includes(q) ||
+          (c.nit ?? '').toLowerCase().includes(q),
+      );
+    }
+    return rows;
+  }, [companies, search, filter]);
+
+  function exportCsv() {
+    const header = [
+      'name', 'slug', 'email', 'nit', 'active', 'subscriptionStatus',
+      'trialDaysLeft', 'branches', 'users', 'salesThisMonth',
+      'payrollsThisMonth', 'createdAt',
+    ];
+    const lines = filtered.map((c) =>
+      [
+        c.name, c.slug, c.email, c.nit ?? '',
+        c.active ? 'true' : 'false',
+        c.subscriptionStatus ?? '',
+        c.trialDaysLeft ?? '',
+        c.branches, c.users, c.salesThisMonth, c.payrollsThisMonth,
+        new Date(c.createdAt).toISOString().slice(0, 10),
+      ].map((cell) => {
+        const s = String(cell);
+        // Quote if contains comma, quote or newline (RFC 4180).
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      }).join(','),
     );
-  }, [companies, search]);
+    const csv = [header.join(','), ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.download = `simtech-companies-${stamp}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const totals = useMemo(
     () => ({
@@ -228,23 +274,54 @@ export default function AdminCompaniesPage() {
           <MetricCard Icon={Wallet} label="Pagando" value={totals.paying} tone="emerald" />
         </div>
 
-        {/* Search */}
+        {/* Search + filtros + export */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, email, slug o NIT..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-            />
-          </div>
-          {search && (
-            <div className="text-xs text-slate-500 mt-2">
-              {filtered.length} de {companies.length} empresas coinciden
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre, email, slug o NIT..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
             </div>
-          )}
+            <div className="flex flex-wrap gap-1">
+              {([
+                { key: 'all', label: 'Todas' },
+                { key: 'active', label: 'Activas' },
+                { key: 'trial', label: 'Trial' },
+                { key: 'paying', label: 'Pagando' },
+                { key: 'suspended', label: 'Suspendidas' },
+              ] as const).map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`px-3 py-1.5 text-xs rounded-md border ${
+                    filter === f.key
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={exportCsv}
+              disabled={filtered.length === 0}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap"
+              title="Descargar el listado filtrado como CSV"
+            >
+              <Download className="w-4 h-4" />
+              CSV
+            </button>
+          </div>
+          <div className="text-xs text-slate-500 mt-2">
+            {filtered.length} de {companies.length} empresas
+            {search || filter !== 'all' ? ' (filtradas)' : ''}
+          </div>
         </div>
 
         {/* Table */}

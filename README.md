@@ -117,6 +117,33 @@ Checklist operativa:
 
 - [docs/DEPLOY_CHECKLIST.md](docs/DEPLOY_CHECKLIST.md)
 - [docs/VERCEL_SUPABASE_SETUP.md](docs/VERCEL_SUPABASE_SETUP.md)
+- [docs/runbook.md](docs/runbook.md) · runbook operacional
+- [docs/email-setup.md](docs/email-setup.md) · activar email transaccional (Resend)
+
+## Funcionalidades operacionales (SUPER_ADMIN)
+
+Disponibles solo para `role = SUPER_ADMIN`:
+
+- `/admin/health` · estado de DB, email provider, Sentry, env vars y deploy en tiempo real
+- `/admin/companies` · directorio global del SaaS con métricas mensuales, filtros (todas/activas/trial/pagando/suspendidas), búsqueda y export CSV
+- `/admin/companies/[id]` · detalle por empresa: suspender/reactivar, resetear password de cualquier usuario, toggle activo de usuarios, ver últimos eventos de auditoría
+
+## Crons (GitHub Actions)
+
+Todos usan el mismo secret `CRON_SECRET`:
+
+- `.github/workflows/keep-alive.yml` — ping cada 6 días para evitar pausa de Supabase FREE
+- `.github/workflows/backup.yml` — backup diario `pg_dump` con artifact 30 días
+- `.github/workflows/maintenance.yml` — limpieza diaria de tokens expirados y login attempts
+- `.github/workflows/trial-warnings.yml` — recordatorios de trial por vencer (D-7, D-1)
+
+## Email transaccional
+
+La app envía emails (welcome, password reset, payroll generated, trial warnings) a través de una capa abstracta en `src/lib/email/`. Sin `RESEND_API_KEY` configurada, todo se loguea en Vercel logs (modo console). Para activar envío real seguir [`docs/email-setup.md`](docs/email-setup.md): 10 minutos, Q0 mientras estés bajo 3.000 envíos/mes.
+
+## Historial de cambios
+
+Ver [CHANGELOG.md](CHANGELOG.md) para el detalle del sprint "Camino a producción" (Mayo 2026).
 
 ## Estado técnico actual
 

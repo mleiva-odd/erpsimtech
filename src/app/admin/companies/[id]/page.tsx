@@ -8,7 +8,7 @@
  * auditoría. SUPER_ADMIN-only (validado server-side).
  */
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useCallback } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -24,6 +24,10 @@ import {
   Phone,
   Hash,
   Calendar,
+  KeyRound,
+  Ban,
+  Play,
+  Power,
 } from 'lucide-react';
 
 interface User {
@@ -35,6 +39,7 @@ interface User {
   branchName: string | null;
   active: boolean;
   createdAt: string;
+  lastLoginAt: string | null;
 }
 
 interface Branch {
@@ -133,6 +138,120 @@ export default function AdminCompanyDetailPage({
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionInProgress, setActionInProgress] = useState(false);
+  const [resetUserId, setResetUserId] = useState<string | null>(null);
+  const [resetPassword, setResetPassword] = useState('');
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/saas/companies/${id}`, {
+        cache: 'no-store',
+      });
+      const json = (await res.json()) as CompanyDetail;
+      const now = Date.now();
+      const tdl = json.subscription?.trialEndsAt
+        ? Math.max(
+            0,
+            Math.ceil(
+              (new Date(json.subscription.trialEndsAt).getTime() - now) /
+                86_400_000,
+            ),
+          )
+        : null;
+      setData(json);
+      setTrialDaysLeft(tdl);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  async function doSuspendToggle(action: 'suspend' | 'reactivate') {
+    const verb = action === 'suspend' ? 'suspender' : 'reactivar';
+    if (!confirm(`¿Seguro que querés ${verb} esta empresa?`)) return;
+    setActionInProgress(true);
+    setActionMessage(null);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/saas/companies/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error ?? 'Error desconocido');
+      }
+      setActionMessage(
+        action === 'suspend' ? 'Empresa suspendida.' : 'Empresa reactivada.',
+      );
+      await reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Error');
+    } finally {
+      setActionInProgress(false);
+    }
+  }
+
+  async function doToggleUserActive(userId: string, currentlyActive: boolean) {
+    const verb = currentlyActive ? 'desactivar' : 'reactivar';
+    if (!confirm(`¿Seguro que querés ${verb} este usuario?`)) return;
+    setActionInProgress(true);
+    setActionMessage(null);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/saas/companies/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle-user-active', userId }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error ?? 'Error desconocido');
+      }
+      setActionMessage(
+        currentlyActive ? 'Usuario desactivado.' : 'Usuario reactivado.',
+      );
+      await reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Error');
+    } finally {
+      setActionInProgress(false);
+    }
+  }
+
+  async function doResetUserPassword() {
+    if (!resetUserId) return;
+    setActionInProgress(true);
+    setActionMessage(null);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/saas/companies/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reset-user-password',
+          userId: resetUserId,
+          newPassword: resetPassword,
+        }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error ?? 'Error desconocido');
+      }
+      setActionMessage(
+        'Password reseteada. Comunicale al usuario su nueva contraseña por canal seguro.',
+      );
+      setResetUserId(null);
+      setResetPassword('');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Error');
+    } finally {
+      setActionInProgress(false);
+    }
+  }
 
   useEffect(() => {
     let aborted = false;
@@ -235,15 +354,45 @@ export default function AdminCompanyDetailPage({
               {company.nit ? ` · NIT ${company.nit}` : ''}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {!company.active && (
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-red-50 text-red-700 border border-red-200">
                 <XCircle className="w-4 h-4" /> Suspendida
               </span>
             )}
             <SubscriptionPill sub={subscription} trialDaysLeft={trialDaysLeft} />
+            {company.active ? (
+              <button
+                onClick={() => doSuspendToggle('suspend')}
+                disabled={actionInProgress}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+              >
+                <Ban className="w-4 h-4" /> Suspender
+              </button>
+            ) : (
+              <button
+                onClick={() => doSuspendToggle('reactivate')}
+                disabled={actionInProgress}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+              >
+                <Play className="w-4 h-4" /> Reactivar
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Feedback de acciones */}
+        {(actionMessage || actionError) && (
+          <div
+            className={`mb-6 p-3 rounded-lg text-sm border ${
+              actionError
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}
+          >
+            {actionError ?? actionMessage}
+          </div>
+        )}
 
         {/* Info básica */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
@@ -364,6 +513,7 @@ export default function AdminCompanyDetailPage({
                   <tr>
                     <th className="text-left px-5 py-2 font-medium">Usuario</th>
                     <th className="text-left px-5 py-2 font-medium">Rol</th>
+                    <th className="text-left px-5 py-2 font-medium">Último login</th>
                     <th className="text-right px-5 py-2 font-medium">Estado</th>
                   </tr>
                 </thead>
@@ -380,16 +530,43 @@ export default function AdminCompanyDetailPage({
                           <div className="text-slate-500">{u.branchName}</div>
                         ) : null}
                       </td>
+                      <td className="px-5 py-3 text-xs text-slate-600">
+                        {u.lastLoginAt
+                          ? new Date(u.lastLoginAt).toLocaleDateString('es-GT')
+                          : <span className="italic text-slate-400">nunca</span>}
+                      </td>
                       <td className="px-5 py-3 text-right">
-                        {u.active ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Activo
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                            <XCircle className="w-3.5 h-3.5" /> Inactivo
-                          </span>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {u.active ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Activo
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                              <XCircle className="w-3.5 h-3.5" /> Inactivo
+                            </span>
+                          )}
+                          <button
+                            onClick={() => doToggleUserActive(u.id, u.active)}
+                            disabled={actionInProgress}
+                            className="text-xs text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 disabled:opacity-50"
+                            title={u.active ? 'Desactivar usuario' : 'Reactivar usuario'}
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setResetUserId(u.id);
+                              setResetPassword('');
+                              setActionMessage(null);
+                              setActionError(null);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-700 inline-flex items-center gap-1"
+                            title="Resetear password de este usuario"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -398,6 +575,62 @@ export default function AdminCompanyDetailPage({
             )}
           </div>
         </div>
+
+        {/* Modal reset password */}
+        {resetUserId && (
+          <div
+            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+            onClick={() => !actionInProgress && setResetUserId(null)}
+          >
+            <div
+              className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <KeyRound className="w-5 h-5 text-blue-600" />
+                <h3 className="font-bold text-slate-900">Resetear password</h3>
+              </div>
+              <p className="text-sm text-slate-600 mb-4">
+                Vas a fijar una nueva contraseña para el usuario{' '}
+                <span className="font-mono text-xs">
+                  {users.find((u) => u.id === resetUserId)?.email}
+                </span>
+                . El usuario tendrá que cambiarla en su próximo login.
+              </p>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Nueva contraseña
+              </label>
+              <input
+                type="text"
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                placeholder="12+ caracteres, mayúscula, minúscula, dígito, símbolo"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-300"
+                autoFocus
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                Recordá comunicársela al usuario por un canal seguro
+                (WhatsApp directo, llamada). El sistema NO se la envía por email.
+              </p>
+              <div className="flex justify-end gap-2 mt-5">
+                <button
+                  onClick={() => setResetUserId(null)}
+                  disabled={actionInProgress}
+                  className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={doResetUserPassword}
+                  disabled={actionInProgress || resetPassword.length < 12}
+                  className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {actionInProgress ? 'Guardando...' : 'Resetear'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Recent activity */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden mt-6">

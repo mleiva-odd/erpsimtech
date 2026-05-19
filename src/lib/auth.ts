@@ -80,8 +80,22 @@ export const authOptions: NextAuthOptions = {
           throw new Error("La empresa está suspendida. Contacte al administrador.");
         }
 
-        // Login exitoso: registrar para auditoría y para liberar el contador.
+        // Login exitoso: registrar para auditoría y liberar el contador.
         await recordLoginAttempt(normalizedEmail, ipAddress, true);
+
+        // Fase 51 · Marcar último login. NO bloqueante: si falla, el login
+        // sigue. Útil para que SUPER_ADMIN detecte usuarios durmientes.
+        prisma.user
+          .update({
+            where: { id: user.id },
+            // @ts-expect-error lastLoginAt no está en el cliente Prisma del
+            // sandbox. Tras `npx prisma generate` el tipo se incluye y este
+            // comentario debe borrarse (TypeScript marca el directive sin uso).
+            data: { lastLoginAt: new Date() },
+          })
+          .catch((err: unknown) => {
+            console.warn('[auth] no se pudo actualizar lastLoginAt', err);
+          });
 
         return {
           id: user.id,

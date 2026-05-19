@@ -148,6 +148,10 @@ model User {
   password                 String
   role                     Role                      @default(USER)
   active                   Boolean                   @default(true)
+  // Fase 51 · Último login exitoso. Se actualiza desde NextAuth authorize().
+  // Útil para SUPER_ADMIN: identificar usuarios durmientes y cuentas
+  // sin uso real. Nullable porque puede no haber loggeado nunca.
+  lastLoginAt              DateTime?
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   accountPayments          AccountPayment[]

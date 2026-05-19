@@ -123,4 +123,52 @@ describe('email · templates', () => {
     expect(t.html).not.toContain('<script>');
     expect(t.html).toContain('&lt;script&gt;');
   });
+
+  it('welcomeNewAccountTemplate incluye días de trial y CTA login', async () => {
+    const { welcomeNewAccountTemplate } = await import('../templates');
+    const t = welcomeNewAccountTemplate({
+      toName: 'Marvin',
+      companyName: 'Distexma',
+      loginUrl: 'https://erp.simtechgt.com/login',
+      trialDays: 30,
+    });
+    expect(t.subject).toContain('Distexma');
+    expect(t.html).toContain('30 días');
+    expect(t.html).toContain('erp.simtechgt.com/login');
+    expect(t.tag).toBe('welcome-new-account');
+  });
+
+  it('paymentReminderTemplate cambia tono según urgencia', async () => {
+    const { paymentReminderTemplate } = await import('../templates');
+    const lejos = paymentReminderTemplate({
+      companyName: 'Distexma',
+      amountDue: 'Q 599.00',
+      dueDate: '31 de mayo de 2026',
+      daysRemaining: 7,
+    });
+    expect(lejos.subject).toContain('7 días');
+
+    const hoy = paymentReminderTemplate({
+      companyName: 'Distexma',
+      amountDue: 'Q 599.00',
+      dueDate: 'hoy',
+      daysRemaining: 0,
+    });
+    expect(hoy.subject).toContain('vence hoy');
+    expect(hoy.html).toContain('vence hoy');
+  });
+
+  it('accountSuspendedTemplate menciona días de gracia y saldo', async () => {
+    const { accountSuspendedTemplate } = await import('../templates');
+    const t = accountSuspendedTemplate({
+      toName: 'Marvin',
+      companyName: 'Distexma',
+      amountDue: 'Q 599.00',
+      graceDays: 30,
+    });
+    expect(t.subject).toContain('suspendida');
+    expect(t.html).toContain('Q 599.00');
+    expect(t.html).toContain('30 días');
+    expect(t.tag).toBe('account-suspended');
+  });
 });

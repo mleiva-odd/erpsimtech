@@ -129,6 +129,114 @@ export function payrollGeneratedTemplate(opts: {
 }
 
 /**
+ * Template: bienvenida al crear cuenta nueva. Incluye link de inicio +
+ * recordatorios útiles para el primer día.
+ */
+export function welcomeNewAccountTemplate(opts: {
+  toName?: string;
+  companyName: string;
+  loginUrl: string;
+  trialDays: number;
+  supportUrl?: string;
+}): Pick<EmailMessage, 'subject' | 'html' | 'text' | 'tag'> {
+  const subject = `Bienvenido a SIMTECH ERP, ${escapeHtml(opts.companyName)}`;
+  const greeting = opts.toName ? `Hola ${escapeHtml(opts.toName)},` : 'Hola,';
+  const html = wrap({
+    preheader: `Tu cuenta de ${opts.companyName} está activa. Empezá ahora.`,
+    title: `Bienvenido a SIMTECH ERP`,
+    body: `<p>${greeting}</p>
+<p>Tu cuenta de <strong>${escapeHtml(opts.companyName)}</strong> ya está lista. Tenés <strong>${opts.trialDays} días de prueba gratuita</strong> para configurar tu negocio, cargar productos y probar todas las funciones del sistema.</p>
+<table role="presentation" cellspacing="0" cellpadding="8" border="0" style="margin:16px 0;background:${BRAND_LIGHT};border-radius:8px;width:100%;">
+  <tr><td style="font-size:13px;color:#475569;">Para arrancar rápido te recomendamos:</td></tr>
+  <tr><td style="font-size:13px;color:#334155;padding-top:4px;">
+    1. Completar el wizard de configuración (datos fiscales, logo, plantillas contables).<br/>
+    2. Importar tu catálogo de productos desde Excel.<br/>
+    3. Crear tu primer empleado para arrancar la planilla.<br/>
+    4. Configurar la facturación electrónica cuando contrates plan pago.
+  </td></tr>
+</table>
+<p style="color:#64748b;font-size:13px;">¿Dudas? Estamos por WhatsApp y email. ${opts.supportUrl ? `<a href="${escapeAttr(opts.supportUrl)}" style="color:${BRAND_BLUE};">Centro de soporte</a>.` : ''}</p>`,
+    cta: { label: 'Entrar al sistema', url: opts.loginUrl },
+    footer: `Recordá: tu trial es de ${opts.trialDays} días. Cuando esté por terminar te avisamos.`,
+  });
+  const text = `${opts.toName ? `Hola ${opts.toName},\n\n` : 'Hola,\n\n'}Tu cuenta de ${opts.companyName} en SIMTECH ERP ya está lista. Tenés ${opts.trialDays} días de prueba gratuita.\n\nPara empezar:\n1. Completá el wizard de configuración.\n2. Importá tu catálogo de productos.\n3. Creá tu primer empleado.\n4. Configurá FEL cuando contrates plan pago.\n\nEntrar: ${opts.loginUrl}`;
+  return { subject, html, text, tag: 'welcome-new-account' };
+}
+
+/**
+ * Template: recordatorio de vencimiento de cuota. Honra la promesa de la
+ * Política de Privacidad sección 6 ("recordatorios 7 días antes").
+ */
+export function paymentReminderTemplate(opts: {
+  toName?: string;
+  companyName: string;
+  amountDue: string; // ya formateado "Q 599.00"
+  dueDate: string; // ej "31 de mayo de 2026"
+  daysRemaining: number;
+  payUrl?: string;
+}): Pick<EmailMessage, 'subject' | 'html' | 'text' | 'tag'> {
+  const subject =
+    opts.daysRemaining > 0
+      ? `Tu cuota de SIMTECH vence en ${opts.daysRemaining} días`
+      : `Tu cuota de SIMTECH vence hoy`;
+  const greeting = opts.toName ? `Hola ${escapeHtml(opts.toName)},` : 'Hola,';
+  const urgency =
+    opts.daysRemaining <= 1
+      ? `<strong style="color:#b45309;">vence ${opts.daysRemaining === 0 ? 'hoy' : 'mañana'}</strong>`
+      : `vence en <strong>${opts.daysRemaining} días</strong>`;
+  const html = wrap({
+    preheader: `Tu cuota de ${opts.amountDue} ${opts.daysRemaining === 0 ? 'vence hoy' : `vence en ${opts.daysRemaining} días`}.`,
+    title: 'Recordatorio de pago',
+    body: `<p>${greeting}</p>
+<p>Te recordamos que tu cuota mensual de <strong>${escapeHtml(opts.companyName)}</strong> ${urgency}.</p>
+<table role="presentation" cellspacing="0" cellpadding="8" border="0" style="margin:16px 0;background:${BRAND_LIGHT};border-radius:8px;">
+  <tr><td style="color:#64748b;font-size:13px;">Monto</td><td style="font-weight:600;">${escapeHtml(opts.amountDue)}</td></tr>
+  <tr><td style="color:#64748b;font-size:13px;">Vencimiento</td><td style="font-weight:600;">${escapeHtml(opts.dueDate)}</td></tr>
+</table>
+<p style="font-size:13px;color:#475569;">Si ya hiciste el pago, podés ignorar este mensaje. Si tenés dudas o necesitás factura, contestá este correo.</p>`,
+    cta: opts.payUrl
+      ? { label: 'Pagar ahora', url: opts.payUrl }
+      : undefined,
+    footer: 'SIMTECH ERP · Tu negocio nunca se detiene.',
+  });
+  const text = `${opts.toName ? `Hola ${opts.toName},\n\n` : 'Hola,\n\n'}Recordatorio: tu cuota de ${opts.companyName} ${opts.daysRemaining === 0 ? 'vence hoy' : `vence en ${opts.daysRemaining} días`}.\n\nMonto: ${opts.amountDue}\nVencimiento: ${opts.dueDate}${opts.payUrl ? `\n\nPagar: ${opts.payUrl}` : ''}`;
+  return { subject, html, text, tag: 'payment-reminder' };
+}
+
+/**
+ * Template: cuenta suspendida por falta de pago (15 días). Tono firme pero
+ * útil — explica qué pasa, qué se pierde si no actúa, y cómo reactivar.
+ */
+export function accountSuspendedTemplate(opts: {
+  toName?: string;
+  companyName: string;
+  amountDue: string;
+  graceDays: number; // días restantes antes de cancelación definitiva
+  contactUrl?: string;
+}): Pick<EmailMessage, 'subject' | 'html' | 'text' | 'tag'> {
+  const subject = `Cuenta suspendida — ${escapeHtml(opts.companyName)} · SIMTECH ERP`;
+  const greeting = opts.toName ? `Hola ${escapeHtml(opts.toName)},` : 'Hola,';
+  const html = wrap({
+    preheader: `Tu cuenta está suspendida. Quedan ${opts.graceDays} días para reactivar antes de eliminación.`,
+    title: 'Tu cuenta está suspendida',
+    body: `<p>${greeting}</p>
+<p>Lamentamos avisarte que la cuenta de <strong>${escapeHtml(opts.companyName)}</strong> fue suspendida por falta de pago. Tu acceso al sistema está pausado temporalmente.</p>
+<table role="presentation" cellspacing="0" cellpadding="8" border="0" style="margin:16px 0;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;">
+  <tr><td style="color:#92400e;font-size:13px;font-weight:600;">Saldo pendiente</td><td style="color:#78350f;font-weight:700;">${escapeHtml(opts.amountDue)}</td></tr>
+</table>
+<p>Tus datos siguen seguros y se conservan por <strong>${opts.graceDays} días más</strong>. Apenas regularices el pago, reactivamos el acceso de inmediato — no perdés información ni configuración.</p>
+<p style="color:#b45309;font-size:13px;"><strong>Importante:</strong> después de los ${opts.graceDays} días sin pago, la cuenta se cancela permanentemente y los datos se eliminan según nuestra Política de Privacidad.</p>`,
+    cta: opts.contactUrl
+      ? { label: 'Regularizar pago', url: opts.contactUrl }
+      : undefined,
+    footer:
+      'Si ya pagaste o hay algún problema, respondé este correo y resolvemos hoy mismo.',
+  });
+  const text = `${opts.toName ? `Hola ${opts.toName},\n\n` : 'Hola,\n\n'}Tu cuenta de ${opts.companyName} fue suspendida por falta de pago.\n\nSaldo pendiente: ${opts.amountDue}\n\nTus datos se conservan por ${opts.graceDays} días. Si regularizás antes, reactivamos el acceso de inmediato.${opts.contactUrl ? `\n\nRegularizar: ${opts.contactUrl}` : ''}\n\nSi ya pagaste, respondé este correo.`;
+  return { subject, html, text, tag: 'account-suspended' };
+}
+
+/**
  * Template: factura emitida (al cliente final). Adjunto = PDF (lo gestiona
  * el caller pasando el path/URL del PDF al provider — Resend soporta
  * adjuntos via API, pero esta capa de templates solo genera el cuerpo).

@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 // ───────────────────────────────────────────────────────────────────────────
 // Fase 27 · Wizard Onboarding production-ready.
@@ -723,10 +724,13 @@ export default function OnboardingPage() {
                       </label>
                       <div className="flex items-center gap-3">
                         {draft.logoUrl ? (
-                          <img
+                          <Image
                             src={draft.logoUrl}
                             alt="Logo cargado"
+                            width={64}
+                            height={64}
                             className="w-16 h-16 object-contain rounded-lg border border-slate-200 bg-white"
+                            unoptimized
                           />
                         ) : (
                           <div className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400">
@@ -1356,10 +1360,13 @@ function SummaryView({
         label="Logo"
         value={
           draft.logoUrl ? (
-            <img
+            <Image
               src={draft.logoUrl}
               alt="Logo"
+              width={40}
+              height={40}
               className="w-10 h-10 object-contain rounded border border-slate-200 bg-white inline-block"
+              unoptimized
             />
           ) : (
             <span className="italic text-slate-400">sin logo</span>

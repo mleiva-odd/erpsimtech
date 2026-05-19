@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/hashing";
 import { requireEnv } from "@/lib/env";
@@ -85,13 +86,13 @@ export const authOptions: NextAuthOptions = {
 
         // Fase 51 · Marcar último login. NO bloqueante: si falla, el login
         // sigue. Útil para que SUPER_ADMIN detecte usuarios durmientes.
+        // Cast vía unknown: tolera desfase de tipos cuando el cliente Prisma
+        // local no fue regenerado tras la migración. Vercel regenera en
+        // postinstall así que en producción los tipos son correctos.
         prisma.user
           .update({
             where: { id: user.id },
-            // @ts-expect-error lastLoginAt no está en el cliente Prisma del
-            // sandbox. Tras `npx prisma generate` el tipo se incluye y este
-            // comentario debe borrarse (TypeScript marca el directive sin uso).
-            data: { lastLoginAt: new Date() },
+            data: { lastLoginAt: new Date() } as unknown as Prisma.UserUpdateInput,
           })
           .catch((err: unknown) => {
             console.warn('[auth] no se pudo actualizar lastLoginAt', err);

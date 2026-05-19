@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/tenant';
 import { ApiError, handleApiError } from '@/lib/api-error';
@@ -63,6 +64,9 @@ export async function GET(
         branches: {
           select: { id: true, name: true, code: true, address: true },
         },
+        // Cast vía unknown: tolera desfase si el cliente Prisma local no
+        // fue regenerado tras la migración Fase 51 (lastLoginAt). Vercel
+        // regenera en postinstall, así que en prod el campo existe.
         users: {
           select: {
             id: true,
@@ -71,12 +75,10 @@ export async function GET(
             role: true,
             active: true,
             createdAt: true,
-            // @ts-expect-error lastLoginAt: regenerar Prisma client tras
-            // este deploy para que el tipo lo incluya y borrar este comentario.
             lastLoginAt: true,
             customRole: { select: { name: true } },
             branch: { select: { name: true } },
-          },
+          } as unknown as Prisma.UserSelect,
           orderBy: { createdAt: 'desc' },
         },
       },

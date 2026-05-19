@@ -5,6 +5,9 @@ import { requirePermission } from '@/lib/tenant';
 import { ApiError, handleApiError } from '@/lib/api-error';
 import { createAuditLog } from '@/lib/audit';
 import { calculatePayrollItem } from '@/lib/payroll/calculate';
+import { sendEmail } from '@/lib/email';
+import { payrollGeneratedTemplate } from '@/lib/email/templates';
+import { logger } from '@/lib/logger';
 import type {
   PayrollType,
   PayrollFrequency,
@@ -185,6 +188,41 @@ export async function POST(req: NextRequest) {
         employees: employees.length,
       },
     });
+
+    // Fase 31c · Notificación al admin que disparó la planilla.
+    // Fire-and-forget (no bloquea la respuesta).
+    void (async () => {
+      try {
+        const adminUser = (await prisma.user.findUnique({
+          where: { id: tenant.userId },
+          select: { name: true, email: true },
+        })) as { name: string; email: string } | null;
+        if (!adminUser?.email) return;
+
+        const siteUrl =
+          process.env.NEXT_PUBLIC_SITE_URL ?? 'https://erp.simtechgt.com';
+        const payrollId = (payroll as { id: string }).id;
+        const totalNet = (payroll as { totalNet?: unknown }).totalNet ?? 0;
+        const totalNetNum = Number(totalNet) || 0;
+        const totalNetFmt = `Q ${totalNetNum.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+        const tpl = payrollGeneratedTemplate({
+          toName: adminUser.name,
+          payrollName: data.name,
+          employeeCount: employees.length,
+          totalNet: totalNetFmt,
+          detailUrl: `${siteUrl}/apps/hr/payroll/${payrollId}`,
+        });
+        await sendEmail({
+          to: { name: adminUser.name, email: adminUser.email },
+          ...tpl,
+        });
+      } catch (err) {
+        logger.warn('[payroll] notificación email falló', {
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    })();
 
     return NextResponse.json(payroll, { status: 201 });
   } catch (error) {

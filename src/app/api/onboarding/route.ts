@@ -10,6 +10,8 @@ import {
   seedTemplateAccounts,
   type BusinessType,
 } from '@/lib/accounting';
+import { sendEmail } from '@/lib/email';
+import { welcomeNewAccountTemplate } from '@/lib/email/templates';
 
 // ───────────────────────────────────────────────────────────────────────────
 // Fase 27 · Onboarding wizard production-ready.
@@ -519,6 +521,24 @@ export async function POST(req: NextRequest) {
         felConfigured: Boolean(data.felConfig?.enabled),
         logoUploaded: Boolean(data.logoUrl),
       },
+    });
+
+    // Fase 31c · Email de bienvenida al admin. No bloqueante: si falla,
+    // la cuenta queda creada igual; sendEmail captura el error en
+    // observability sin propagar al caller.
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ?? 'https://erp.simtechgt.com';
+    const TRIAL_DAYS = 30;
+    const welcomeTpl = welcomeNewAccountTemplate({
+      toName: data.adminName,
+      companyName: company.name,
+      loginUrl: `${siteUrl}/login`,
+      trialDays: TRIAL_DAYS,
+      supportUrl: `${siteUrl}/legal/support`,
+    });
+    void sendEmail({
+      to: { name: data.adminName, email: data.adminEmail },
+      ...welcomeTpl,
     });
 
     return NextResponse.json(

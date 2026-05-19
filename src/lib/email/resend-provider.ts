@@ -13,6 +13,14 @@
  *
  * IMPORTANTE: para usar en producción se debe verificar el dominio
  * remitente en Resend (DKIM/SPF) — si no, los emails caen en spam.
+ *
+ * Truco anti-Turbopack: usamos `eval('require')` en vez de `require()` directo
+ * porque Turbopack (Next.js 16 default bundler) hace análisis estático y
+ * falla en build si el módulo opcional no está instalado. Con eval, Turbopack
+ * no puede inferir el nombre del módulo en build-time y deja que se resuelva
+ * en runtime. Cuando Marvin instale `resend` (npm install resend) el require
+ * funciona; mientras tanto, el código solo intenta ejecutarse cuando hay
+ * credenciales — sin credenciales el constructor nunca corre.
  */
 
 import type {
@@ -62,8 +70,14 @@ export class ResendEmailProvider implements EmailProvider {
     if (!defaultFrom)
       throw new Error('ResendEmailProvider: EMAIL_FROM ausente (default sender)');
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('resend') as ResendModule;
+    // Usamos `new Function('return require')()` para esconder el require de
+    // Turbopack — su análisis estático en build-time falla si el módulo no
+    // está instalado, aunque esté envuelto en try/catch. Esta indirección
+    // hace que Turbopack vea solo una función opaca, y el require se
+    // resuelve en runtime de Node. Cuando `resend` no está instalado, lanza
+    // Error y el factory en index.ts cae al ConsoleEmailProvider.
+    const nodeRequire = new Function('return require')() as (id: string) => unknown;
+    const mod = nodeRequire('resend') as ResendModule;
     this.client = new mod.Resend(apiKey);
     this.defaultFrom = defaultFrom;
   }

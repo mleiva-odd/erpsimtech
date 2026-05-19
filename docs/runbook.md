@@ -28,6 +28,23 @@ npm run smoke -- --url https://staging.simtechgt.com
 
 Valida `/api/health`, `/login`, `/api/auth/csrf`, `/api/auth/session`. Si falla cualquiera, **rollback inmediato** en Vercel Dashboard → Deployments → seleccionar deploy anterior → Promote to Production.
 
+### Tareas adicionales tras deploy con cambios de schema
+
+Si el commit incluye migraciones nuevas (carpeta `prisma/migrations/`), después del deploy automático de Vercel:
+
+1. **`npx prisma migrate deploy`** contra prod usando `DIRECT_URL`. Vercel NO corre migraciones automáticamente — está intencionalmente desactivado para evitar accidentes destructivos.
+2. **`npx prisma generate`** local para refrescar el cliente TypeScript.
+3. **Borrar shims `src/types/prisma-phaseXX.d.ts`** correspondientes a la migración recién aplicada (los tipos reales los reemplazan).
+4. Verificar `npm run typecheck && npm run lint && npm test` local.
+
+### Dashboard admin de health
+
+Tras deploy, abrir [`/admin/health`](https://erp.simtechgt.com/admin/health) (login SUPER_ADMIN) para verificar:
+- DB ping con latencia OK (< 200ms desde Vercel)
+- Email provider activo (idealmente "resend", o "console" si no contrataste todavía)
+- Sentry on/off según expectativa
+- Todas las env vars críticas marcadas como "Seteada"
+
 ---
 
 ## Incidencias comunes
@@ -198,6 +215,8 @@ Mientras tanto, el workflow GitHub Actions cumple.
 
 ### Producción (Vercel)
 
+**Esenciales** (sin estas la app NO funciona):
+
 | Variable | Descripción | Sensibilidad |
 |---|---|---|
 | `DATABASE_URL` | Postgres pooler (Supabase) | 🔴 Secret |
@@ -208,7 +227,20 @@ Mientras tanto, el workflow GitHub Actions cumple.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key Supabase | Public |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role (admin) | 🔴 Secret |
 | `NEXT_PUBLIC_ENV` | `production` / `staging` / `preview` | Public — controla banner UI |
-| `CRON_SECRET` | Bearer para endpoints `/api/cron/*` | 🔴 Secret |
+
+**Recomendadas** (la app funciona sin, pero degradada):
+
+| Variable | Descripción | Sensibilidad | Sin esto, ¿qué pasa? |
+|---|---|---|---|
+| `CRON_SECRET` | Bearer para endpoints `/api/cron/*` | 🔴 Secret | Endpoints cron devuelven 503 |
+| `NEXT_PUBLIC_SITE_URL` | URL canónica del ERP (`https://erp.simtechgt.com`) | Public | Templates/sitemap caen al default |
+| `PASSWORD_RESET_TTL_MINUTES` | Validez del token reset (default 30) | Public | Usa 30 min |
+| `RESEND_API_KEY` | API key Resend | 🔴 Secret | Emails solo loguean en Vercel logs |
+| `EMAIL_FROM` | `SIMTECH ERP <noreply@simtechgt.com>` | Public | Necesaria si RESEND_API_KEY está activa |
+| `SENTRY_DSN` | DSN privado Sentry | 🔴 Secret | Errores solo en logs, sin alertas |
+| `NEXT_PUBLIC_SENTRY_DSN` | DSN público para bundle cliente | Public | Errores cliente no llegan a Sentry |
+| `SENTRY_AUTH_TOKEN` | Para subir source maps en build | 🔴 Secret | Stack traces ilegibles |
+| `SENTRY_ORG` / `SENTRY_PROJECT` | Identificadores Sentry | Public | Source maps van al proyecto wrong |
 
 ### Staging (Vercel preview branch)
 

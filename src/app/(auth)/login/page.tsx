@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Lock, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ function BarChart3Icon({ className }: { className?: string }) {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const justReset = searchParams?.get("reset") === "ok";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -116,6 +118,16 @@ export default function LoginPage() {
               </p>
             </div>
 
+            {justReset && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-3 bg-emerald-50 text-emerald-700 text-sm rounded-lg border border-emerald-200"
+              >
+                Tu contraseña fue restablecida. Iniciá sesión con la nueva.
+              </motion.div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-slate-700">
@@ -140,12 +152,12 @@ export default function LoginPage() {
                   <Label htmlFor="password" className="text-slate-700">
                     Contraseña
                   </Label>
-                  <a
-                    href="#"
+                  <Link
+                    href="/forgot-password"
                     className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
                   >
                     ¿Olvidaste tu contraseña?
-                  </a>
+                  </Link>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />

@@ -198,6 +198,9 @@ model User {
 
   customRoleId             String?
   customRole               CustomRole?               @relation(fields: [customRoleId], references: [id])
+
+  // Fase 31b · Forgot/reset password
+  passwordResetTokens      PasswordResetToken[]
 }
 
 model CustomRole {
@@ -1453,6 +1456,23 @@ model LoginAttempt {
 
   @@index([email, createdAt(sort: Desc)])
   @@index([ipAddress, createdAt(sort: Desc)])
+}
+
+/// Fase 31b · Token de reseteo de contraseña. Solo guardamos el hash
+/// (sha256) — el token plano viaja únicamente en el email y nunca
+/// se persiste. Single-use (usedAt) + expiración corta (~30 min).
+model PasswordResetToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String
+  tokenHash   String    @unique
+  requestedIp String?
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([expiresAt])
 }
 
 // ─────────────────────────────────────────

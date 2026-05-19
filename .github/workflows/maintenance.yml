@@ -1,0 +1,64 @@
+name: Daily maintenance
+
+# Limpieza diaria de tablas de bajo valor operativo (PasswordResetToken
+# expirados, LoginAttempt viejos). Mantiene la DB liviana sin requerir
+# intervención manual.
+#
+# Endpoint: POST /api/cron/maintenance con Bearer ${{ secrets.CRON_SECRET }}.
+# El endpoint loguea cuántas filas eliminó. Si el run falla, GitHub envía
+# notificación al dueño del repo.
+#
+# Configurar UNA vez:
+#   1. Generar un secret aleatorio: openssl rand -hex 32
+#   2. Settings → Secrets and variables → Actions → New repository secret
+#      Name: CRON_SECRET. Value: el output del paso 1.
+#   3. Setear la misma var en Vercel (Settings → Environment Variables,
+#      con scope Production). El backend la lee como process.env.CRON_SECRET.
+
+on:
+  schedule:
+    # Diario a las 09:00 UTC (03:00 GT). Ventana de baja actividad
+    # comercial — minimiza impacto si hay locks momentáneos.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+env:
+  # Node 24 alinea con CI principal. Las acciones de GitHub aún piden esta
+  # var explícita mientras migran de Node 20 → Node 24.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  cleanup:
+    name: Cleanup expired tokens + old login attempts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: POST /api/cron/maintenance
+        env:
+          MAINT_URL: ${{ vars.MAINTENANCE_URL || 'https://erp.simtechgt.com/api/cron/maintenance' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CRON_SECRET" ]; then
+            echo "ERROR: secret CRON_SECRET no configurado en GitHub."
+            echo "Settings -> Secrets and variables -> Actions -> New."
+            exit 1
+          fi
+          echo "Posting to $MAINT_URL"
+          # -f: fallar en HTTP >= 400
+          # -sS: silencioso + muestra error
+          # --max-time 60: cleanup puede tardar si hay muchas filas
+          # -w "%{http_code}": capturamos código para validación
+          response=$(curl -fsS --max-time 60 \
+            -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP %{http_code}" \
+            "$MAINT_URL")
+          echo "$response"
+          # Validar que el JSON contenga ok:true (smoke check)
+          if ! echo "$response" | grep -q '"ok":true'; then
+            echo "ERROR: respuesta no contiene ok:true"
+            exit 1
+          fi
+          echo "Mantenimiento ejecutado correctamente"

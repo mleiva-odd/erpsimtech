@@ -546,7 +546,30 @@ export default function Home() {
             </div>
           </div>
           <p className="mb-2">© {new Date().getFullYear()} SIMTECH Guatemala. Todos los derechos reservados.</p>
-          <p className="text-sm">Sistema ERP & POS para negocios modernos y escalables.</p>
+          <p className="text-sm mb-6">Sistema ERP & POS para negocios modernos y escalables.</p>
+
+          <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+            <Link href="/legal/terms" className="hover:text-white transition-colors">
+              Términos de Servicio
+            </Link>
+            <span className="text-slate-600">•</span>
+            <Link href="/legal/privacy" className="hover:text-white transition-colors">
+              Política de Privacidad
+            </Link>
+            <span className="text-slate-600">•</span>
+            <Link href="/legal/support" className="hover:text-white transition-colors">
+              Soporte
+            </Link>
+            <span className="text-slate-600">•</span>
+            <a
+              href={getWhatsAppUrl("Hola, me gustaría contactar con SIMTECH ERP.")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors"
+            >
+              WhatsApp
+            </a>
+          </nav>
         </div>
       </footer>
     </div>

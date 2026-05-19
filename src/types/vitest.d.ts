@@ -49,6 +49,38 @@ declare module 'vitest' {
     resolves: ExpectMatchers<T>;
   }
   export function expect<T = unknown>(actual: T, message?: string): ExpectMatchers<T>;
+
+  // Mínimo de `vi` para mocks/spies/timers. Tipos reales del paquete
+  // sobrescriben este shim cuando vitest está instalado.
+  interface MockInstance<TArgs extends unknown[] = unknown[], TReturn = unknown> {
+    (...args: TArgs): TReturn;
+    mockReturnValue: (value: TReturn) => MockInstance<TArgs, TReturn>;
+    mockResolvedValue: (value: Awaited<TReturn>) => MockInstance<TArgs, TReturn>;
+    mockRejectedValue: (value: unknown) => MockInstance<TArgs, TReturn>;
+    mockImplementation: (
+      fn: (...args: TArgs) => TReturn,
+    ) => MockInstance<TArgs, TReturn>;
+    mockReset: () => void;
+    mockClear: () => void;
+  }
+
+  export const vi: {
+    fn<TArgs extends unknown[] = unknown[], TReturn = unknown>(
+      impl?: (...args: TArgs) => TReturn,
+    ): MockInstance<TArgs, TReturn>;
+    mock(moduleName: string, factory?: () => unknown): void;
+    unmock(moduleName: string): void;
+    resetModules(): void;
+    resetAllMocks(): void;
+    clearAllMocks(): void;
+    spyOn<T, K extends keyof T>(obj: T, method: K): MockInstance;
+    stubEnv(name: string, value: string): void;
+    unstubAllEnvs(): void;
+    useFakeTimers(): void;
+    useRealTimers(): void;
+    advanceTimersByTime(ms: number): void;
+    waitFor<T>(fn: () => T | Promise<T>, options?: unknown): Promise<T>;
+  };
 }
 
 declare module 'vitest/config' {

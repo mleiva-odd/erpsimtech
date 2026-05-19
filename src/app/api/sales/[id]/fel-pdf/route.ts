@@ -18,6 +18,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireTenant, requireBranchAccess } from '@/lib/tenant';
 import { generateFelPdf, type FelPdfItem } from '@/lib/fel/pdf-generator';
+import { fetchLogoAsDataUrl } from '@/lib/branding/logo';
 
 const DOCUMENT_TYPE_LABEL: Record<string, string> = {
   FACT: 'Factura Electrónica',
@@ -105,10 +106,19 @@ export async function GET(
     );
   }
 
-  const settings = await prisma.companySettings.findUnique({
-    where: { companyId: tenant.companyId },
-    select: { address: true, storeName: true },
-  });
+  const [settings, company] = await Promise.all([
+    prisma.companySettings.findUnique({
+      where: { companyId: tenant.companyId },
+      select: { address: true, storeName: true },
+    }),
+    prisma.company.findUnique({
+      where: { id: tenant.companyId },
+      select: { logoUrl: true },
+    }),
+  ]);
+  // Fase 29 · Branding: pre-fetcheamos el logo a Data URL para que el
+  // generador PDF (sync) lo embeba directo. Falla silenciosa si no se puede.
+  const logoDataUrl = await fetchLogoAsDataUrl(company?.logoUrl ?? null);
 
   const items: FelPdfItem[] = sale.items.map((it) => {
     const unitPrice = Number(it.unitPrice ?? 0);
@@ -145,6 +155,7 @@ export async function GET(
       nombre: doc.emisorNombre,
       nombreComercial: settings?.storeName ?? null,
       direccion: settings?.address ?? null,
+      logoDataUrl,
     },
     receptor: {
       nit: doc.receptorNit,

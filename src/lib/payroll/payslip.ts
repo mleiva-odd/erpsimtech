@@ -15,12 +15,18 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { pdfFormatFromDataUrl } from '@/lib/branding/logo';
 
 export interface PayslipInput {
   company: {
     name: string;
     nit?: string | null;
     address?: string | null;
+    /**
+     * Logo de la empresa en Data URL (pre-procesado por el caller via
+     * `fetchLogoAsDataUrl`). Si null/undefined, no se muestra logo.
+     */
+    logoDataUrl?: string | null;
   };
   payroll: {
     name: string;
@@ -67,13 +73,27 @@ export function generatePayslipPdf(input: PayslipInput): Buffer {
   const doc = new jsPDF({ unit: 'mm', format: 'letter' });
   const m = 15;
 
+  // Fase 29 · Logo en esquina superior izquierda.
+  let headerLeftOffset = m;
+  const LOGO_W = 25;
+  const LOGO_H = 18;
+  if (input.company.logoDataUrl) {
+    try {
+      const format = pdfFormatFromDataUrl(input.company.logoDataUrl);
+      doc.addImage(input.company.logoDataUrl, format, m, m, LOGO_W, LOGO_H);
+      headerLeftOffset = m + LOGO_W + 4;
+    } catch {
+      // Falla silenciosa si el logo es inválido.
+    }
+  }
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text(input.company.name, m, m + 6);
+  doc.text(input.company.name, headerLeftOffset, m + 6);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  if (input.company.nit) doc.text(`NIT: ${input.company.nit}`, m, m + 12);
-  if (input.company.address) doc.text(input.company.address, m, m + 17);
+  if (input.company.nit) doc.text(`NIT: ${input.company.nit}`, headerLeftOffset, m + 12);
+  if (input.company.address) doc.text(input.company.address, headerLeftOffset, m + 17);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);

@@ -1,29 +1,57 @@
 /**
- * Capa de observabilidad opt-in.
+ * Capa de observabilidad.
  *
- * Estado: STUB. No reporta a ningún servicio externo a menos que estén
- * configuradas las variables de entorno correspondientes.
+ * Estrategia:
+ *   1. SIEMPRE loguea a consola (estructurado JSON en prod) — visible en
+ *      Vercel logs aunque Sentry esté apagado.
+ *   2. Si `SENTRY_DSN` (o `NEXT_PUBLIC_SENTRY_DSN`) está seteada Y el package
+ *      `@sentry/nextjs` está instalado, además envía el evento a Sentry.
+ *   3. Si Sentry no está disponible (DSN ausente o package no instalado),
+ *      la app sigue funcionando sin errores — todo queda en logs.
  *
- * Activación de Sentry (cuando tengas cuenta y DSN):
- *   1. `npm install @sentry/nextjs`
- *   2. Agregar `SENTRY_DSN` a Vercel env vars.
- *   3. Reemplazar `captureException` y `captureMessage` aquí por las
- *      versiones de @sentry/nextjs.
- *   4. Crear sentry.client.config.ts y sentry.server.config.ts según
- *      docs.sentry.io/platforms/javascript/guides/nextjs.
+ * Por qué require dinámico:
+ *   - El sandbox de tests / CI puede no tener `@sentry/nextjs` instalado.
+ *   - En dev local sin DSN, evitamos cargar el SDK por nada.
+ *   - El typecheck pasa gracias al shim en `src/types/sentry-nextjs.d.ts`.
  *
- * Mientras tanto, la app loguea a console (visible en Vercel logs).
- * Esta capa permite que el código de producción ya use captureException
- * sin atarse a Sentry desde el día 1.
+ * Wiring previo: sentry.client.config.ts / sentry.server.config.ts ya
+ * llaman a `Sentry.init()` cuando NODE_ENV=production Y DSN presente.
+ * Esta capa SOLO captura eventos, no inicializa.
  */
 
 import { logger } from '@/lib/logger';
 
-const SENTRY_ENABLED = !!process.env.SENTRY_DSN;
+const SENTRY_DSN = process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN;
+const SENTRY_ENABLED =
+  Boolean(SENTRY_DSN) && process.env.NODE_ENV === 'production';
+
+// Cache del módulo `@sentry/nextjs` cargado lazily. `undefined` = aún no
+// intentado, `null` = intentado y falló (no reintentar), objeto = listo.
+type SentryModule = typeof import('@sentry/nextjs');
+let sentryCache: SentryModule | null | undefined = undefined;
+
+function getSentry(): SentryModule | null {
+  if (!SENTRY_ENABLED) return null;
+  if (sentryCache !== undefined) return sentryCache;
+
+  try {
+    // require dinámico — evita bundling estático en builds sin el package.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    sentryCache = require('@sentry/nextjs') as SentryModule;
+  } catch {
+    // Package no instalado. Logueamos una sola vez para que sea visible
+    // en deploy logs y no por cada error.
+    logger.warn(
+      '[observability] SENTRY_DSN configurada pero @sentry/nextjs no está instalado. Eventos solo en logs.',
+    );
+    sentryCache = null;
+  }
+  return sentryCache;
+}
 
 /**
  * Reporta una excepción a la capa de observabilidad.
- * Hoy: log estructurado. Mañana: Sentry.
+ * Siempre loguea; envía a Sentry si está disponible.
  */
 export function captureException(
   error: unknown,
@@ -40,9 +68,17 @@ export function captureException(
     sentryEnabled: SENTRY_ENABLED,
   });
 
-  // TODO Sprint 6 final: cuando se instale @sentry/nextjs:
-  //   import * as Sentry from '@sentry/nextjs';
-  //   if (SENTRY_ENABLED) Sentry.captureException(error, { extra: context });
+  const sentry = getSentry();
+  if (sentry) {
+    try {
+      sentry.captureException(error, context ? { extra: context } : undefined);
+    } catch (err) {
+      // Falla del SDK no debe propagar al caller (defensivo).
+      logger.warn('[observability] Sentry.captureException falló', {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 }
 
 /**
@@ -57,8 +93,19 @@ export function captureMessage(
   else if (level === 'warning') logger.warn(message, context);
   else logger.info(message, context);
 
-  // TODO Sprint 6 final:
-  //   if (SENTRY_ENABLED) Sentry.captureMessage(message, level);
+  const sentry = getSentry();
+  if (sentry) {
+    try {
+      sentry.captureMessage(
+        message,
+        context ? { level, extra: context } : { level },
+      );
+    } catch (err) {
+      logger.warn('[observability] Sentry.captureMessage falló', {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 }
 
 /**

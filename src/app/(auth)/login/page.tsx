@@ -215,22 +215,26 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-12 pt-8 border-t border-slate-200">
-              <div className="flex items-center justify-center gap-6 text-sm text-slate-500">
-                <a href="#" className="hover:text-slate-700">
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-slate-500">
+                <Link href="/legal/terms" className="hover:text-slate-700">
                   Términos de Servicio
-                </a>
+                </Link>
                 <span>•</span>
-                <a href="#" className="hover:text-slate-700">
+                <Link href="/legal/privacy" className="hover:text-slate-700">
                   Privacidad
-                </a>
+                </Link>
                 <span>•</span>
-                <a 
+                <Link href="/legal/support" className="hover:text-slate-700">
+                  Soporte
+                </Link>
+                <span>•</span>
+                <a
                   href={getWhatsAppUrl("Hola, necesito soporte con mi cuenta de SIMTECH ERP.")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="hover:text-slate-700"
                 >
-                  Soporte
+                  WhatsApp
                 </a>
               </div>
             </div>

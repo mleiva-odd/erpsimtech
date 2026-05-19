@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/tenant';
 import { ApiError, handleApiError } from '@/lib/api-error';
 import { generatePayslipPdf } from '@/lib/payroll/payslip';
+import { fetchLogoAsDataUrl } from '@/lib/branding/logo';
 
 /**
  * GET /api/hr/payroll/[id]/payslip/[employeeId]
@@ -64,14 +65,17 @@ export async function GET(
 
     const company = (await prisma.company.findUnique({
       where: { id: tenant.companyId },
-      select: { name: true, nit: true },
-    })) as { name: string; nit: string | null } | null;
+      select: { name: true, nit: true, logoUrl: true },
+    })) as { name: string; nit: string | null; logoUrl: string | null } | null;
     if (!company) throw new ApiError(500, 'Empresa no encontrada');
+
+    // Fase 29 · Pre-fetch del logo (falla silenciosa si no se puede).
+    const logoDataUrl = await fetchLogoAsDataUrl(company.logoUrl);
 
     const n = (v: unknown) => Number(v ?? 0) || 0;
 
     const pdf = generatePayslipPdf({
-      company: { name: company.name, nit: company.nit },
+      company: { name: company.name, nit: company.nit, logoDataUrl },
       payroll: {
         name: payroll.name,
         startDate: payroll.startDate,

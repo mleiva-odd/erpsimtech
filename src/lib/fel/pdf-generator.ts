@@ -15,6 +15,7 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { pdfFormatFromDataUrl } from '@/lib/branding/logo';
 
 export interface FelPdfItem {
   description: string;
@@ -47,6 +48,12 @@ export interface FelPdfInput {
     nombre: string;
     direccion?: string | null;
     nombreComercial?: string | null;
+    /**
+     * Logo de la empresa en formato Data URL (data:image/png;base64,...).
+     * Pre-procesado por el caller via `fetchLogoAsDataUrl` para no hacer
+     * async esta función. Opcional — si no se pasa, el PDF se renderea sin logo.
+     */
+    logoDataUrl?: string | null;
   };
   receptor: {
     nit: string;
@@ -85,27 +92,42 @@ export function generateFelPdf(input: FelPdfInput): Buffer {
   const pageWidth = 215.9; // Letter en mm
   const m = 15;
 
+  // Fase 29 · Logo en esquina superior izquierda (si está disponible).
+  // El nombre del emisor se desplaza a la derecha del logo cuando existe.
+  let headerLeftOffset = m; // posición x del texto "nombre emisor"
+  const LOGO_W = 25; // mm
+  const LOGO_H = 18;
+  if (input.emisor.logoDataUrl) {
+    try {
+      const format = pdfFormatFromDataUrl(input.emisor.logoDataUrl);
+      doc.addImage(input.emisor.logoDataUrl, format, m, m, LOGO_W, LOGO_H);
+      headerLeftOffset = m + LOGO_W + 4;
+    } catch {
+      // Si addImage falla por formato inválido, seguimos sin logo.
+    }
+  }
+
   // Header — Emisor
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text(input.emisor.nombre, m, m + 6);
+  doc.text(input.emisor.nombre, headerLeftOffset, m + 6);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   let y = m + 11;
   if (input.emisor.nombreComercial) {
-    doc.text(input.emisor.nombreComercial, m, y);
+    doc.text(input.emisor.nombreComercial, headerLeftOffset, y);
     y += 4;
   }
-  doc.text(`NIT: ${input.emisor.nit}`, m, y);
+  doc.text(`NIT: ${input.emisor.nit}`, headerLeftOffset, y);
   y += 4;
   if (input.emisor.direccion) {
-    doc.text(input.emisor.direccion, m, y, { maxWidth: 110 });
+    doc.text(input.emisor.direccion, headerLeftOffset, y, { maxWidth: 110 });
     y += 4;
   }
-  doc.text(`Régimen: ${input.taxRegimeLabel}`, m, y);
+  doc.text(`Régimen: ${input.taxRegimeLabel}`, headerLeftOffset, y);
   y += 4;
-  doc.text(`Certificador: ${input.providerName}`, m, y);
+  doc.text(`Certificador: ${input.providerName}`, headerLeftOffset, y);
 
   // Title block (right side)
   doc.setFont('helvetica', 'bold');

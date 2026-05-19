@@ -20,10 +20,17 @@ export {
   initializeChartOfAccounts,
   ensureAccountingPeriod,
   CHART_OF_ACCOUNTS_SEED,
+  ACCOUNTING_TEMPLATES,
+  BUSINESS_TYPES,
+  getAccountingTemplate,
+  seedTemplateAccounts,
 } from './accounting/index';
 
 export type {
   AccountCode,
   CreateJournalEntryInput,
   JournalLineInput,
+  BusinessType,
+  AccountingTemplate,
+  AccountingTemplateExtraAccount,
 } from './accounting/index';

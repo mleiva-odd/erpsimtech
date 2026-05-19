@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -32,7 +32,11 @@ function BarChart3Icon({ className }: { className?: string }) {
   );
 }
 
-export default function LoginPage() {
+// El componente interno usa useSearchParams() para leer ?reset=ok y mostrar
+// el banner verde post-reset. Next.js 16 requiere que toda página que use
+// useSearchParams esté dentro de un <Suspense> o bien marcada como dinámica.
+// Como es un Client Component, envolvemos en Suspense en el export default.
+function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const justReset = searchParams?.get("reset") === "ok";
@@ -310,3 +314,20 @@ const loginFeatures = [
   "Acceso desde Cualquier Dispositivo",
   "Soporte Técnico en Guatemala",
 ];
+
+// Wrapper que envuelve el contenido en <Suspense> para satisfacer el
+// requerimiento de Next.js 16 sobre useSearchParams. El fallback solo se
+// muestra durante el bailout de SSR — en cliente el render es instantáneo.
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        </div>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
+  );
+}

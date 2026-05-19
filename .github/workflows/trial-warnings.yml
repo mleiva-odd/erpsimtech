@@ -18,6 +18,13 @@ on:
     # Diario 10:00 UTC (04:00 GT). Después del cron de maintenance (09:00).
     - cron: '0 10 * * *'
   workflow_dispatch:
+  # Fuerza indexación del workflow en el sidebar de Actions (mismo patrón
+  # que backup.yml y maintenance.yml). Sin esto, workflows que solo tienen
+  # schedule+dispatch a veces no aparecen hasta su primer run.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/trial-warnings.yml'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

@@ -21,6 +21,15 @@ on:
     # comercial — minimiza impacto si hay locks momentáneos.
     - cron: '0 9 * * *'
   workflow_dispatch:
+  # push con filtro de path: solo corre cuando se modifica este workflow.
+  # Sirve dos propósitos:
+  #  1. Smoke test del workflow al editarlo (lo ejecuta una vez para validar).
+  #  2. Fuerza a GitHub a indexar el workflow en el sidebar (workflows que
+  #     solo tienen schedule+dispatch a veces no aparecen hasta su primer run).
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/maintenance.yml'
 
 env:
   # Node 24 alinea con CI principal. Las acciones de GitHub aún piden esta

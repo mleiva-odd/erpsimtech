@@ -1,0 +1,53 @@
+name: Trial expiry warnings
+
+# Dispara emails de recordatorio a clientes en trial cuyo trialEndsAt
+# cae en exactamente 7 días o 1 día (calendario UTC).
+#
+# El endpoint /api/cron/trial-warnings es idempotente: si ya se mandó
+# el aviso de N días para una empresa, registra TRIAL_WARNING_SENT en
+# AuditLog y se salta en runs posteriores.
+#
+# Setup (UNA vez):
+#   1. CRON_SECRET ya configurado para .github/workflows/maintenance.yml
+#      — se reusa la misma secret.
+#   2. (opcional) Variable de repo TRIAL_WARNINGS_URL si querés apuntar
+#      a una URL distinta de la default.
+
+on:
+  schedule:
+    # Diario 10:00 UTC (04:00 GT). Después del cron de maintenance (09:00).
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  send:
+    name: Send trial expiry warnings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: POST /api/cron/trial-warnings
+        env:
+          URL: ${{ vars.TRIAL_WARNINGS_URL || 'https://erp.simtechgt.com/api/cron/trial-warnings' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CRON_SECRET" ]; then
+            echo "ERROR: secret CRON_SECRET no configurado en GitHub."
+            exit 1
+          fi
+          echo "Posting to $URL"
+          response=$(curl -fsS --max-time 60 \
+            -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -w "\nHTTP %{http_code}" \
+            "$URL")
+          echo "$response"
+          if ! echo "$response" | grep -q '"ok":true'; then
+            echo "ERROR: respuesta no contiene ok:true"
+            exit 1
+          fi
+          echo "Trial warnings procesado correctamente"

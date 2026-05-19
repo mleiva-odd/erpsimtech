@@ -80,7 +80,9 @@ type AuditAction =
   // Fase 22d-5 · Plantillas de documentos
   | 'DOCUMENT_TEMPLATE_CREATED'
   | 'DOCUMENT_TEMPLATE_UPDATED'
-  | 'DOCUMENT_TEMPLATE_DELETED';
+  | 'DOCUMENT_TEMPLATE_DELETED'
+  // Fase 52 · Cron de avisos de trial por vencer
+  | 'TRIAL_WARNING_SENT';
 
 interface AuditLogParams {
   companyId: string;

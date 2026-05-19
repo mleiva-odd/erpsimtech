@@ -285,10 +285,19 @@ export default function AdminCompaniesPage() {
                   {filtered.map((c) => (
                     <tr
                       key={c.id}
-                      className="border-t border-slate-100 hover:bg-slate-50/50"
+                      className="border-t border-slate-100 hover:bg-slate-50/50 cursor-pointer"
+                      onClick={() => {
+                        window.location.href = `/admin/companies/${c.id}`;
+                      }}
                     >
                       <td className="px-5 py-3">
-                        <div className="font-medium text-slate-900">{c.name}</div>
+                        <Link
+                          href={`/admin/companies/${c.id}`}
+                          className="font-medium text-slate-900 hover:text-blue-700"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {c.name}
+                        </Link>
                         <div className="text-xs text-slate-500">
                           {c.email}{c.nit ? ` · NIT ${c.nit}` : ''}
                         </div>

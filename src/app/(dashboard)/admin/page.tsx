@@ -237,15 +237,15 @@ export default function AdminPage() {
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-6">
         <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-3 text-center">Empresas</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-3 text-center">Empresas</p>
           <p className="text-3xl font-bold text-slate-900 text-center tracking-tight">{companies.length}</p>
         </div>
         <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-3 text-center">Activas</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-3 text-center">Activas</p>
           <p className="text-3xl font-bold text-emerald-600 text-center tracking-tight">{companies.filter(c => c.active).length}</p>
         </div>
         <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-3 text-center">Usuarios Globales</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-3 text-center">Usuarios Globales</p>
           <p className="text-3xl font-bold text-slate-900 text-center tracking-tight">{companies.reduce((acc, c) => acc + c._count.users, 0)}</p>
         </div>
       </div>
@@ -284,7 +284,7 @@ export default function AdminPage() {
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 tracking-tight">{company.name}</p>
-                          <p className="text-[11px] text-slate-400 font-mono tracking-tighter">{company.slug}</p>
+                          <p className="text-[11px] text-slate-500 font-mono tracking-tighter">{company.slug}</p>
                         </div>
                       </div>
                     </td>
@@ -328,8 +328,8 @@ export default function AdminPage() {
                           onClick={() => toggleCompanyStatus(company)}
                           className={`p-3 rounded-2xl transition-all shadow-sm hover:shadow-xl active:scale-90 ${
                             company.active
-                              ? 'bg-rose-50 text-rose-400 hover:bg-rose-600 hover:text-white hover:shadow-rose-500/10'
-                              : 'bg-emerald-50 text-emerald-400 hover:bg-emerald-600 hover:text-white hover:shadow-emerald-500/10'
+                              ? 'bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white hover:shadow-rose-500/10'
+                              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white hover:shadow-emerald-500/10'
                           }`}
                           title={company.active ? 'Suspender Operación' : 'Reactivar Empresa'}
                         >
@@ -361,7 +361,7 @@ export default function AdminPage() {
               </h2>
               <button 
                  onClick={() => setIsModalOpen(false)} 
-                 className="text-slate-400 hover:text-rose-500 hover:bg-white p-2 rounded-full transition-all"
+                 className="text-slate-500 hover:text-rose-500 hover:bg-white p-2 rounded-full transition-all"
               >
                 ✕
               </button>
@@ -380,7 +380,7 @@ export default function AdminPage() {
                     
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Nombre Comercial *</label>
+                        <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">Nombre Comercial *</label>
                         <input required type="text" value={formData.name}
                           onChange={e => setFormData({...formData, name: e.target.value, slug: generateSlug(e.target.value)})}
                           className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none transition-all font-semibold text-slate-800 text-sm"
@@ -390,7 +390,7 @@ export default function AdminPage() {
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2">
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Correo de la Empresa *</label>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">Correo de la Empresa *</label>
                           <input required type="email" value={formData.email}
                             onChange={e => setFormData({...formData, email: e.target.value})}
                             className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none transition-all font-semibold text-slate-800 text-sm"
@@ -398,24 +398,24 @@ export default function AdminPage() {
                           />
                         </div>
                         <div className="col-span-2">
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Slug (URL del Portal)</label>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">Slug (URL del Portal)</label>
                           <input type="text" value={formData.slug}
                             onChange={e => setFormData({...formData, slug: e.target.value})}
-                            className="w-full px-4 py-2 border-2 border-slate-50 bg-slate-50 text-slate-400 font-mono text-[11px] rounded-xl outline-none"
+                            className="w-full px-4 py-2 border-2 border-slate-50 bg-slate-50 text-slate-500 font-mono text-[11px] rounded-xl outline-none"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">NIT</label>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">NIT</label>
                           <input type="text" value={formData.nit}
                             onChange={e => setFormData({...formData, nit: e.target.value})}
                             className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold"
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Teléfono</label>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">Teléfono</label>
                           <input type="text" value={formData.phone}
                             onChange={e => setFormData({...formData, phone: e.target.value})}
                             className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold"
@@ -436,7 +436,7 @@ export default function AdminPage() {
                       
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Nombre Completo *</label>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">Nombre Completo *</label>
                           <input required type="text" value={formData.adminName}
                             onChange={e => setFormData({...formData, adminName: e.target.value})}
                             className="w-full px-4 py-2.5 border-2 border-blue-50 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800 text-sm"
@@ -445,7 +445,7 @@ export default function AdminPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Correo de Acceso *</label>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">Correo de Acceso *</label>
                             <input required type="email" value={formData.adminEmail}
                               onChange={e => setFormData({...formData, adminEmail: e.target.value})}
                               className="w-full px-4 py-2.5 border-2 border-blue-50 rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all font-semibold text-slate-800 text-sm"
@@ -453,7 +453,7 @@ export default function AdminPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">
                               Contraseña {selectedCompany ? '(opcional)' : '*'}
                             </label>
                             <input required={!selectedCompany} type="password" value={formData.adminPassword}
@@ -473,7 +473,7 @@ export default function AdminPage() {
 
                     {/* Plan */}
                     <div className="pt-2">
-                      <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase ml-1">Plan Corporativo Inicial</label>
+                      <label className="block text-[10px] font-bold text-slate-500 mb-2 uppercase ml-1">Plan Corporativo Inicial</label>
                       <select value={formData.plan} onChange={e => setFormData({...formData, plan: e.target.value})}
                         className="w-full px-4 py-3 border-2 border-slate-100 rounded-2xl bg-white font-bold text-amber-700 outline-none focus:ring-4 focus:ring-amber-50 text-sm cursor-pointer shadow-sm">
                         <option value="trial">Trial (30 días de prueba)</option>
@@ -486,7 +486,7 @@ export default function AdminPage() {
                     {selectedCompany && (
                       <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2">
-                          <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase ml-1">Estado de Suscripción</label>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-2 uppercase ml-1">Estado de Suscripción</label>
                           <select
                             value={formData.subscriptionStatus}
                             onChange={e => setFormData({ ...formData, subscriptionStatus: e.target.value })}
@@ -500,15 +500,15 @@ export default function AdminPage() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Sucursales Máx.</label>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">Sucursales Máx.</label>
                           <input type="number" min={1} value={formData.maxBranches} onChange={e => setFormData({ ...formData, maxBranches: Number(e.target.value) })} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold" />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Usuarios por Sucursal</label>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">Usuarios por Sucursal</label>
                           <input type="number" min={1} value={formData.maxUsersPerBranch} onChange={e => setFormData({ ...formData, maxUsersPerBranch: Number(e.target.value) })} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold" />
                         </div>
                         <div className="col-span-2">
-                          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase ml-1">Precio del Plan</label>
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase ml-1">Precio del Plan</label>
                           <input type="number" step="0.01" min={0} value={formData.price} onChange={e => setFormData({ ...formData, price: Number(e.target.value) })} className="w-full px-4 py-2.5 border-2 border-slate-100 rounded-xl focus:ring-4 focus:ring-amber-50 focus:border-amber-500 outline-none text-sm font-semibold" />
                         </div>
                       </div>
@@ -527,11 +527,11 @@ export default function AdminPage() {
               {/* Footer Fijo */}
               <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-4 justify-end">
                 <button type="button" onClick={() => setIsModalOpen(false)}
-                  className="px-8 py-3 bg-white border-2 border-slate-200 text-slate-400 font-bold rounded-2xl hover:bg-slate-100 hover:border-slate-300 hover:text-slate-600 transition-all text-sm">
+                  className="px-8 py-3 bg-white border-2 border-slate-200 text-slate-500 font-bold rounded-2xl hover:bg-slate-100 hover:border-slate-300 hover:text-slate-600 transition-all text-sm">
                   Cancelar
                 </button>
                 <button type="submit" disabled={isSaving}
-                  className="px-10 py-3 bg-slate-900 text-white rounded-2xl hover:bg-black disabled:opacity-50 font-bold shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-3 active:scale-95 text-sm">
+                  className="px-10 py-3 bg-blue-600 text-white rounded-2xl hover:bg-black disabled:opacity-50 font-bold shadow-xl shadow-slate-900/10 transition-all flex items-center justify-center gap-3 active:scale-95 text-sm">
                   {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {selectedCompany ? 'Guardar Cambios' : 'Finalizar Registro'}
                 </button>

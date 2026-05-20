@@ -305,7 +305,7 @@ export default function AccountingPage() {
             <div className="space-y-3">
               {summary.monthlySeries.map((m) => (
                 <div key={m.month}>
-                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-1">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase mb-1">
                     <span>{m.month}</span>
                     <span className={m.net >= 0 ? 'text-green-600' : 'text-red-600'}>
                       {m.net >= 0 ? '+' : ''}Q{m.net.toFixed(0)}
@@ -318,7 +318,7 @@ export default function AccountingPage() {
                 </div>
               ))}
             </div>
-            <div className="flex gap-4 mt-4 text-[10px] font-bold text-slate-400">
+            <div className="flex gap-4 mt-4 text-[10px] font-bold text-slate-500">
               <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-400 rounded-sm" /> Ingresos</span>
               <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-400 rounded-sm" /> Egresos</span>
             </div>
@@ -327,7 +327,7 @@ export default function AccountingPage() {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <h3 className="text-sm font-bold text-slate-700 mb-4">Distribución de Gastos</h3>
             {summary.expenseBreakdown.length === 0 ? (
-              <div className="text-sm text-slate-400 text-center py-8">Sin gastos este mes</div>
+              <div className="text-sm text-slate-500 text-center py-8">Sin gastos este mes</div>
             ) : (
               <div className="space-y-3">
                 {summary.expenseBreakdown.slice(0, 8).map((e) => (
@@ -439,7 +439,7 @@ function KPICard({ title, value, icon, bg, color, sub }: { title: string; value:
     <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{title}</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">{title}</p>
           <p className={`text-2xl font-bold tracking-tight ${color}`}>{value}</p>
           {sub && <p className="text-[11px] text-slate-500 mt-1">{sub}</p>}
         </div>

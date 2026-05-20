@@ -186,7 +186,7 @@ export default function RfqListPage() {
             {format(new Date(r.responseDeadline), 'dd/MM/yyyy')}
           </span>
         ) : (
-          <span className="text-slate-300">-</span>
+          <span className="text-slate-700">-</span>
         ),
       exportValue: (r) =>
         r.responseDeadline ? format(new Date(r.responseDeadline), 'dd/MM/yyyy') : '',
@@ -226,7 +226,7 @@ export default function RfqListPage() {
         <button
           type="button"
           onClick={() => router.push('/purchases/rfq/new')}
-          className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4" /> Nueva RFQ
         </button>
@@ -272,7 +272,7 @@ export default function RfqListPage() {
               <span>·</span>
               <span>{r._count.quotes} cotiz.</span>
             </div>
-            <p className="text-[10px] text-slate-400 font-mono">
+            <p className="text-[10px] text-slate-500 font-mono">
               {format(new Date(r.createdAt), 'dd/MM/yyyy', { locale: es })}
               {r.branch && ` · ${r.branch.name}`}
             </p>

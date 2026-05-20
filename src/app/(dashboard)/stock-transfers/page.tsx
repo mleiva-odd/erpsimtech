@@ -522,7 +522,7 @@ export default function StockTransfersPage() {
       {printData && (
         <div className="hidden print:block absolute inset-0 bg-white z-[9999] text-black">
           <div className="max-w-[800px] mx-auto p-12">
-            <div className="border-b-2 border-slate-800 pb-6 mb-6 flex justify-between items-start">
+            <div className="border-b-2 border-slate-200 pb-6 mb-6 flex justify-between items-start">
               <div>
                 <h1 className="text-3xl font-bold uppercase tracking-widest text-slate-900 flex items-center gap-3">
                   <FileText className="w-8 h-8" /> ORDEN DE REMISIÓN
@@ -566,9 +566,9 @@ export default function StockTransfersPage() {
                 ))}
               </tbody>
               <tfoot>
-                <tr className="bg-slate-800 text-white">
-                  <td colSpan={2} className="border border-slate-800 px-4 py-3 text-right font-bold uppercase text-xs">Total Unidades Transferidas</td>
-                  <td className="border border-slate-800 px-4 py-3 text-center font-bold text-xl">
+                <tr className="bg-blue-600 text-white">
+                  <td colSpan={2} className="border border-slate-200 px-4 py-3 text-right font-bold uppercase text-xs">Total Unidades Transferidas</td>
+                  <td className="border border-slate-200 px-4 py-3 text-center font-bold text-xl">
                     {printData.items.reduce((a, b) => a + b.quantity, 0)}
                   </td>
                 </tr>

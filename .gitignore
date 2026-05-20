@@ -87,3 +87,4 @@ vercel_production.env
 # OS
 Thumbs.db
 ehthumbs.db
+*.bak

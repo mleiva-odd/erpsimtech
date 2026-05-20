@@ -221,14 +221,14 @@ export default function ExchangeRatesPage() {
             <button
               onClick={() => setEditing(r)}
               aria-label={`Editar notas del tipo de cambio ${r.currency} del ${r.date}`}
-              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded"
             >
               <Edit2 className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => deleteOne(r.id)}
               aria-label={`Eliminar tipo de cambio ${r.currency} del ${r.date}`}
-              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -270,7 +270,7 @@ export default function ExchangeRatesPage() {
           </button>
           <button
             onClick={() => setShowNew(true)}
-            className="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2"
+            className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2"
             aria-label="Capturar tipo de cambio del día"
           >
             <Plus className="w-4 h-4" /> Capturar tasa del día
@@ -288,8 +288,8 @@ export default function ExchangeRatesPage() {
                 key={cur}
                 className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm animate-pulse"
               >
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{cur} → GTQ</p>
-                <p className="mt-2 text-2xl font-bold text-slate-200">Cargando…</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{cur} → GTQ</p>
+                <p className="mt-2 text-2xl font-bold text-slate-700">Cargando…</p>
               </div>
             );
           }
@@ -340,7 +340,7 @@ export default function ExchangeRatesPage() {
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
         <div className="flex flex-col">
-          <label htmlFor="filter-currency" className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+          <label htmlFor="filter-currency" className="text-[10px] font-bold text-slate-500 uppercase mb-1">
             Moneda
           </label>
           <select
@@ -359,7 +359,7 @@ export default function ExchangeRatesPage() {
           </select>
         </div>
         <div className="flex flex-col">
-          <label htmlFor="filter-from" className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+          <label htmlFor="filter-from" className="text-[10px] font-bold text-slate-500 uppercase mb-1">
             Desde
           </label>
           <input
@@ -372,7 +372,7 @@ export default function ExchangeRatesPage() {
           />
         </div>
         <div className="flex flex-col">
-          <label htmlFor="filter-to" className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+          <label htmlFor="filter-to" className="text-[10px] font-bold text-slate-500 uppercase mb-1">
             Hasta
           </label>
           <input
@@ -413,7 +413,7 @@ export default function ExchangeRatesPage() {
                 {format(new Date(r.date), 'dd/MM/yyyy')}
               </p>
               <p className="text-sm font-bold text-slate-900 font-mono">{r.currency}</p>
-              {r.notes && <p className="text-[11px] text-slate-400 mt-0.5">{r.notes}</p>}
+              {r.notes && <p className="text-[11px] text-slate-500 mt-0.5">{r.notes}</p>}
             </div>
             <div className="text-right">
               <p className="text-lg font-bold tabular-nums text-slate-900">
@@ -508,7 +508,7 @@ function ExchangeRateModal({
           <h3 id="exchange-rate-modal-title" className="text-xl font-bold text-slate-900">
             {editing ? 'Editar tipo de cambio' : 'Capturar tipo de cambio'}
           </h3>
-          <button onClick={onClose} aria-label="Cerrar" className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg">
+          <button onClick={onClose} aria-label="Cerrar" className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -521,7 +521,7 @@ function ExchangeRateModal({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="fx-currency" className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+              <label htmlFor="fx-currency" className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
                 Moneda
               </label>
               <select
@@ -539,7 +539,7 @@ function ExchangeRateModal({
               </select>
             </div>
             <div>
-              <label htmlFor="fx-date" className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+              <label htmlFor="fx-date" className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
                 Fecha
               </label>
               <input
@@ -553,7 +553,7 @@ function ExchangeRateModal({
             </div>
           </div>
           <div>
-            <label htmlFor="fx-rate" className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+            <label htmlFor="fx-rate" className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
               Tasa (Q por unidad de {currency})
             </label>
             <input
@@ -568,7 +568,7 @@ function ExchangeRateModal({
             />
           </div>
           <div>
-            <label htmlFor="fx-source" className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+            <label htmlFor="fx-source" className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
               Origen
             </label>
             <select
@@ -584,7 +584,7 @@ function ExchangeRateModal({
             </select>
           </div>
           <div>
-            <label htmlFor="fx-notes" className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+            <label htmlFor="fx-notes" className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
               Notas
             </label>
             <textarea
@@ -604,7 +604,7 @@ function ExchangeRateModal({
           <button
             disabled={busy || (!editing && rate <= 0)}
             onClick={submit}
-            className="flex-1 py-3 font-bold text-white bg-slate-900 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-3 font-bold text-white bg-blue-600 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}
             Guardar

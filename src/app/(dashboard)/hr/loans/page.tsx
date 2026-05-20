@@ -178,7 +178,7 @@ export default function LoansPage() {
         </div>
         <button
           onClick={() => setShowNew(true)}
-          className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4" /> Nuevo préstamo
         </button>
@@ -217,7 +217,7 @@ export default function LoansPage() {
                 <h3 className="text-xl font-bold text-slate-900">Préstamo activo</h3>
                 <p className="text-xs text-slate-500 mt-1">{employeeName(selectedLoan.employeeId)}</p>
               </div>
-              <button onClick={() => setSelectedLoan(null)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg">
+              <button onClick={() => setSelectedLoan(null)} className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -294,13 +294,13 @@ function NewLoanModal({
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
         <div className="p-6 flex justify-between items-start border-b border-slate-100">
           <h3 className="text-xl font-bold text-slate-900">Nuevo préstamo</h3>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg">
+          <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Empleado</label>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Empleado</label>
             <select
               required
               value={employeeId}
@@ -317,7 +317,7 @@ function NewLoanModal({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Monto total</label>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Monto total</label>
               <input
                 required
                 type="number"
@@ -329,7 +329,7 @@ function NewLoanModal({
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Cuota mensual</label>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Cuota mensual</label>
               <input
                 required
                 type="number"
@@ -342,7 +342,7 @@ function NewLoanModal({
             </div>
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Motivo (opcional)</label>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Motivo (opcional)</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -354,7 +354,7 @@ function NewLoanModal({
           <button
             type="submit"
             disabled={isBusy}
-            className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Registrar préstamo'}
           </button>

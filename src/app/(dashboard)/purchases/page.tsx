@@ -187,7 +187,7 @@ export default function PurchasesPage() {
               type="button"
               onClick={() => setMode('fast')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                mode === 'fast' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'
+                mode === 'fast' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'
               }`}
             >
               Fast
@@ -196,7 +196,7 @@ export default function PurchasesPage() {
               type="button"
               onClick={() => setMode('enterprise')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                mode === 'enterprise' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'
+                mode === 'enterprise' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'
               }`}
             >
               Enterprise
@@ -232,7 +232,7 @@ export default function PurchasesPage() {
             <div className="pt-4 border-t relative">
                <label className="block text-sm font-bold text-slate-700 mb-2">Añadir Productos a Ingreso</label>
                <div className="relative">
-                 <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                 <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                  <input type="text" placeholder="Escanea o busca SKUs..." value={searchQuery} onChange={(e)=>setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-emerald-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-emerald-50" />
                </div>
                
@@ -254,7 +254,7 @@ export default function PurchasesPage() {
           <div className="md:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
             <div className="overflow-x-auto flex-1 h-full p-4">
                {cart.length === 0 ? (
-                 <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                 <div className="h-full flex flex-col items-center justify-center text-slate-500">
                     <PackageOpen className="w-16 h-16 mb-4 opacity-50" />
                     <p className="font-medium text-lg">La orden de ingreso está vacía</p>
                     <p className="text-sm">Busca un producto en el panel izquierdo para cargarlo a bodega.</p>
@@ -373,7 +373,7 @@ export default function PurchasesPage() {
       accessor: (po) => (
         <div className="flex items-center justify-end gap-2">
           <span className="font-bold text-emerald-700">Q{Number(po.total).toFixed(2)}</span>
-          <Eye className="w-4 h-4 text-slate-300" />
+          <Eye className="w-4 h-4 text-slate-700" />
         </div>
       ),
       exportValue: (po) => Number(po.total).toFixed(2),

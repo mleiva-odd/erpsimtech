@@ -180,7 +180,7 @@ export default function PurchaseRequestsPage() {
           </button>
           <button
             onClick={() => setShowNew(true)}
-            className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" /> Nueva PR
           </button>
@@ -350,11 +350,11 @@ function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="p-6 flex justify-between items-start border-b border-slate-100">
           <h3 className="text-xl font-bold text-slate-900">Nueva solicitud de compra</h3>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-6 space-y-4 overflow-auto flex-1">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Proveedor sugerido</label>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Proveedor sugerido</label>
             <select
               value={supplierId}
               onChange={(e) => setSupplierId(e.target.value)}
@@ -365,7 +365,7 @@ function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
             </select>
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Motivo / Justificación</label>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Motivo / Justificación</label>
             <textarea
               required
               rows={2}
@@ -376,7 +376,7 @@ function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
           </div>
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase">Agregar producto</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase">Agregar producto</label>
               <div className="flex flex-wrap gap-2">
                 <TemplateSelector
                   type="PURCHASE_REQUEST"
@@ -505,7 +505,7 @@ function NewPRModal({ onClose, onCreated }: { onClose: () => void; onCreated: ()
             type="button"
             disabled={busy}
             onClick={submit}
-            className="flex-1 py-3 font-bold text-white bg-slate-900 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-3 font-bold text-white bg-blue-600 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}
             Crear PR
@@ -578,21 +578,21 @@ function PRDetailModal({ pr, onClose, onRefresh }: { pr: PR; onClose: () => void
               {STATUS_LABEL[pr.status] || pr.status} · {format(new Date(pr.createdAt), 'dd/MM/yyyy')}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-6 overflow-auto flex-1 space-y-4">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Razón</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Razón</p>
             <p className="text-sm">{pr.reason}</p>
           </div>
           {pr.supplier && (
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Proveedor sugerido</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Proveedor sugerido</p>
               <p className="text-sm">{pr.supplier.name}</p>
             </div>
           )}
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Ítems</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Ítems</p>
             <div className="bg-slate-50 rounded-xl divide-y divide-slate-100">
               {pr.items.map((it) => (
                 <div key={it.id} className="p-3 flex justify-between items-center">
@@ -765,11 +765,11 @@ function ConvertToPOModal({
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="p-6 flex justify-between items-start border-b border-slate-100">
           <h3 className="text-xl font-bold text-slate-900">Convertir PR a PO</h3>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-6 overflow-auto flex-1 space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Proveedor</label>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Proveedor</label>
             <select
               required
               value={supplierId}
@@ -781,7 +781,7 @@ function ConvertToPOModal({
             </select>
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Landed cost (flete + aduana, opcional)</label>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">Landed cost (flete + aduana, opcional)</label>
             <input
               type="number"
               step="0.01"
@@ -791,7 +791,7 @@ function ConvertToPOModal({
             />
           </div>
           <div className="space-y-2">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ítems</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ítems</p>
             {items.map((it, idx) => {
               const isDragged = itemsDragSort.draggedIndex === idx;
               const isHovered =

@@ -334,7 +334,7 @@ export default function NewRfqPage() {
           <div key={s} className="flex-1 flex items-center gap-2">
             <div
               className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                step >= s ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
+                step >= s ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
               }`}
               aria-current={step === s ? 'step' : undefined}
             >
@@ -342,7 +342,7 @@ export default function NewRfqPage() {
             </div>
             <span
               className={`text-xs font-bold uppercase tracking-widest hidden sm:inline ${
-                step >= s ? 'text-slate-800' : 'text-slate-400'
+                step >= s ? 'text-slate-800' : 'text-slate-500'
               }`}
             >
               {s === 1 ? 'Items' : s === 2 ? 'Proveedores' : 'Detalles'}
@@ -392,7 +392,7 @@ export default function NewRfqPage() {
               </p>
               <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 max-h-72 overflow-auto">
                 {supplierOptions.length === 0 ? (
-                  <p className="text-sm text-slate-400 italic col-span-full">
+                  <p className="text-sm text-slate-500 italic col-span-full">
                     No hay proveedores. Cargá uno desde Suppliers.
                   </p>
                 ) : (
@@ -452,7 +452,7 @@ export default function NewRfqPage() {
                 <button
                   type="button"
                   onClick={addExternalEmail}
-                  className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold flex items-center gap-1.5"
                 >
                   <Plus className="w-4 h-4" /> Agregar
                 </button>
@@ -488,7 +488,7 @@ export default function NewRfqPage() {
             <h2 className="text-lg font-bold text-slate-800">Detalles</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
                   Sucursal *
                 </label>
                 <select
@@ -508,7 +508,7 @@ export default function NewRfqPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
                   Lugar de entrega
                 </label>
                 <input
@@ -523,7 +523,7 @@ export default function NewRfqPage() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
                   Fecha límite de respuesta
                 </label>
                 <input
@@ -537,7 +537,7 @@ export default function NewRfqPage() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
                   Días validez de cotizaciones
                 </label>
                 <input
@@ -554,12 +554,12 @@ export default function NewRfqPage() {
                   className="w-full px-4 py-3 border-2 border-slate-100 rounded-xl outline-none text-sm"
                   aria-label="Días validez cotización"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
+                <p className="text-[10px] text-slate-500 mt-1">
                   Default empresa: {companyDefaults.quoteValidDays} días.
                 </p>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+                <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
                   Comprador responsable
                 </label>
                 <select
@@ -603,7 +603,7 @@ export default function NewRfqPage() {
               type="button"
               onClick={() => setStep((s) => (s === 1 ? 2 : 3))}
               disabled={!canGoNext || busy}
-              className="px-4 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center gap-2 disabled:opacity-50"
             >
               Siguiente <ChevronRight className="w-4 h-4" />
             </button>

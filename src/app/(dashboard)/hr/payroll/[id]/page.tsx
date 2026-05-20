@@ -483,7 +483,7 @@ export default function PayrollDetailPage({
           <button
             type="button"
             onClick={() => router.push('/hr/payroll')}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700"
           >
             <ArrowLeft className="h-4 w-4" />
             Volver al listado
@@ -726,7 +726,7 @@ function EditItemModal({
               type="button"
               onClick={submit}
               disabled={saving}
-              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-700 disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-md transition hover:bg-blue-700 disabled:opacity-50"
             >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

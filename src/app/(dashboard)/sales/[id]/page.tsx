@@ -367,7 +367,7 @@ export default function SaleDetailPage() {
                       {item.product.name}
                       {item.variant && <span className="text-slate-500"> — {item.variant.name}</span>}
                     </p>
-                    <p className="text-[11px] text-slate-400 font-mono">{item.variant?.sku || item.product.sku}</p>
+                    <p className="text-[11px] text-slate-500 font-mono">{item.variant?.sku || item.product.sku}</p>
                   </td>
                   <td className="px-6 py-3 text-center text-sm text-slate-700 font-bold">
                     {item.quantity}
@@ -399,7 +399,7 @@ export default function SaleDetailPage() {
           </tfoot>
         </table>
         {normalizeCurrency(sale.currency) !== FUNCTIONAL_CURRENCY && sale.exchangeRate != null && (
-          <p className="px-6 py-3 text-[10px] text-slate-400 italic border-t border-slate-100">
+          <p className="px-6 py-3 text-[10px] text-slate-500 italic border-t border-slate-100">
             Operación en {normalizeCurrency(sale.currency)} convertida al tipo de cambio Q {Number(sale.exchangeRate).toFixed(4)} vigente al emitirse.
             Reportería SAT en Quetzales.
           </p>
@@ -414,10 +414,10 @@ export default function SaleDetailPage() {
             <div key={i} className="bg-slate-50 rounded-xl p-4 border border-slate-100">
               <p className="text-xs font-bold text-slate-500 uppercase">{METHOD_LABELS[p.method] || p.method}</p>
               <p className="text-lg font-bold text-slate-800 mt-1">Q{Number(p.amount).toFixed(2)}</p>
-              {p.reference && <p className="text-[11px] text-slate-400 mt-1">Ref: {p.reference}</p>}
+              {p.reference && <p className="text-[11px] text-slate-500 mt-1">Ref: {p.reference}</p>}
             </div>
           ))}
-          {sale.payments.length === 0 && <p className="text-sm text-slate-400 italic">Sin pagos registrados</p>}
+          {sale.payments.length === 0 && <p className="text-sm text-slate-500 italic">Sin pagos registrados</p>}
         </div>
       </div>
 
@@ -440,7 +440,7 @@ export default function SaleDetailPage() {
                   <div>
                     <p className="text-sm font-bold text-slate-800">Q{Number(ret.amount).toFixed(2)}</p>
                     <p className="text-xs text-slate-500 mt-1">{ret.reason}</p>
-                    <p className="text-[10px] text-slate-400 mt-1">{format(new Date(ret.createdAt), "dd/MM/yyyy HH:mm")}</p>
+                    <p className="text-[10px] text-slate-500 mt-1">{format(new Date(ret.createdAt), "dd/MM/yyyy HH:mm")}</p>
                   </div>
                   <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${ret.stockAdded ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                     {ret.stockAdded ? 'Stock reincorporado' : 'Sin restock'}
@@ -492,7 +492,7 @@ export default function SaleDetailPage() {
             <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-2xl font-bold text-slate-900">Procesar Devolución</h3>
-                <p className="text-xs uppercase tracking-widest font-bold text-slate-400 mt-1">Venta {sale.id.split('-')[0].toUpperCase()}</p>
+                <p className="text-xs uppercase tracking-widest font-bold text-slate-500 mt-1">Venta {sale.id.split('-')[0].toUpperCase()}</p>
               </div>
               <button
                 type="button"
@@ -500,7 +500,7 @@ export default function SaleDetailPage() {
                   setShowReturnModal(false);
                   setReturnError('');
                 }}
-                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
+                className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -534,7 +534,7 @@ export default function SaleDetailPage() {
                         step="1"
                         value={returnItems[item.id] ?? '0'}
                         onChange={(event) => setReturnItems((prev) => ({ ...prev, [item.id]: Math.min(Number(event.target.value), maxReturnable) }))}
-                        className="w-24 text-center font-bold border border-slate-200 rounded-xl px-3 py-2 disabled:bg-slate-100 disabled:text-slate-400"
+                        className="w-24 text-center font-bold border border-slate-200 rounded-xl px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500"
                       />
                     </div>
                   );
@@ -618,7 +618,7 @@ export default function SaleDetailPage() {
 
       {/* Cancel Sale Modal */}
       {showCancelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-50 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-red-50">
               <div className="flex items-center gap-3">
@@ -630,7 +630,7 @@ export default function SaleDetailPage() {
                   <p className="text-xs text-red-600 font-medium">Esta acción es irreversible</p>
                 </div>
               </div>
-              <button onClick={() => setShowCancelModal(false)} className="p-2 hover:bg-red-100 rounded-xl text-slate-400 hover:text-red-600 transition">
+              <button onClick={() => setShowCancelModal(false)} className="p-2 hover:bg-red-100 rounded-xl text-slate-500 hover:text-red-600 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -689,9 +689,9 @@ export default function SaleDetailPage() {
 function InfoCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
   return (
     <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-slate-400 mb-2">{icon}<span className="text-[10px] font-bold uppercase tracking-wider">{label}</span></div>
+      <div className="flex items-center gap-2 text-slate-500 mb-2">{icon}<span className="text-[10px] font-bold uppercase tracking-wider">{label}</span></div>
       <p className="text-sm font-bold text-slate-800">{value}</p>
-      {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
+      {sub && <p className="text-[11px] text-slate-500 mt-0.5">{sub}</p>}
     </div>
   );
 }

@@ -238,11 +238,11 @@ export default function DeliveryNotesPage() {
                     <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {n.address}</span>
                     {n.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {n.phone}</span>}
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-2">
+                  <p className="text-[11px] text-slate-500 mt-2">
                     {n.items.length} producto{n.items.length !== 1 ? 's' : ''} · {format(new Date(n.createdAt), 'dd MMM yyyy, HH:mm', { locale: es })}
                   </p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-slate-300 shrink-0" />
+                <ChevronRight className="w-5 h-5 text-slate-700 shrink-0" />
               </div>
             </div>
           );
@@ -271,7 +271,7 @@ export default function DeliveryNotesPage() {
                     <Printer className="w-5 h-5" />
                   </button>
                   <button onClick={() => setSelectedNote(null)} className="p-2 hover:bg-slate-100 rounded-lg" aria-label="Cerrar">
-                    <XCircle className="w-5 h-5 text-slate-400" />
+                    <XCircle className="w-5 h-5 text-slate-500" />
                   </button>
                 </div>
               </div>
@@ -280,27 +280,27 @@ export default function DeliveryNotesPage() {
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Destinatario</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Destinatario</p>
                   <p className="text-sm font-bold text-slate-800 mt-1">{selectedNote.recipientName}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Teléfono</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Teléfono</p>
                   <p className="text-sm text-slate-700 mt-1">{selectedNote.phone || '-'}</p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Dirección</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase">Dirección</p>
                   <p className="text-sm text-slate-700 mt-1">{selectedNote.address}</p>
                 </div>
                 {selectedNote.notes && (
                   <div className="col-span-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Instrucciones</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">Instrucciones</p>
                     <p className="text-sm text-slate-700 mt-1">{selectedNote.notes}</p>
                   </div>
                 )}
               </div>
 
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Productos</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Productos</p>
                 <div className="space-y-2">
                   {selectedNote.items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between bg-slate-50 rounded-xl p-3 border border-slate-100">

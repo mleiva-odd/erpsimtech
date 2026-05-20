@@ -449,19 +449,19 @@ export default function RfqDetailPage({
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-slate-100 text-sm">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Sucursal</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase">Sucursal</p>
             <p className="font-bold">{rfq.branch.name}</p>
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Comprador</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase">Comprador</p>
             <p className="font-bold">{rfq.buyer?.name || rfq.createdBy.name || '-'}</p>
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Validez cotiz.</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase">Validez cotiz.</p>
             <p className="font-bold">{rfq.quoteValidityDays ?? 30} días</p>
           </div>
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase">Fecha límite</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase">Fecha límite</p>
             <p className="font-bold">
               {rfq.responseDeadline
                 ? format(new Date(rfq.responseDeadline), 'dd/MM/yyyy')
@@ -470,7 +470,7 @@ export default function RfqDetailPage({
           </div>
           {rfq.deliveryPlace && (
             <div className="col-span-2 md:col-span-4">
-              <p className="text-[10px] font-bold text-slate-400 uppercase">Lugar de entrega</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Lugar de entrega</p>
               <p className="text-sm">{rfq.deliveryPlace}</p>
             </div>
           )}
@@ -515,7 +515,7 @@ export default function RfqDetailPage({
                         {it.awardedSupplier.name} · {formatQ(it.awardedQuoteItem.unitPrice)}
                       </span>
                     ) : (
-                      <span className="text-slate-300 text-xs italic">Sin adjudicar</span>
+                      <span className="text-slate-700 text-xs italic">Sin adjudicar</span>
                     )}
                   </td>
                 </tr>
@@ -542,7 +542,7 @@ export default function RfqDetailPage({
           )}
         </div>
         {rfq.invitations.length === 0 ? (
-          <p className="text-sm text-slate-400 italic">Sin invitaciones aún.</p>
+          <p className="text-sm text-slate-500 italic">Sin invitaciones aún.</p>
         ) : (
           <ul className="divide-y divide-slate-100">
             {rfq.invitations.map((inv) => (
@@ -553,9 +553,9 @@ export default function RfqDetailPage({
                 <div className="min-w-0">
                   <p className="font-bold text-sm flex items-center gap-2">
                     {inv.supplier ? (
-                      <Store className="w-4 h-4 text-slate-400" />
+                      <Store className="w-4 h-4 text-slate-500" />
                     ) : (
-                      <Mail className="w-4 h-4 text-slate-400" />
+                      <Mail className="w-4 h-4 text-slate-500" />
                     )}
                     {inv.supplier ? inv.supplier.name : inv.externalEmail}
                   </p>
@@ -779,7 +779,7 @@ function AddInvitationModal({
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-4">
         <h3 className="text-lg font-bold">Agregar invitación</h3>
         <div>
-          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
             Proveedor registrado
           </label>
           <select
@@ -797,11 +797,11 @@ function AddInvitationModal({
               ))}
           </select>
         </div>
-        <div className="text-center text-xs text-slate-400 font-bold uppercase tracking-widest">
+        <div className="text-center text-xs text-slate-500 font-bold uppercase tracking-widest">
           o
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
             Email externo
           </label>
           <input
@@ -813,7 +813,7 @@ function AddInvitationModal({
           />
         </div>
         <div>
-          <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">
+          <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">
             Notas
           </label>
           <textarea
@@ -835,7 +835,7 @@ function AddInvitationModal({
             type="button"
             disabled={busy}
             onClick={() => void submit()}
-            className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}
             Agregar

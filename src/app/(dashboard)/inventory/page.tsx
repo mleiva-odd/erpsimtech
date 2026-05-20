@@ -104,7 +104,7 @@ export default function InventoryPage() {
       key: 'sku',
       header: 'SKU',
       mobilePriority: 'meta',
-      accessor: (p) => <span className="font-mono text-slate-400 text-xs">{p.sku}</span>,
+      accessor: (p) => <span className="font-mono text-slate-500 text-xs">{p.sku}</span>,
       exportValue: (p) => p.sku,
     },
     {
@@ -185,7 +185,7 @@ export default function InventoryPage() {
             onClick={() => handlePrintBarcode(p)}
             aria-label="Etiqueta"
             title="Etiqueta"
-            className="p-2 bg-slate-50 text-slate-400 hover:bg-slate-900 hover:text-white rounded-xl transition-all"
+            className="p-2 bg-slate-50 text-slate-500 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-all"
           >
             <Printer className="w-4 h-4" />
           </button>
@@ -194,7 +194,7 @@ export default function InventoryPage() {
               onClick={() => handleEdit(p)}
               aria-label="Editar"
               title="Editar"
-              className="p-2 bg-slate-50 text-slate-400 hover:bg-blue-600 hover:text-white rounded-xl transition-all"
+              className="p-2 bg-slate-50 text-slate-500 hover:bg-blue-600 hover:text-white rounded-xl transition-all"
             >
               <Edit2 className="w-4 h-4" />
             </button>
@@ -246,7 +246,7 @@ export default function InventoryPage() {
               }}
               className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 active:scale-95"
             >
-              <Layers className="w-4 h-4 text-slate-400" /> Nuevo Combo
+              <Layers className="w-4 h-4 text-slate-500" /> Nuevo Combo
             </button>
             <button
               onClick={handleNew}

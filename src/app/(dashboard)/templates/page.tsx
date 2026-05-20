@@ -313,14 +313,14 @@ function EditTemplateModal({ template, onClose, onSaved }: EditTemplateModalProp
             onClick={onClose}
             aria-label="Cerrar"
             disabled={busy}
-            className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg disabled:opacity-50"
+            className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg disabled:opacity-50"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
+            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
               Nombre *
             </label>
             <input
@@ -333,7 +333,7 @@ function EditTemplateModal({ template, onClose, onSaved }: EditTemplateModalProp
             />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-widest">
+            <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest">
               Descripción
             </label>
             <textarea
@@ -345,7 +345,7 @@ function EditTemplateModal({ template, onClose, onSaved }: EditTemplateModalProp
               aria-label="Descripción"
             />
           </div>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-slate-500">
             Los ítems no se editan acá: para cambiar la composición, eliminá esta
             plantilla y guardá una nueva desde el form correspondiente.
           </p>
@@ -363,7 +363,7 @@ function EditTemplateModal({ template, onClose, onSaved }: EditTemplateModalProp
             type="button"
             onClick={() => void save()}
             disabled={busy || !name.trim()}
-            className="flex-1 py-3 font-bold text-white bg-slate-900 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-3 font-bold text-white bg-blue-600 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}
             Guardar

@@ -160,7 +160,7 @@ export default function ReceivablesPage() {
         row.oldestOverdueDays > 0 ? (
           <span className="text-rose-600 font-bold">{row.oldestOverdueDays}d</span>
         ) : (
-          <span className="text-slate-400">—</span>
+          <span className="text-slate-500">—</span>
         ),
       exportValue: (row) => row.oldestOverdueDays.toString(),
       cellClassName: 'text-right',
@@ -266,7 +266,7 @@ export default function ReceivablesPage() {
             <div className="p-6 overflow-y-auto flex-1">
               {statementLoading ? (
                 <div className="flex justify-center py-12">
-                  <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
+                  <RefreshCw className="w-6 h-6 animate-spin text-slate-500" />
                 </div>
               ) : statementData ? (
                 <pre className="text-xs bg-slate-50 rounded-xl p-4 overflow-x-auto whitespace-pre-wrap">

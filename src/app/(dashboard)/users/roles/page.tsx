@@ -130,7 +130,7 @@ export default function RolesPage() {
             onClick={() => { setSelectedRole(r); setIsModalOpen(true); }}
             aria-label="Editar rol"
             title="Editar"
-            className="p-2 hover:bg-slate-50 text-slate-400 hover:text-blue-600 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-50 text-slate-500 hover:text-blue-600 rounded-lg transition-colors"
           >
             <Edit2 className="w-4 h-4" />
           </button>
@@ -138,7 +138,7 @@ export default function RolesPage() {
             onClick={() => void handleDelete(r)}
             aria-label="Eliminar rol"
             title="Eliminar"
-            className="p-2 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+            className="p-2 hover:bg-rose-50 text-slate-500 hover:text-rose-600 rounded-lg transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -170,7 +170,7 @@ export default function RolesPage() {
         </div>
         <button
           onClick={() => { setSelectedRole(null); setIsModalOpen(true); }}
-          className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-xl shadow-slate-500/10 flex items-center gap-2 transition-all"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-xl shadow-slate-500/10 flex items-center gap-2 transition-all"
         >
           <Plus className="w-4 h-4" /> Nuevo Rol
         </button>
@@ -199,7 +199,7 @@ export default function RolesPage() {
             action={
               <button
                 onClick={() => { setSelectedRole(null); setIsModalOpen(true); }}
-                className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm inline-flex items-center gap-2"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm inline-flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" /> Nuevo Rol
               </button>

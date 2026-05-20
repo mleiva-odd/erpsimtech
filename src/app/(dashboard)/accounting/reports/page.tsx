@@ -20,6 +20,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useToast } from '@/components/ui/toast';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { EmptyState as SharedEmptyState } from '@/components/ui/empty-state';
 
 type ReportTab = 'balance-sheet' | 'profit-loss' | 'trial-balance' | 'general-journal' | 'general-ledger';
 
@@ -93,13 +94,13 @@ export default function AccountingReportsPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<ReportTab>('balance-sheet');
 
-  const today = new Date().toISOString().slice(0, 10);
-  const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
-
-  const [dateFrom, setDateFrom] = useState(firstOfMonth);
-  const [dateTo, setDateTo] = useState(today);
+  // Lazy initializers evitan llamar `new Date()` en cada render
+  // (regla react-hooks/purity de React 19).
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  });
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [accountCode, setAccountCode] = useState('1.1.01');
 
   const [loading, setLoading] = useState(false);
@@ -269,21 +270,45 @@ interface BalanceSheetData {
   isBalanced: boolean;
 }
 
+function EmptyState({ title, message }: { title: string; message: string }) {
+  // Wrapper que adapta la API local al EmptyState compartido del design system.
+  return (
+    <SharedEmptyState
+      icon={<BarChart3 className="w-6 h-6" />}
+      title={title}
+      description={message}
+    />
+  );
+}
+
 function BalanceSheetView({ data }: { data: BalanceSheetData }) {
+  // Defensivo: si los arrays no vienen o vienen vacíos, mostramos empty state.
+  const assets = Array.isArray(data?.assets) ? data.assets : [];
+  const liabilities = Array.isArray(data?.liabilities) ? data.liabilities : [];
+  const equity = Array.isArray(data?.equity) ? data.equity : [];
+  const totals = data?.totals ?? {
+    assets: 0,
+    liabilities: 0,
+    equity: 0,
+    liabilitiesPlusEquity: 0,
+  };
+  const cutoffDate = data?.cutoffDate ? new Date(data.cutoffDate) : new Date();
+  const hasData = assets.length + liabilities.length + equity.length > 0;
+
   const exportCsv = () => {
     const rows: string[][] = [['Código', 'Nombre', 'Tipo', 'Saldo']];
-    [...data.assets, ...data.liabilities, ...data.equity].forEach((r) =>
+    [...assets, ...liabilities, ...equity].forEach((r) =>
       rows.push([r.code, r.name, r.type, Number(r.balance).toFixed(2)]),
     );
-    rows.push(['', 'TOTAL ACTIVO', '', Number(data.totals.assets).toFixed(2)]);
-    rows.push(['', 'TOTAL PASIVO + PATRIMONIO', '', Number(data.totals.liabilitiesPlusEquity).toFixed(2)]);
+    rows.push(['', 'TOTAL ACTIVO', '', Number(totals.assets).toFixed(2)]);
+    rows.push(['', 'TOTAL PASIVO + PATRIMONIO', '', Number(totals.liabilitiesPlusEquity).toFixed(2)]);
     downloadCsv('balance_general', rows);
   };
   const exportPdfRep = () => {
     downloadPdf(
       'Balance General',
       ['Código', 'Nombre', 'Tipo', 'Saldo'],
-      [...data.assets, ...data.liabilities, ...data.equity].map((r) => [
+      [...assets, ...liabilities, ...equity].map((r) => [
         r.code,
         r.name,
         r.type,
@@ -292,37 +317,46 @@ function BalanceSheetView({ data }: { data: BalanceSheetData }) {
     );
   };
 
+  if (!hasData) {
+    return (
+      <EmptyState
+        title="Sin movimientos contables al corte"
+        message="A esta fecha aún no hay asientos contables registrados. El balance general aparecerá automáticamente cuando empiecen a registrarse ventas, compras o asientos manuales."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <p className="text-xs text-slate-500">Corte: {format(new Date(data.cutoffDate), 'dd/MM/yyyy')}</p>
+          <p className="text-xs text-slate-500">Corte: {format(cutoffDate, 'dd/MM/yyyy')}</p>
           <p
             className={`text-xs font-bold ${
-              data.isBalanced ? 'text-emerald-600' : 'text-rose-600'
+              data?.isBalanced ? 'text-emerald-600' : 'text-rose-600'
             }`}
           >
-            {data.isBalanced ? 'Balance cuadrado' : 'No cuadra'}
+            {data?.isBalanced ? 'Balance cuadrado' : 'No cuadra'}
           </p>
         </div>
         <ExportButtons onCsv={exportCsv} onPdf={exportPdfRep} />
       </div>
-      <SectionTable title="Activos" rows={data.assets} totalLabel="Total Activo" total={data.totals.assets} />
+      <SectionTable title="Activos" rows={assets} totalLabel="Total Activo" total={totals.assets} />
       <SectionTable
         title="Pasivos"
-        rows={data.liabilities}
+        rows={liabilities}
         totalLabel="Total Pasivo"
-        total={data.totals.liabilities}
+        total={totals.liabilities}
       />
       <SectionTable
         title="Patrimonio"
-        rows={data.equity}
+        rows={equity}
         totalLabel="Total Patrimonio"
-        total={data.totals.equity}
+        total={totals.equity}
       />
       <div className="border-t-2 border-slate-300 pt-3 flex justify-between font-bold text-lg">
         <span>TOTAL PASIVO + PATRIMONIO</span>
-        <span>{formatCurrency(data.totals.liabilitiesPlusEquity)}</span>
+        <span>{formatCurrency(totals.liabilitiesPlusEquity)}</span>
       </div>
     </div>
   );
@@ -401,63 +435,91 @@ interface ProfitLossData {
 }
 
 function ProfitLossView({ data }: { data: ProfitLossData }) {
+  // Defensivo: cualquier campo puede no venir si la API responde shape inesperada.
+  const ventas = data?.ventas ?? { brutas: 0, netas: 0, impuestos: 0, descuentos: 0, cantidadVentas: 0 };
+  const cogs = Number(data?.cogs ?? 0);
+  const margenBruto = Number(data?.margenBruto ?? 0);
+  const margenBrutoPct = Number(data?.margenBrutoPct ?? 0);
+  const ingresosTotal = Number(data?.ingresos?.total ?? 0);
+  const ingresosCats = Array.isArray(data?.ingresos?.porCategoria)
+    ? data.ingresos.porCategoria
+    : [];
+  const egresosTotal = Number(data?.egresos?.total ?? 0);
+  const egresosCats = Array.isArray(data?.egresos?.porCategoria)
+    ? data.egresos.porCategoria
+    : [];
+  const utilidadNeta = Number(data?.utilidadNeta ?? 0);
+  const desde = data?.periodo?.desde ? new Date(data.periodo.desde) : new Date();
+  const hasta = data?.periodo?.hasta ? new Date(data.periodo.hasta) : new Date();
+
+  const hasData =
+    ventas.cantidadVentas > 0 || ingresosCats.length > 0 || egresosCats.length > 0;
+
   const exportCsv = () => {
     const rows: string[][] = [['Concepto', 'Monto']];
-    rows.push(['Ventas brutas', Number(data.ventas.brutas).toFixed(2)]);
-    rows.push(['COGS', Number(data.cogs).toFixed(2)]);
-    rows.push(['Margen Bruto', Number(data.margenBruto).toFixed(2)]);
-    rows.push(['Ingresos totales', Number(data.ingresos.total).toFixed(2)]);
-    data.ingresos.porCategoria.forEach((c) => rows.push([`  ${c.nombre}`, Number(c.total).toFixed(2)]));
-    rows.push(['Egresos totales', Number(data.egresos.total).toFixed(2)]);
-    data.egresos.porCategoria.forEach((c) => rows.push([`  ${c.nombre}`, Number(c.total).toFixed(2)]));
-    rows.push(['Utilidad neta', Number(data.utilidadNeta).toFixed(2)]);
+    rows.push(['Ventas brutas', Number(ventas.brutas).toFixed(2)]);
+    rows.push(['COGS', cogs.toFixed(2)]);
+    rows.push(['Margen Bruto', margenBruto.toFixed(2)]);
+    rows.push(['Ingresos totales', ingresosTotal.toFixed(2)]);
+    ingresosCats.forEach((c) => rows.push([`  ${c.nombre}`, Number(c.total).toFixed(2)]));
+    rows.push(['Egresos totales', egresosTotal.toFixed(2)]);
+    egresosCats.forEach((c) => rows.push([`  ${c.nombre}`, Number(c.total).toFixed(2)]));
+    rows.push(['Utilidad neta', utilidadNeta.toFixed(2)]);
     downloadCsv('estado_resultados', rows);
   };
   const exportPdfRep = () => {
     const body: string[][] = [];
-    body.push(['Ventas brutas', formatCurrency(data.ventas.brutas)]);
-    body.push(['COGS', formatCurrency(data.cogs)]);
-    body.push(['Margen Bruto', formatCurrency(data.margenBruto)]);
-    body.push(['Ingresos totales', formatCurrency(data.ingresos.total)]);
-    data.ingresos.porCategoria.forEach((c) => body.push([`  ${c.nombre}`, formatCurrency(c.total)]));
-    body.push(['Egresos totales', formatCurrency(data.egresos.total)]);
-    data.egresos.porCategoria.forEach((c) => body.push([`  ${c.nombre}`, formatCurrency(c.total)]));
-    body.push(['Utilidad neta', formatCurrency(data.utilidadNeta)]);
+    body.push(['Ventas brutas', formatCurrency(ventas.brutas)]);
+    body.push(['COGS', formatCurrency(cogs)]);
+    body.push(['Margen Bruto', formatCurrency(margenBruto)]);
+    body.push(['Ingresos totales', formatCurrency(ingresosTotal)]);
+    ingresosCats.forEach((c) => body.push([`  ${c.nombre}`, formatCurrency(c.total)]));
+    body.push(['Egresos totales', formatCurrency(egresosTotal)]);
+    egresosCats.forEach((c) => body.push([`  ${c.nombre}`, formatCurrency(c.total)]));
+    body.push(['Utilidad neta', formatCurrency(utilidadNeta)]);
     downloadPdf('Estado de Resultados', ['Concepto', 'Monto'], body);
   };
+
+  if (!hasData) {
+    return (
+      <EmptyState
+        title="Sin movimientos en el período"
+        message="Aún no hay ventas, ingresos ni egresos contables en el rango seleccionado. Probá ampliar las fechas o registrar transacciones."
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-slate-500">
-          {format(new Date(data.periodo.desde), 'dd/MM/yyyy')} —{' '}
-          {format(new Date(data.periodo.hasta), 'dd/MM/yyyy')}
+          {format(desde, 'dd/MM/yyyy')} — {format(hasta, 'dd/MM/yyyy')}
         </p>
         <ExportButtons onCsv={exportCsv} onPdf={exportPdfRep} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <KpiCard label="Ventas brutas" value={formatCurrency(data.ventas.brutas)} />
-        <KpiCard label="COGS" value={formatCurrency(data.cogs)} tone="rose" />
+        <KpiCard label="Ventas brutas" value={formatCurrency(ventas.brutas)} />
+        <KpiCard label="COGS" value={formatCurrency(cogs)} tone="rose" />
         <KpiCard
-          label={`Margen bruto (${((data.margenBrutoPct || 0) * 100).toFixed(1)}%)`}
-          value={formatCurrency(data.margenBruto)}
+          label={`Margen bruto (${(margenBrutoPct * 100).toFixed(1)}%)`}
+          value={formatCurrency(margenBruto)}
           tone="emerald"
         />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <h3 className="font-bold text-slate-800 mb-2">Ingresos por categoría</h3>
-          <CategoryList rows={data.ingresos.porCategoria} total={data.ingresos.total} />
+          <CategoryList rows={ingresosCats} total={ingresosTotal} />
         </div>
         <div>
           <h3 className="font-bold text-slate-800 mb-2">Egresos por categoría</h3>
-          <CategoryList rows={data.egresos.porCategoria} total={data.egresos.total} />
+          <CategoryList rows={egresosCats} total={egresosTotal} />
         </div>
       </div>
       <div className="border-t-2 pt-3 flex justify-between font-bold text-lg">
         <span>UTILIDAD NETA</span>
-        <span className={data.utilidadNeta >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-          {formatCurrency(data.utilidadNeta)}
+        <span className={utilidadNeta >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+          {formatCurrency(utilidadNeta)}
         </span>
       </div>
     </div>
@@ -511,10 +573,13 @@ interface TrialBalanceData {
 }
 
 function TrialBalanceView({ data }: { data: TrialBalanceData }) {
+  const rows = Array.isArray(data?.rows) ? data.rows : [];
+  const totals = data?.totals ?? { debit: 0, credit: 0 };
+
   const exportCsv = () => {
-    const rows: string[][] = [['Código', 'Cuenta', 'Tipo', 'Débito', 'Crédito', 'Saldo']];
-    data.rows.forEach((r) =>
-      rows.push([
+    const csvRows: string[][] = [['Código', 'Cuenta', 'Tipo', 'Débito', 'Crédito', 'Saldo']];
+    rows.forEach((r) =>
+      csvRows.push([
         r.code,
         r.name,
         r.type,
@@ -523,14 +588,14 @@ function TrialBalanceView({ data }: { data: TrialBalanceData }) {
         Number(r.balance).toFixed(2),
       ]),
     );
-    rows.push(['', 'TOTAL', '', Number(data.totals.debit).toFixed(2), Number(data.totals.credit).toFixed(2), '']);
-    downloadCsv('balance_comprobacion', rows);
+    csvRows.push(['', 'TOTAL', '', Number(totals.debit).toFixed(2), Number(totals.credit).toFixed(2), '']);
+    downloadCsv('balance_comprobacion', csvRows);
   };
   const exportPdfRep = () => {
     downloadPdf(
       'Balance de Comprobación',
       ['Código', 'Cuenta', 'Tipo', 'Débito', 'Crédito', 'Saldo'],
-      data.rows.map((r) => [
+      rows.map((r) => [
         r.code,
         r.name,
         r.type,
@@ -540,15 +605,25 @@ function TrialBalanceView({ data }: { data: TrialBalanceData }) {
       ]),
     );
   };
+
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        title="Sin movimientos en el período"
+        message="No hay asientos contables registrados en el rango seleccionado. Probá ampliar las fechas."
+      />
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
         <p
           className={`text-xs font-bold ${
-            data.isBalanced ? 'text-emerald-600' : 'text-rose-600'
+            data?.isBalanced ? 'text-emerald-600' : 'text-rose-600'
           }`}
         >
-          {data.isBalanced ? 'Cuadrado' : 'No cuadra'}
+          {data?.isBalanced ? 'Cuadrado' : 'No cuadra'}
         </p>
         <ExportButtons onCsv={exportCsv} onPdf={exportPdfRep} />
       </div>
@@ -564,7 +639,7 @@ function TrialBalanceView({ data }: { data: TrialBalanceData }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {data.rows.map((r) => (
+            {rows.map((r) => (
               <tr key={r.accountId}>
                 <td className="px-3 py-2 font-mono text-xs">{r.code}</td>
                 <td className="px-3 py-2">{r.name}</td>
@@ -579,15 +654,15 @@ function TrialBalanceView({ data }: { data: TrialBalanceData }) {
               <td colSpan={2} className="px-3 py-2">
                 TOTAL
               </td>
-              <td className="px-3 py-2 text-right">{formatCurrency(data.totals.debit)}</td>
-              <td className="px-3 py-2 text-right">{formatCurrency(data.totals.credit)}</td>
+              <td className="px-3 py-2 text-right">{formatCurrency(totals.debit)}</td>
+              <td className="px-3 py-2 text-right">{formatCurrency(totals.credit)}</td>
               <td />
             </tr>
           </tfoot>
         </table>
       </div>
       <div className="md:hidden space-y-2">
-        {data.rows.map((r) => (
+        {rows.map((r) => (
           <div key={r.accountId} className="border border-slate-100 rounded-xl p-3">
             <p className="text-xs text-slate-400 font-mono">{r.code}</p>
             <p className="text-sm font-bold">{r.name}</p>
@@ -622,10 +697,13 @@ interface GeneralJournalData {
 }
 
 function GeneralJournalView({ data }: { data: GeneralJournalData }) {
+  const entries = Array.isArray(data?.data) ? data.data : [];
+  const total = Number(data?.total ?? 0);
+
   const exportCsv = () => {
     const rows: string[][] = [['Fecha', 'Asiento', 'Cuenta', 'Descripción', 'Débito', 'Crédito']];
-    data.data.forEach((j) => {
-      j.lines.forEach((l) => {
+    entries.forEach((j) => {
+      (j.lines ?? []).forEach((l) => {
         rows.push([
           format(new Date(j.date), 'dd/MM/yyyy'),
           j.id.slice(0, 8),
@@ -640,8 +718,8 @@ function GeneralJournalView({ data }: { data: GeneralJournalData }) {
   };
   const exportPdfRep = () => {
     const body: string[][] = [];
-    data.data.forEach((j) => {
-      j.lines.forEach((l) => {
+    entries.forEach((j) => {
+      (j.lines ?? []).forEach((l) => {
         body.push([
           format(new Date(j.date), 'dd/MM/yyyy'),
           j.id.slice(0, 8),
@@ -658,14 +736,24 @@ function GeneralJournalView({ data }: { data: GeneralJournalData }) {
       body,
     );
   };
+
+  if (entries.length === 0) {
+    return (
+      <EmptyState
+        title="Sin asientos en el período"
+        message="No hay asientos contables registrados en el rango seleccionado. El libro diario se llena automáticamente con cada venta, compra, planilla o asiento manual."
+      />
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
-        <p className="text-xs text-slate-500">{data.total} asientos</p>
+        <p className="text-xs text-slate-500">{total} asientos</p>
         <ExportButtons onCsv={exportCsv} onPdf={exportPdfRep} />
       </div>
       <div className="space-y-3">
-        {data.data.map((j) => (
+        {entries.map((j) => (
           <div key={j.id} className="bg-slate-50 rounded-xl p-3 border border-slate-100">
             <div className="flex justify-between items-start mb-2">
               <div>
@@ -708,9 +796,13 @@ interface GeneralLedgerData {
 }
 
 function GeneralLedgerView({ data }: { data: GeneralLedgerData }) {
+  const account = data?.account ?? { code: '—', name: 'Cuenta no encontrada', type: '' };
+  const movements = Array.isArray(data?.movements) ? data.movements : [];
+  const finalBalance = Number(data?.finalBalance ?? 0);
+
   const exportCsv = () => {
     const rows: string[][] = [['Fecha', 'Descripción', 'Débito', 'Crédito', 'Saldo']];
-    data.movements.forEach((m) =>
+    movements.forEach((m) =>
       rows.push([
         format(new Date(m.date), 'dd/MM/yyyy'),
         m.description,
@@ -719,13 +811,13 @@ function GeneralLedgerView({ data }: { data: GeneralLedgerData }) {
         Number(m.balance).toFixed(2),
       ]),
     );
-    downloadCsv(`libro_mayor_${data.account.code}`, rows);
+    downloadCsv(`libro_mayor_${account.code}`, rows);
   };
   const exportPdfRep = () => {
     downloadPdf(
-      `Libro Mayor ${data.account.code} ${data.account.name}`,
+      `Libro Mayor ${account.code} ${account.name}`,
       ['Fecha', 'Descripción', 'Débito', 'Crédito', 'Saldo'],
-      data.movements.map((m) => [
+      movements.map((m) => [
         format(new Date(m.date), 'dd/MM/yyyy'),
         m.description,
         formatCurrency(m.debit),
@@ -734,15 +826,25 @@ function GeneralLedgerView({ data }: { data: GeneralLedgerData }) {
       ]),
     );
   };
+
+  if (movements.length === 0) {
+    return (
+      <EmptyState
+        title={`Sin movimientos para ${account.code}`}
+        message="Probá con un código de cuenta distinto o amplía el rango de fechas. El libro mayor muestra el detalle de movimientos de una sola cuenta."
+      />
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
         <div>
           <p className="text-sm font-bold">
-            {data.account.code} · {data.account.name}
+            {account.code} · {account.name}
           </p>
           <p className="text-xs text-slate-500">
-            Saldo final: <span className="font-bold">{formatCurrency(data.finalBalance)}</span>
+            Saldo final: <span className="font-bold">{formatCurrency(finalBalance)}</span>
           </p>
         </div>
         <ExportButtons onCsv={exportCsv} onPdf={exportPdfRep} />
@@ -759,7 +861,7 @@ function GeneralLedgerView({ data }: { data: GeneralLedgerData }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {data.movements.map((m, idx) => (
+            {movements.map((m, idx) => (
               <tr key={idx}>
                 <td className="px-3 py-2">{format(new Date(m.date), 'dd/MM/yyyy')}</td>
                 <td className="px-3 py-2">{m.description}</td>

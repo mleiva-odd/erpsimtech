@@ -242,7 +242,7 @@ export default function ReportsPage() {
           {register && (
             <button
               onClick={handleOpenCloseModal}
-              className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition font-medium text-sm shadow-sm"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium text-sm shadow-sm"
             >
               Cerrar Turno de Caja
             </button>
@@ -411,7 +411,7 @@ export default function ReportsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col overflow-hidden animate-in fade-in duration-200">
             <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
-              <div className="w-10 h-10 bg-slate-800 text-white rounded-full flex items-center justify-center shrink-0 shadow-inner">
+              <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center shrink-0 shadow-inner">
                 <Lock className="w-5 h-5" />
               </div>
               <div>
@@ -438,7 +438,7 @@ export default function ReportsPage() {
                   value={closingBalanceInput}
                   onChange={(e) => setClosingBalanceInput(e.target.value)}
                   placeholder="0.00"
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:border-slate-800 focus:ring-1 focus:ring-slate-800 outline-none text-xl transition-colors font-bold text-slate-900"
+                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:border-slate-200 focus:ring-1 focus:ring-slate-800 outline-none text-xl transition-colors font-bold text-slate-900"
                 />
               </div>
 
@@ -453,7 +453,7 @@ export default function ReportsPage() {
                 <button
                   type="submit"
                   disabled={isSubmittingClose || !closingBalanceInput}
-                  className="flex-1 py-3 text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                  className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
                 >
                   {isSubmittingClose ? (
                     <RefreshCw className="w-4 h-4 animate-spin shrink-0" />

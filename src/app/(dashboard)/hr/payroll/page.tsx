@@ -166,7 +166,7 @@ export default function PayrollListPage() {
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-all active:scale-95"
         >
           <Plus className="w-4 h-4" /> Nueva planilla
         </button>

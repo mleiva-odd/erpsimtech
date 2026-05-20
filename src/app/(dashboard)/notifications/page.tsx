@@ -154,7 +154,7 @@ export default function NotificationsPage() {
       header: 'Hace',
       mobilePriority: 'highlight',
       accessor: (n) => (
-        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
           {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: es })}
         </span>
       ),
@@ -168,7 +168,7 @@ export default function NotificationsPage() {
       headerClassName: 'text-center',
       accessor: (n) =>
         n.isRead ? (
-          <span className="text-[10px] font-bold text-slate-400">Leída</span>
+          <span className="text-[10px] font-bold text-slate-500">Leída</span>
         ) : (
           <span className="text-[10px] font-bold text-blue-600 flex items-center gap-1 justify-center">
             <span className="inline-flex h-2 w-2 rounded-full bg-blue-500" /> Nueva
@@ -199,7 +199,7 @@ export default function NotificationsPage() {
           <button
             onClick={() => { setShowUnreadOnly(false); void table.refetch(); }}
             className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
-              !showUnreadOnly ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200'
+              !showUnreadOnly ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'
             }`}
           >
             Todas

@@ -164,10 +164,10 @@ function PriceListsTab() {
       header: 'Acciones',
       accessor: (r) => (
         <div className="flex gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => setEditing(r)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded">
+          <button onClick={() => setEditing(r)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded">
             <Edit2 className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => deleteOne(r.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded">
+          <button onClick={() => deleteOne(r.id)} className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -180,7 +180,7 @@ function PriceListsTab() {
       <div className="flex justify-end mb-4">
         <button
           onClick={() => setShowNew(true)}
-          className="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2"
+          className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2"
         >
           <Plus className="w-4 h-4" /> Nueva lista
         </button>
@@ -301,7 +301,7 @@ function PromotionsTab() {
       key: 'actions',
       header: 'Acciones',
       accessor: (r) => (
-        <button onClick={() => deleteOne(r.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded">
+        <button onClick={() => deleteOne(r.id)} className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       ),
@@ -311,7 +311,7 @@ function PromotionsTab() {
   return (
     <>
       <div className="flex justify-end mb-4">
-        <button onClick={() => setShowNew(true)} className="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
+        <button onClick={() => setShowNew(true)} className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
           <Plus className="w-4 h-4" /> Nueva promoción
         </button>
       </div>
@@ -473,7 +473,7 @@ function CouponsTab() {
       key: 'actions',
       header: '',
       accessor: (r) => (
-        <button onClick={() => deleteOne(r.code)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded">
+        <button onClick={() => deleteOne(r.code)} className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       ),
@@ -483,7 +483,7 @@ function CouponsTab() {
   return (
     <>
       <div className="flex justify-end mb-4">
-        <button onClick={() => setShowNew(true)} className="bg-slate-900 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
+        <button onClick={() => setShowNew(true)} className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
           <Plus className="w-4 h-4" /> Nuevo cupón
         </button>
       </div>
@@ -597,7 +597,7 @@ function SimpleModal({ title, onClose, children }: { title: string; onClose: () 
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
         <div className="p-6 flex justify-between items-start border-b border-slate-100">
           <h3 className="text-xl font-bold text-slate-900">{title}</h3>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-50 rounded-lg"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-6 overflow-auto flex-1">{children}</div>
       </div>
@@ -612,7 +612,7 @@ function ModalFooter({ onClose, onSubmit, busy }: { onClose: () => void; onSubmi
       <button
         disabled={busy}
         onClick={onSubmit}
-        className="flex-1 py-3 font-bold text-white bg-slate-900 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+        className="flex-1 py-3 font-bold text-white bg-blue-600 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {busy && <Loader2 className="w-4 h-4 animate-spin" />}
         Guardar
@@ -624,7 +624,7 @@ function ModalFooter({ onClose, onSubmit, busy }: { onClose: () => void; onSubmi
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">{label}</label>
+      <label className="block text-[10px] font-bold text-slate-500 mb-1.5 uppercase">{label}</label>
       {children}
     </div>
   );
